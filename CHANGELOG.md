@@ -14,6 +14,29 @@
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-09-25
+
+### Changed
+
+- 桌面和网页用按钮操作任务，手机和平板改用左右滑、不再放按钮
+- 主界面不再在左上角重复底栏已经写明的页面名
+- 随手记只保留标题和记录；桌面和网页的任务池增加「不做了」
+- 新任务默认使用中优先级，新增区简化为文字或语音输入
+- 语音输入改成按住麦克风说话、松开结束；提交后迟到的识别结果不再写回输入框
+- 语音识别结果去掉末尾的句号、问号等标点
+- 所有界面都不再显示水平和垂直滚动条，内容放不下时可以直接拖动，鼠标也能拖
+- 「归档后几天自动清掉」填 0 表示永久保留，不会自动删除
+- 优先级改为贴着图标弹出的小菜单，不再用占满屏幕的对话框
+- 任务池显示加入日期，完成和归档分别显示搞定、归档日期
+- 工程内旧名 taskMgr / taskmgr 全部改为 FlowDo / flowdo，开发库账号与库名同步为 flowdo
+- 发版服务端公网只开放 80/443（Caddy HTTPS），API 不再映射到 0.0.0.0:3000
+- Caddyfile 与 docker-compose.yml 只在仓库根目录维护一份，发版包从这里拷贝
+
+### Fixed
+
+- 滑走今日看看后按钮卡在关闭态、面板却打不开
+- 「可以先做这些」优先列出聚焦任务，没有才从任务池推荐几件高优先级
+
 ## [0.0.4] - 2026-09-25
 
 ### Changed
@@ -61,7 +84,8 @@
 - 通过 GitHub Releases 发版（推送 `v*.*.*` 标签）
 - 账号级设置（聚焦上限、归档天数、是否显示归档页）
 
-[Unreleased]: https://github.com/ShuangqiLi/FlowDo/compare/v0.0.4...HEAD
+[Unreleased]: https://github.com/ShuangqiLi/FlowDo/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/ShuangqiLi/FlowDo/compare/v0.0.4...v0.1.0
 [0.0.4]: https://github.com/ShuangqiLi/FlowDo/compare/v0.0.3...v0.0.4
 [0.0.3]: https://github.com/ShuangqiLi/FlowDo/compare/v0.0.2...v0.0.3
 [0.0.2]: https://github.com/ShuangqiLi/FlowDo/compare/v0.0.1...v0.0.2
