@@ -51,6 +51,9 @@ export class ArchiveService {
     let deleted = 0;
     const now = Date.now();
     for (const user of users) {
+      if (user.deleteArchivedAfterDays <= 0) {
+        continue;
+      }
       const cutoff = new Date(
         now - user.deleteArchivedAfterDays * 24 * 60 * 60 * 1000,
       );

@@ -11,10 +11,18 @@ describe('UpdateMeDto themeKey', () => {
     },
   );
 
-  it('rejects unknown themes', async () => {
+  it('accepts 0 as keep archived forever', async () => {
     const dto = new UpdateMeDto();
-    dto.themeKey = 'neon';
+    dto.deleteArchivedAfterDays = 0;
+    await expect(validate(dto)).resolves.toHaveLength(0);
+  });
+
+  it('rejects a negative purge delay', async () => {
+    const dto = new UpdateMeDto();
+    dto.deleteArchivedAfterDays = -1;
     const errors = await validate(dto);
-    expect(errors.some((error) => error.property === 'themeKey')).toBe(true);
+    expect(errors.some((error) => error.property === 'deleteArchivedAfterDays')).toBe(
+      true,
+    );
   });
 });

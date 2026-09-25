@@ -15,7 +15,7 @@ export class UpdateMeDto {
 
   @IsOptional()
   @IsInt({ message: '清理天数请填整数' })
-  @Min(1, { message: '至少留 1 天吧' })
+  @Min(0, { message: '清理天数不能是负数哦，0 表示永不自动清掉' })
   @Max(365, { message: '先别设超过 365 天' })
   deleteArchivedAfterDays?: number;
 

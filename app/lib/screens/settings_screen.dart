@@ -207,7 +207,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  '归档后只看不改，想清掉就删。到期也会自动打扫干净。',
+                  '归档后只看不改，想清掉就删。到期也会自动打扫干净。清理天数填 0，归档就永久留着。',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: scheme.onSurfaceVariant,
                       ),
@@ -235,6 +235,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   keyboardType: TextInputType.number,
                   decoration: const InputDecoration(
                     labelText: '归档后几天自动清掉',
+                    helperText: '填 0 表示永久保留',
                     prefixIcon: Icon(Icons.delete_sweep_outlined),
                   ),
                 ),
