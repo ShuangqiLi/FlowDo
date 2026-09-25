@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:taskmgr/theme.dart';
+import 'package:flowdo/theme.dart';
 
 void main() {
   testWidgets('four theme palettes remain visually stable', (tester) async {

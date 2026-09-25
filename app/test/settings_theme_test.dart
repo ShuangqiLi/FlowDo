@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:taskmgr/api/api_client.dart';
-import 'package:taskmgr/models/user.dart';
-import 'package:taskmgr/providers.dart';
-import 'package:taskmgr/screens/settings_screen.dart';
-import 'package:taskmgr/theme.dart';
+import 'package:flowdo/api/api_client.dart';
+import 'package:flowdo/models/user.dart';
+import 'package:flowdo/providers.dart';
+import 'package:flowdo/screens/settings_screen.dart';
+import 'package:flowdo/theme.dart';
 
 void main() {
   testWidgets('settings exposes all account theme choices', (tester) async {

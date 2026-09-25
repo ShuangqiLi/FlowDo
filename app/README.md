@@ -3,7 +3,7 @@
 Requires the [Flutter SDK](https://docs.flutter.dev/get-started/install).
 
 ```bash
-flutter create . --project-name taskmgr --platforms web,windows,android,ios,linux,macos
+flutter create . --project-name flowdo --platforms web,windows,android,ios,linux,macos
 flutter pub get
 flutter run -d chrome
 ```

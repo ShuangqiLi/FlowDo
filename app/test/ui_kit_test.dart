@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:taskmgr/models/task.dart';
-import 'package:taskmgr/theme.dart';
-import 'package:taskmgr/ui/celebration_overlay.dart';
-import 'package:taskmgr/ui/flowdo_logo.dart';
-import 'package:taskmgr/ui/task_card.dart';
+import 'package:flowdo/models/task.dart';
+import 'package:flowdo/theme.dart';
+import 'package:flowdo/ui/celebration_overlay.dart';
+import 'package:flowdo/ui/flowdo_logo.dart';
+import 'package:flowdo/ui/task_card.dart';
 
 void main() {
   testWidgets('logo and task card use reusable UI kit', (tester) async {

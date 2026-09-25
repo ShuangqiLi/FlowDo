@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.taskmgr"
+    namespace = "com.flowdo.app"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
