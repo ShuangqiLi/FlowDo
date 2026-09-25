@@ -9,10 +9,103 @@ permissions:
   contents: write
 
 jobs:
-  github-release:
+  server:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Build server Docker image
+        run: docker build -t flowdo-server:latest ./server
+      - name: Package server
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          mkdir -p dist/server
+          cp release/server/* dist/server/
+          docker save flowdo-server:latest | gzip -9 > dist/server/flowdo-server-image.tar.gz
+          cd dist/server
+          zip -9 -r "../FlowDo-server-docker-${TAG}.zip" .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: server
+          path: dist/FlowDo-server-docker-*.zip
+          if-no-files-found: error
+
+  android-and-web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Prepare Flutter project
+        working-directory: app
+        run: |
+          flutter create . --project-name taskmgr --platforms android,web
+          flutter pub get
+          flutter analyze
+          flutter test
+      - name: Build Android and Web clients
+        working-directory: app
+        run: |
+          flutter build apk --release
+          flutter build web --release
+      - name: Package clients
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          mkdir -p dist
+          cp app/build/app/outputs/flutter-apk/app-release.apk \
+            "dist/FlowDo-client-android-${TAG}.apk"
+          cd app/build/web
+          zip -9 -r "../../../dist/FlowDo-client-web-${TAG}.zip" .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-and-web
+          path: dist/*
+          if-no-files-found: error
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Build Windows client
+        working-directory: app
+        run: |
+          flutter config --enable-windows-desktop
+          flutter create . --project-name taskmgr --platforms windows
+          flutter pub get
+          flutter build windows --release
+      - name: Package Windows client
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Compress-Archive `
+            -Path app/build/windows/x64/runner/Release/* `
+            -DestinationPath "dist/FlowDo-client-windows-x64-${env:GITHUB_REF_NAME}.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: dist/*
+          if-no-files-found: error
+
+  github-release:
+    needs: [server, android-and-web, windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
       - name: Notes from CHANGELOG
         run: |
           python3 << 'PY'
@@ -45,12 +138,23 @@ jobs:
           TAG: ${{ github.ref_name }}
           SHA: ${{ github.sha }}
         run: |
-          # Use the Releases API so we do not depend on a local git tag matching
-          # the GitHub remote (gh release create fails with "exists locally but
-          # has not been pushed" on tag-push checkouts).
+          payload="$(mktemp)"
           jq -n \
             --rawfile body release-notes.md \
             --arg tag "$TAG" \
             --arg sha "$SHA" \
             '{tag_name:$tag, name:$tag, target_commitish:$sha, body:$body}' \
-          | gh api "repos/$GH_REPO/releases" --method POST --input -
+            > "$payload"
+
+          if gh api "repos/$GH_REPO/releases/tags/$TAG" >/dev/null 2>&1; then
+            release_id="$(gh api "repos/$GH_REPO/releases/tags/$TAG" --jq .id)"
+            gh api "repos/$GH_REPO/releases/$release_id" \
+              --method PATCH --input "$payload" >/dev/null
+          else
+            gh api "repos/$GH_REPO/releases" \
+              --method POST --input "$payload" >/dev/null
+          fi
+
+          gh release upload "$TAG" dist/* \
+            --repo "$GH_REPO" \
+            --clobber

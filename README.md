@@ -4,7 +4,7 @@
 Go with the flow, get it done.  
 随随办办——无压力任务管理。服务端（NestJS + PostgreSQL）与客户端（Flutter）分离，个人账号空间，只管状态和优先级，不赶截止日期。
 
-开源协议：[MIT](LICENSE) · 当前版本 [v0.0.1](CHANGELOG.md) · [参与指南](CONTRIBUTING.md) · [Releases](https://github.com/ShuangqiLi/FlowDo/releases)
+开源协议：[MIT](LICENSE) · 当前版本 [v0.0.2](CHANGELOG.md) · [参与指南](CONTRIBUTING.md) · [Releases](https://github.com/ShuangqiLi/FlowDo/releases)
 
 ## 功能
 
@@ -17,9 +17,20 @@ Go with the flow, get it done.
 - 归档只读，可手动删除；到期自动清掉（默认 30 天）
 - Web / 手机 / PC 共用 Flutter，连同一 API
 
-## 发版
+## 下载与发版
 
-版本号遵循 SemVer，从 `v0.0.1` 起。正式发布只走 [GitHub Releases](https://github.com/ShuangqiLi/FlowDo/releases)：更新 `VERSION`、`CHANGELOG.md` 与包版本后，打 `vX.Y.Z` 标签并推送，Actions 会根据 changelog 创建 Release。细节见 [CONTRIBUTING.md](CONTRIBUTING.md)。
+[GitHub Releases](https://github.com/ShuangqiLi/FlowDo/releases) 提供分开的可执行产物：
+
+- `FlowDo-server-docker-*.zip`：服务端 Docker 镜像和 PostgreSQL，解压后运行
+  `start.ps1`（Windows）或 `start.sh`（macOS / Linux）
+- `FlowDo-client-windows-x64-*.zip`：Windows 客户端，解压后运行 `FlowDo.exe`
+- `FlowDo-client-android-*.apk`：Android 客户端安装包
+- `FlowDo-client-web-*.zip`：可部署到静态网站的 Web 客户端
+
+版本号遵循 SemVer，从 `v0.0.1` 起。正式发布只走 GitHub Releases：更新
+`VERSION`、`CHANGELOG.md` 与包版本后，打 `vX.Y.Z` 标签并推送，Actions
+会构建上述产物并根据 changelog 创建 Release。细节见
+[CONTRIBUTING.md](CONTRIBUTING.md)。
 
 ## 本机启动服务端
 

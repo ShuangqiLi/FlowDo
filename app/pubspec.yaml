@@ -1,7 +1,7 @@
 name: taskmgr
 description: 随随办办 / FlowDo — 无压力任务管理
 publish_to: "none"
-version: 0.0.1+1
+version: 0.0.2+2
 
 environment:
   sdk: ">=3.5.0 <4.0.0"
@@ -9,14 +9,14 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  flutter_riverpod: ^2.6.1
+  flutter_riverpod: ^3.4.3
   http: ^1.2.2
   shared_preferences: ^2.3.3
-  intl: ^0.19.0
-  flutter_slidable: ^3.1.2
+  intl: ^0.20.3
+  flutter_slidable: ^4.0.3
 
 dev_dependencies:
-  flutter_lints: ^5.0.0
+  flutter_lints: ^6.0.0
   flutter_test:
     sdk: flutter
 

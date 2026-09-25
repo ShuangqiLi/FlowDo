@@ -86,7 +86,7 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
   }
 
   void _goFocusWithHint(String message) {
-    ref.read(homeTabProvider.notifier).state = 1;
+    ref.read(homeTabProvider.notifier).setIndex(1);
     if (!mounted) {
       return;
     }
@@ -97,9 +97,9 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
 
   Future<void> _setStatus(Task task, String status) async {
     if (status == 'FOCUS') {
-      final limit = ref.read(meProvider).valueOrNull?.focusLimit ?? 3;
+      final limit = ref.read(meProvider).value?.focusLimit ?? 3;
       final focused =
-          ref.read(tasksProvider('FOCUS')).valueOrNull?.length ?? 0;
+          ref.read(tasksProvider('FOCUS')).value?.length ?? 0;
       if (focused >= limit) {
         _goFocusWithHint(
           '手头这 $limit 件先盯紧啦。搞定或先放回任务池，再接新的。',
@@ -116,7 +116,7 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
       }
       if (status == 'TODO' &&
           (widget.status == 'FOCUS' || widget.status == 'DONE')) {
-        ref.read(homeTabProvider.notifier).state = 0;
+        ref.read(homeTabProvider.notifier).setIndex(0);
       }
     } on ApiException catch (e) {
       if (status == 'FOCUS') {
@@ -188,8 +188,8 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
   Widget build(BuildContext context) {
     final async = ref.watch(tasksProvider(widget.status));
     final me = ref.watch(meProvider);
-    final archiveDays = me.valueOrNull?.archiveAfterDays ?? 7;
-    final deleteDays = me.valueOrNull?.deleteArchivedAfterDays ?? 30;
+    final archiveDays = me.value?.archiveAfterDays ?? 7;
+    final deleteDays = me.value?.deleteArchivedAfterDays ?? 30;
     final scheme = Theme.of(context).colorScheme;
 
     return Column(

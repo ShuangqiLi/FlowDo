@@ -88,12 +88,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       const SettingsScreen(),
     ];
     final showArchive =
-        ref.watch(meProvider).valueOrNull?.showArchiveTab ?? true;
+        ref.watch(meProvider).value?.showArchiveTab ?? true;
     var index = ref.watch(homeTabProvider);
     if (!showArchive && index == 3) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (ref.read(homeTabProvider) == 3) {
-          ref.read(homeTabProvider.notifier).state = 4;
+          ref.read(homeTabProvider.notifier).setIndex(4);
         }
       });
       index = 4;
@@ -137,8 +137,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         bottomNavigationBar: NavigationBar(
           selectedIndex: visual,
           onDestinationSelected: (i) {
-            ref.read(homeTabProvider.notifier).state =
-                _realIndex(i, showArchive);
+            ref.read(homeTabProvider.notifier).setIndex(
+                  _realIndex(i, showArchive),
+                );
             _closeBriefing();
           },
           destinations: [

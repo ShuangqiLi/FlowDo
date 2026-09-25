@@ -181,7 +181,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   contentPadding: EdgeInsets.zero,
                   title: const Text('在导航里显示归档'),
                   subtitle: const Text('关掉后底部就只留任务池、聚焦、完成和设置'),
-                  value: me.valueOrNull?.showArchiveTab ?? true,
+                  value: me.value?.showArchiveTab ?? true,
                   onChanged: (v) async {
                     await ref
                         .read(apiProvider)

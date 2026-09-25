@@ -65,7 +65,9 @@ BREAKING CHANGE: TODO cannot transition directly to DONE
 2. 在 `CHANGELOG.md` 顶部增加对应章节
 3. 提交：`chore(release): vX.Y.Z`
 4. 打标签并推送：`git tag -a vX.Y.Z -m "chore(release): vX.Y.Z"`，再 `git push origin vX.Y.Z`
-5. 推送 `v*.*.*` 标签后，`.github/workflows/release.yml` 会用该版本的 changelog 创建 GitHub Release
+5. 推送 `v*.*.*` 标签后，`.github/workflows/release.yml` 会构建并上传服务端
+   Docker 包、Windows 客户端、Android APK 和 Web 客户端，再用该版本的
+   changelog 创建 GitHub Release
 
 也可以在 GitHub 网页上对已推送的标签起草 Release。
 

@@ -12,6 +12,18 @@
 
 发版时同步改这三处，并在本文件新增一节。
 
+## [0.0.2] - 2026-09-25
+
+### Added
+
+- GitHub Release 分别提供可直接使用的服务端 Docker 包、Windows 客户端、
+  Android APK 和 Web 客户端
+
+### Fixed
+
+- 兼容 Flutter 新版依赖中的 Riverpod 3 API
+- GitHub Actions 在 tag checkout 下无法创建 Release
+
 ## [0.0.1] - 2026-09-25
 
 ### Added
@@ -23,4 +35,5 @@
 - 通过 GitHub Releases 发版（推送 `v*.*.*` 标签）
 - 账号级设置（聚焦上限、归档天数、是否显示归档页）
 
+[0.0.2]: https://github.com/ShuangqiLi/FlowDo/compare/v0.0.1...v0.0.2
 [0.0.1]: https://github.com/ShuangqiLi/FlowDo/releases/tag/v0.0.1

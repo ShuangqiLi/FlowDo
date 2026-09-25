@@ -14,26 +14,26 @@ final apiProvider = Provider<ApiClient>((ref) {
   return ApiClient(ref.watch(prefsProvider));
 });
 
-final authStateProvider = StateNotifierProvider<AuthController, bool>((ref) {
-  return AuthController(ref.watch(apiProvider));
-});
+final authStateProvider = NotifierProvider<AuthController, bool>(
+  AuthController.new,
+);
 
-class AuthController extends StateNotifier<bool> {
-  AuthController(this._api) : super(_api.isLoggedIn);
-  final ApiClient _api;
+class AuthController extends Notifier<bool> {
+  @override
+  bool build() => ref.watch(apiProvider).isLoggedIn;
 
   Future<void> login(String email, String password) async {
-    await _api.login(email, password);
+    await ref.read(apiProvider).login(email, password);
     state = true;
   }
 
   Future<void> register(String email, String password) async {
-    await _api.register(email, password);
+    await ref.read(apiProvider).register(email, password);
     state = true;
   }
 
   Future<void> logout() async {
-    await _api.logout();
+    await ref.read(apiProvider).logout();
     state = false;
   }
 }
@@ -55,4 +55,13 @@ final briefingProvider = FutureProvider<Briefing>((ref) async {
 });
 
 /// 0 任务池, 1 聚焦, 2 完成, 3 归档, 4 设置
-final homeTabProvider = StateProvider<int>((ref) => 0);
+final homeTabProvider = NotifierProvider<HomeTabController, int>(
+  HomeTabController.new,
+);
+
+class HomeTabController extends Notifier<int> {
+  @override
+  int build() => 0;
+
+  void setIndex(int index) => state = index;
+}
