@@ -44,7 +44,11 @@ Ensure-Image 'postgres:16-alpine' 'docker.m.daocloud.io/library/postgres:16-alpi
 Ensure-Image 'node:22-alpine' 'docker.m.daocloud.io/library/node:22-alpine'
 
 Write-Host "正在启动服务端..."
-docker compose up --build -d
+docker build -t flowdo-server:latest ./server
+if ($LASTEXITCODE -ne 0) {
+    throw "docker build 失败。"
+}
+docker compose up -d
 if ($LASTEXITCODE -ne 0) {
     throw "docker compose 启动失败。"
 }

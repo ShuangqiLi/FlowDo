@@ -1,36 +1,72 @@
+# 一份编排，靠环境变量和 profile 区分场景。
+#
+# 本机（源码构建后）：
+#   docker build -t flowdo-server:latest ./server
+#   docker compose up -d
+#   API 默认只绑 127.0.0.1:3000，数据库 127.0.0.1:5432，外网进不来。
+#   要给同一局域网的手机连：FLOWDO_API_BIND=0.0.0.0
+#
+# 公网 HTTPS：
+#   DOMAIN=api.example.com JWT_SECRET='长随机串' docker compose --profile https up -d
+#   只对外开 80/443，安全组放行这两端口即可。
+name: flowdo
+
 services:
   db:
     image: postgres:16-alpine
     pull_policy: if_not_present
+    restart: unless-stopped
     environment:
-      POSTGRES_USER: taskmgr
-      POSTGRES_PASSWORD: taskmgr
-      POSTGRES_DB: taskmgr
+      POSTGRES_USER: flowdo
+      POSTGRES_PASSWORD: flowdo
+      POSTGRES_DB: flowdo
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - flowdo_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U taskmgr"]
+      test: ["CMD-SHELL", "pg_isready -U flowdo"]
       interval: 5s
       timeout: 5s
       retries: 20
 
   api:
-    build: ./server
+    image: flowdo-server:latest
     pull_policy: if_not_present
+    restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "${FLOWDO_API_BIND:-127.0.0.1}:${API_PORT:-3000}:3000"
     environment:
-      DATABASE_URL: postgresql://taskmgr:taskmgr@db:5432/taskmgr
+      DATABASE_URL: postgresql://flowdo:flowdo@db:5432/flowdo
       JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
       JWT_ACCESS_EXPIRES: 30m
       JWT_REFRESH_EXPIRES: 7d
       PORT: 3000
-      CORS_ORIGIN: "*"
+      CORS_ORIGIN: ${CORS_ORIGIN:-*}
     depends_on:
       db:
         condition: service_healthy
 
+  caddy:
+    profiles: [https]
+    image: caddy:2-alpine
+    pull_policy: if_not_present
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DOMAIN: ${DOMAIN:-}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      api:
+        condition: service_started
+
 volumes:
-  pgdata:
+  flowdo_data:
+  caddy_data:
+  caddy_config:

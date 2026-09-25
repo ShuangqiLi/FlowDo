@@ -20,7 +20,8 @@ jobs:
           TAG: ${{ github.ref_name }}
         run: |
           mkdir -p dist/server
-          cp release/server/* dist/server/
+          cp Caddyfile docker-compose.yml dist/server/
+          cp release/server/start.sh release/server/start.ps1 release/server/README.md dist/server/
           docker save flowdo-server:latest | gzip -9 > dist/server/flowdo-server-image.tar.gz
           cd dist/server
           zip -9 -r "../FlowDo-server-docker-${TAG}.zip" .
@@ -45,7 +46,7 @@ jobs:
       - name: Prepare Flutter project
         working-directory: app
         run: |
-          flutter create . --project-name taskmgr --platforms android,web
+          flutter create . --project-name flowdo --platforms android,web
           flutter pub get
           flutter analyze
           flutter test
@@ -81,7 +82,7 @@ jobs:
         working-directory: app
         run: |
           flutter config --enable-windows-desktop
-          flutter create . --project-name taskmgr --platforms windows
+          flutter create . --project-name flowdo --platforms windows
           flutter pub get
           flutter build windows --release
       - name: Package Windows client
@@ -108,7 +109,7 @@ jobs:
       - name: Prepare Flutter iOS project
         working-directory: app
         run: |
-          flutter create . --project-name taskmgr --org com.flowdo --platforms ios
+          flutter create . --project-name flowdo --org com.flowdo --platforms ios
           /usr/libexec/PlistBuddy -c 'Add :CFBundleDisplayName string 随随办办 FlowDo' ios/Runner/Info.plist \
             || /usr/libexec/PlistBuddy -c 'Set :CFBundleDisplayName 随随办办 FlowDo' ios/Runner/Info.plist
           python3 - <<'PY'
@@ -116,7 +117,7 @@ jobs:
           p = Path("ios/Runner.xcodeproj/project.pbxproj")
           text = p.read_text(encoding="utf-8")
           p.write_text(
-              text.replace("com.flowdo.taskmgr", "com.flowdo.app"),
+              text.replace("com.flowdo.flowdo", "com.flowdo.app"),
               encoding="utf-8",
           )
           PY

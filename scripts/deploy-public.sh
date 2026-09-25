@@ -40,11 +40,12 @@ export DOMAIN JWT_SECRET
 export CORS_ORIGIN="${CORS_ORIGIN:-*}"
 
 echo "正在以 https://$DOMAIN 启动..."
-docker compose -f docker-compose.yml -f docker-compose.public.yml up --build -d
+docker build -t flowdo-server:latest ./server
+docker compose --profile https up -d
 
 echo
 echo "DNS 的 A 记录请指向这台机器公网 IP，并放行 80/443。"
 echo "API：https://$DOMAIN"
 echo "健康检查：https://$DOMAIN/health"
 echo "App 里把 API 地址填成 https://$DOMAIN"
-echo "停掉：docker compose -f docker-compose.yml -f docker-compose.public.yml down"
+echo "停掉：docker compose --profile https down"

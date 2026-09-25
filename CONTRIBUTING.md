@@ -91,5 +91,6 @@ Apple 不允许未签名的 IPA 装到真机上。CI 在 `macos-latest` 上打�
 
 ## 开发
 
-本机服务端可用 `scripts/deploy.bat` / `./scripts/deploy.sh`，或直接 `docker compose up --build -d`。  
+本机服务端可用 `scripts/deploy.bat` / `./scripts/deploy.sh`，或先
+`docker build -t flowdo-server:latest ./server` 再 `docker compose up -d`。  
 客户端：`cd app && flutter pub get && flutter run`。

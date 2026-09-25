@@ -23,8 +23,9 @@ Go with the flow, get it done.
 
 [GitHub Releases](https://github.com/ShuangqiLi/FlowDo/releases) 提供分开的可执行产物：
 
-- `FlowDo-server-docker-*.zip`：服务端 Docker 镜像和 PostgreSQL，解压后运行
-  `start.ps1`（Windows）或 `start.sh`（macOS / Linux）
+- `FlowDo-server-docker-*.zip`：服务端 Docker 镜像和 PostgreSQL，解压到
+  有公网 IP 的机器上运行。`.env` 设置 `DOMAIN` 后走 HTTPS（只放行 80/443）；
+  API 和数据库不映射到公网。
 - `FlowDo-client-windows-x64-*.zip`：Windows 客户端，解压后运行 `FlowDo.exe`
 - `FlowDo-client-android-*.apk`：Android 客户端安装包
 - `FlowDo-client-ios-*.ipa`：iOS 客户端。默认是 **未签名** 包，不能直接装到
@@ -58,7 +59,7 @@ chmod +x scripts/deploy.sh
 
 - API：`http://127.0.0.1:3000`（仅本机）
 - 健康检查：`GET /health`
-- 同一局域网：把 App 的 API 填成 `http://<电脑局域网IP>:3000`
+- 同一局域网：`FLOWDO_API_BIND=0.0.0.0` 后再 `docker compose up -d`，App 填 `http://<电脑局域网IP>:3000`
 
 停掉：`docker compose down`
 
@@ -84,18 +85,17 @@ DOMAIN=api.example.com JWT_SECRET='请换成很长的随机串' ./scripts/deploy
 ```bash
 export DOMAIN=api.example.com
 export JWT_SECRET='请换成很长的随机串'
-docker compose -f docker-compose.yml -f docker-compose.public.yml up --build -d
+docker build -t flowdo-server:latest ./server
+docker compose --profile https up -d
 ```
 
 公网模式不会把数据库端口暴露到外网。
 
 ### 只有公网 IP、暂时没有域名
 
-本机辅助脚本同样会监听 `0.0.0.0:3000`。在服务器上用 `scripts/deploy.sh` / `scripts/deploy.bat` 启动后，外网可访问：
-
-`http://<服务器公网IP>:3000`
-
-安全组放行 **3000**。这是明文 HTTP，只适合自己临时用；有域名后请改用上面的 HTTPS 方式。不要把 `5432` 对公网开放。
+不要把 3000 对公网开放。先配一个域名再走上面的 HTTPS。本机检查用
+`http://127.0.0.1:3000/health`。同一局域网调试可设 `FLOWDO_API_BIND=0.0.0.0`，
+仍然不要把该端口放到安全组的公网规则里。
 
 ## 不用 Docker 启动服务端
 
@@ -125,7 +125,7 @@ PUB_HOSTED_URL=https://pub.flutter-io.cn
 
 ```bash
 cd app
-flutter create . --project-name taskmgr --platforms web,windows,android,ios,linux,macos
+flutter create . --project-name flowdo --platforms web,windows,android,ios,linux,macos
 flutter pub get
 flutter run -d chrome
 ```
@@ -170,4 +170,4 @@ flutter run -d android
 - 完成 → 待办 / 归档
 - 归档只读，不可改状态，只能删除
 
-进入完成时写入 `completedAt`；服务端每小时把超过 `archiveAfterDays` 的完成任务改为归档（写入 `archivedAt`）。归档超过 `deleteArchivedAfterDays`（默认 30）后自动删除。聚焦同时数量受用户 `focusLimit`（默认 3）限制。
+进入完成时写入 `completedAt`；服务端每小时把超过 `archiveAfterDays` 的完成任务改为归档（写入 `archivedAt`）。归档超过 `deleteArchivedAfterDays`（默认 30）后自动删除；设为 `0` 则永不自动清掉。聚焦同时数量受用户 `focusLimit`（默认 3）限制。

@@ -26,7 +26,8 @@ ensure_image postgres:16-alpine docker.m.daocloud.io/library/postgres:16-alpine
 ensure_image node:22-alpine docker.m.daocloud.io/library/node:22-alpine
 
 echo "正在启动服务端..."
-docker compose up --build -d
+docker build -t flowdo-server:latest ./server
+docker compose up -d
 
 echo "等待 API 就绪..."
 ok=0
