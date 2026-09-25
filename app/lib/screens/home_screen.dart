@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -17,8 +19,6 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   bool _showBriefing = false;
   bool _autoOpenedBriefing = false;
-
-  static const _titles = ['任务池', '聚焦', '完成', '归档', '设置'];
 
   @override
   void initState() {
@@ -98,7 +98,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       });
       index = 4;
     }
-    final scheme = Theme.of(context).colorScheme;
     final visual = _visualIndex(index, showArchive);
 
     return PopScope(
@@ -110,7 +109,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       },
       child: Scaffold(
         appBar: AppBar(
-          title: Text(_showBriefing ? '今日看看' : _titles[index]),
+          title: _showBriefing ? const Text('今日看看') : null,
+          automaticallyImplyLeading: false,
           actions: [
             IconButton(
               tooltip: _showBriefing ? '关掉今日看看' : '今日看看',
@@ -139,11 +139,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
               ),
               child: _showBriefing
-                  ? Dismissible(
+                  ? _SwipeToClose(
                       key: const ValueKey('briefing-panel'),
-                      direction: DismissDirection.startToEnd,
-                      onDismissed: (_) => _closeBriefing(),
-                      background: ColoredBox(color: scheme.surface),
+                      onClose: _closeBriefing,
                       child: const BriefingScreen(),
                     )
                   : const SizedBox.shrink(key: ValueKey('briefing-hidden')),
@@ -182,6 +180,61 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// 往右滑关掉今日看看。
+///
+/// 这里不用 `Dismissible`：它自己维护一套「已滑走」状态，和 `_showBriefing`
+/// 是两套真相。滑完面板会立刻塌成零高度，但要等收起动画跑完才回调，中间那段
+/// 时间按钮显示的是关闭态、面板却已经看不见；动画要是没跑完就一直卡在那儿。
+class _SwipeToClose extends StatefulWidget {
+  const _SwipeToClose({super.key, required this.onClose, required this.child});
+
+  final VoidCallback onClose;
+  final Widget child;
+
+  @override
+  State<_SwipeToClose> createState() => _SwipeToCloseState();
+}
+
+class _SwipeToCloseState extends State<_SwipeToClose> {
+  double _dragX = 0;
+  bool _dragging = false;
+
+  void _reset() {
+    setState(() {
+      _dragging = false;
+      _dragX = 0;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onHorizontalDragStart: (_) => setState(() => _dragging = true),
+      onHorizontalDragUpdate: (details) {
+        setState(() => _dragX = math.max(0, _dragX + details.delta.dx));
+      },
+      onHorizontalDragEnd: (details) {
+        final velocity = details.primaryVelocity ?? 0;
+        if (velocity > 700 || _dragX > width * 0.3) {
+          widget.onClose();
+          return;
+        }
+        _reset();
+      },
+      onHorizontalDragCancel: _reset,
+      child: AnimatedSlide(
+        offset: Offset(width == 0 ? 0 : _dragX / width, 0),
+        duration: _dragging ? Duration.zero : AppMotion.quick,
+        curve: AppMotion.curve,
+        child: widget.child,
       ),
     );
   }

@@ -8,6 +8,32 @@ const PRIORITY_ORDER: Record<TaskPriority, number> = {
   LOW: 2,
 };
 
+const DEFAULT_SUGGEST_LIMIT = 3;
+
+type RankedTask = { priority: string; updatedAt: Date };
+
+export function comparePriorityThenRecent(a: RankedTask, b: RankedTask): number {
+  const p =
+    (PRIORITY_ORDER[a.priority as TaskPriority] ?? 9) -
+    (PRIORITY_ORDER[b.priority as TaskPriority] ?? 9);
+  if (p !== 0) {
+    return p;
+  }
+  return b.updatedAt.getTime() - a.updatedAt.getTime();
+}
+
+/** 有聚焦就按优先级推荐聚焦；没有才从任务池里拿几件高优先级；都没有就空。 */
+export function pickSuggestedFocus<T extends RankedTask>(
+  focused: T[],
+  inboxHigh: T[],
+  limit = DEFAULT_SUGGEST_LIMIT,
+): T[] {
+  if (focused.length > 0) {
+    return [...focused].sort(comparePriorityThenRecent);
+  }
+  return [...inboxHigh].sort(comparePriorityThenRecent).slice(0, limit);
+}
+
 @Injectable()
 export class BriefingService {
   constructor(private readonly prisma: PrismaService) {}
@@ -32,6 +58,7 @@ export class BriefingService {
       completedYesterday,
       completedThisWeek,
       inboxHigh,
+      me,
     ] = await Promise.all([
         this.prisma.task.count({
           where: { userId, status: TaskStatus.TODO },
@@ -73,25 +100,18 @@ export class BriefingService {
             priority: TaskPriority.HIGH,
           },
         }),
+        this.prisma.user.findUnique({
+          where: { id: userId },
+          select: { focusLimit: true },
+        }),
       ]);
 
-    const focusedTasks = [...focus].sort((a, b) => {
-      const p = PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority];
-      if (p !== 0) {
-        return p;
-      }
-      return b.updatedAt.getTime() - a.updatedAt.getTime();
-    });
-
-    const suggestedFocus = focusedTasks.filter(
-      (t) => t.priority === TaskPriority.HIGH,
+    const focusedTasks = [...focus].sort(comparePriorityThenRecent);
+    const suggestedFocus = pickSuggestedFocus(
+      focusedTasks,
+      inboxHigh,
+      me?.focusLimit ?? DEFAULT_SUGGEST_LIMIT,
     );
-    const suggestedTasks =
-      suggestedFocus.length > 0
-        ? suggestedFocus
-        : [...inboxHigh].sort(
-            (a, b) => b.updatedAt.getTime() - a.updatedAt.getTime(),
-          );
 
     return {
       date: startOfToday.toISOString().slice(0, 10),
@@ -102,7 +122,7 @@ export class BriefingService {
         archived,
       },
       focusedTasks,
-      suggestedFocus: suggestedTasks,
+      suggestedFocus,
       completedToday,
       completedYesterday,
       completedThisWeek,
@@ -110,3 +130,4 @@ export class BriefingService {
     };
   }
 }
+
