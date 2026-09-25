@@ -13,13 +13,13 @@ Future<void> main() async {
   runApp(
     ProviderScope(
       overrides: [prefsProvider.overrideWithValue(prefs)],
-      child: const TaskMgrApp(),
+      child: const FlowDoApp(),
     ),
   );
 }
 
-class TaskMgrApp extends ConsumerWidget {
-  const TaskMgrApp({super.key});
+class FlowDoApp extends ConsumerWidget {
+  const FlowDoApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -31,6 +31,7 @@ class TaskMgrApp extends ConsumerWidget {
       theme: buildAppTheme(themeKey),
       themeAnimationDuration: AppMotion.standard,
       themeAnimationCurve: AppMotion.curve,
+      scrollBehavior: const FlowDoScrollBehavior(),
       home: loggedIn ? const HomeScreen() : const LoginScreen(),
     );
   }

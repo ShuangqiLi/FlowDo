@@ -1,8 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:taskmgr/main.dart';
-import 'package:taskmgr/providers.dart';
+import 'package:flowdo/main.dart';
+import 'package:flowdo/providers.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -13,7 +13,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [prefsProvider.overrideWithValue(prefs)],
-        child: const TaskMgrApp(),
+        child: const FlowDoApp(),
       ),
     );
     await tester.pumpAndSettle();
@@ -32,7 +32,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [prefsProvider.overrideWithValue(prefs)],
-        child: const TaskMgrApp(),
+        child: const FlowDoApp(),
       ),
     );
     await tester.pumpAndSettle();
