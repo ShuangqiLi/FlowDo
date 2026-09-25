@@ -1,4 +1,4 @@
-name: taskmgr
+name: flowdo
 description: 随随办办 / FlowDo — 无压力任务管理
 publish_to: "none"
 version: 0.0.4+4
@@ -14,6 +14,7 @@ dependencies:
   shared_preferences: ^2.3.3
   intl: ^0.20.3
   flutter_slidable: ^4.0.3
+  speech_to_text: ^7.5.0
 
 dev_dependencies:
   flutter_lints: ^6.0.0
