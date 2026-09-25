@@ -84,7 +84,7 @@ class _Particle {
     required this.size,
     required this.colorIndex,
     required this.delay,
-    required this.isDot,
+    required this.kind,
   });
 
   final double angle;
@@ -92,7 +92,8 @@ class _Particle {
   final double size;
   final int colorIndex;
   final double delay;
-  final bool isDot;
+  /// 0 圆点, 1 短条, 2 菱形
+  final int kind;
 }
 
 class _CelebrationPainter extends CustomPainter {
@@ -114,14 +115,14 @@ class _CelebrationPainter extends CustomPainter {
 
   static List<_Particle> _buildParticles() {
     final rng = math.Random(42);
-    return List.generate(20, (i) {
+    return List.generate(32, (i) {
       return _Particle(
-        angle: (math.pi * 2 / 20) * i + rng.nextDouble() * 0.28,
-        speed: 0.6 + rng.nextDouble() * 0.7,
-        size: 3.0 + rng.nextDouble() * 3.5,
+        angle: (math.pi * 2 / 32) * i + rng.nextDouble() * 0.3,
+        speed: 0.55 + rng.nextDouble() * 0.8,
+        size: 2.8 + rng.nextDouble() * 3.8,
         colorIndex: i % 4,
-        delay: rng.nextDouble() * 0.12,
-        isDot: i.isEven,
+        delay: rng.nextDouble() * 0.16,
+        kind: i % 3,
       );
     });
   }
@@ -131,19 +132,22 @@ class _CelebrationPainter extends CustomPainter {
     final center = Offset(size.width / 2, size.height * 0.46);
     final maxR = math.min(size.width, size.height) * 0.38;
 
-    _paintRing(canvas, center, maxR);
+    _paintRings(canvas, center, maxR);
     _paintParticles(canvas, center, maxR);
     _paintCheck(canvas, center);
   }
 
-  void _paintRing(Canvas canvas, Offset center, double maxR) {
-    final local = burst.clamp(0.0, 1.0);
-    if (local <= 0) return;
-    final paint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.4
-      ..color = colors.first.withValues(alpha: fade * (1 - local) * 0.45);
-    canvas.drawCircle(center, 20 + local * maxR * 0.7, paint);
+  void _paintRings(Canvas canvas, Offset center, double maxR) {
+    final paint = Paint()..style = PaintingStyle.stroke;
+    for (var i = 0; i < 2; i++) {
+      final local = ((burst - i * 0.12) / (1 - i * 0.12)).clamp(0.0, 1.0);
+      if (local <= 0) continue;
+      paint
+        ..strokeWidth = 2.6 - i * 0.5
+        ..color = colors[i % colors.length]
+            .withValues(alpha: fade * (1 - local) * (0.5 - i * 0.12));
+      canvas.drawCircle(center, 18 + local * maxR * (0.62 + i * 0.16), paint);
+    }
   }
 
   void _paintParticles(Canvas canvas, Offset center, double maxR) {
@@ -158,15 +162,26 @@ class _CelebrationPainter extends CustomPainter {
           Offset(0, local * local * 28);
       final alpha = fade * (1 - local * 0.85).clamp(0.0, 1.0);
       paint.color = colors[p.colorIndex].withValues(alpha: alpha);
-      if (p.isDot) {
-        paint.style = PaintingStyle.fill;
-        canvas.drawCircle(point, p.size * (1.1 - local * 0.3), paint);
-      } else {
-        paint
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = p.size * 0.5;
-        final dir = Offset(math.cos(p.angle), math.sin(p.angle));
-        canvas.drawLine(point - dir * p.size, point + dir * p.size, paint);
+      switch (p.kind) {
+        case 0:
+          paint.style = PaintingStyle.fill;
+          canvas.drawCircle(point, p.size * (1.1 - local * 0.3), paint);
+        case 1:
+          paint
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = p.size * 0.5;
+          final dir = Offset(math.cos(p.angle), math.sin(p.angle));
+          canvas.drawLine(point - dir * p.size, point + dir * p.size, paint);
+        default:
+          paint.style = PaintingStyle.fill;
+          final s = p.size * (1.05 - local * 0.25);
+          final diamond = Path()
+            ..moveTo(point.dx, point.dy - s)
+            ..lineTo(point.dx + s * 0.7, point.dy)
+            ..lineTo(point.dx, point.dy + s)
+            ..lineTo(point.dx - s * 0.7, point.dy)
+            ..close();
+          canvas.drawPath(diamond, paint);
       }
     }
   }

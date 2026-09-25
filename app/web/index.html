@@ -8,10 +8,81 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="FlowDo">
+  <meta name="theme-color" content="#F4F7F4">
   <title>随随办办 · FlowDo</title>
   <link rel="manifest" href="manifest.json">
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      background: #F4F7F4;
+    }
+    #splash {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: #F4F7F4;
+      color: #3A4A40;
+      font-family: "ZCOOL KuaiLe", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+      z-index: 9999;
+      transition: opacity 180ms ease-out;
+    }
+    #splash.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+    #splash .mark {
+      width: 72px;
+      height: 72px;
+      border-radius: 20px;
+      background: #E3EEE7;
+      border: 1px solid #C3D4C8;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 20px;
+    }
+    #splash .mark svg {
+      width: 44px;
+      height: 44px;
+    }
+    #splash .brand {
+      font-size: 28px;
+      letter-spacing: 0.04em;
+      margin: 0;
+    }
+    #splash .en {
+      margin: 6px 0 0;
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      color: #5F9B82;
+      font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+  </style>
 </head>
 <body>
+  <div id="splash" aria-label="FlowDo">
+    <div class="mark" aria-hidden="true">
+      <svg viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M124 262C154 296 184 326 210 352C256 300 320 226 388 148"
+              stroke="#5F9B82" stroke-width="56" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+    <p class="brand">随随办办</p>
+    <p class="en">FlowDo</p>
+  </div>
+  <script>
+    window.addEventListener('flutter-first-frame', function () {
+      var el = document.getElementById('splash');
+      if (!el) return;
+      el.classList.add('hidden');
+      setTimeout(function () { el.remove(); }, 220);
+    });
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

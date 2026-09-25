@@ -3,8 +3,8 @@
     "short_name": "FlowDo",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#E8F5EE",
-    "theme_color": "#4F8F70",
+    "background_color": "#F4F7F4",
+    "theme_color": "#5F9B82",
     "description": "随随办办——无压力任务管理。Go with the flow, get it done.",
     "orientation": "portrait-primary",
     "icons": [

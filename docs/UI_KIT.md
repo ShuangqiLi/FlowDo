@@ -41,6 +41,7 @@
 ## 组件
 
 - `FlowDoLogo`：品牌图形标
+- `SplashScreen`：冷启动开屏（logo + 随随办办）
 - `FlowDoCard`：发丝描边扁平卡片
 - `FlowDoIconTile`：圆角浅色图标底座
 - `SectionHeader`：设置和内容分区标题
