@@ -1,152 +1,136 @@
-# 随随办办 / FlowDo
+<p align="center">
+  <img src="app/assets/branding/flowdo_mark.svg" width="88" alt="FlowDo">
+</p>
 
-随随办办，总会办完。  
-Go with the flow, get it done.  
-随随办办——无压力任务管理。服务端（NestJS + PostgreSQL）与客户端（Flutter）分离，个人账号空间，只管状态和优先级，不赶截止日期。
+<h1 align="center">随随办办 / FlowDo</h1>
 
-开源协议：[MIT](LICENSE) · 当前版本 [v0.1.0](CHANGELOG.md) · [参与指南](CONTRIBUTING.md) · [Releases](https://github.com/ShuangqiLi/FlowDo/releases)
+<p align="center">
+  不设截止日期。想到就丢进任务池，一次只盯手头这几件。<br>
+  随随办办，总会办完。Go with the flow, get it done.
+</p>
 
-## 功能
+<p align="center">
+  <a href="https://github.com/ShuangqiLi/FlowDo/releases"><img src="https://img.shields.io/github/v/release/ShuangqiLi/FlowDo?color=4F8F70&label=release" alt="Release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/ShuangqiLi/FlowDo?color=4F8F70" alt="MIT"></a>
+  <img src="https://img.shields.io/badge/client-Flutter-4F8F70" alt="Flutter">
+  <img src="https://img.shields.io/badge/server-NestJS%20%2B%20PostgreSQL-4F8F70" alt="NestJS + PostgreSQL">
+</p>
 
-- 多用户注册登录（JWT）
-- 任务池 → 聚焦 → 完成 → 归档
-- 高 / 中 / 低优先级
-- 可选正文随手记想法
-- 每日「今日看看」
-- 完成后按设置天数自动归档（默认 7 天）
-- 归档只读，可手动删除；到期自动清掉（默认 30 天）
-- Web / 手机 / PC 共用 Flutter，连同一 API
-- 薄荷绿、雾霾蓝、暖橘色、淡紫色四套账号同步主题
-- 可复用的 [FlowDo UI Kit](docs/UI_KIT.md)
+服务端和客户端都由你自己部署，任务存在你自己的 PostgreSQL 里。没有官方托管，没有在线 Demo，
+发版包解压就能跑。
 
-## 下载与发版
+## 它是怎么运转的
 
-[GitHub Releases](https://github.com/ShuangqiLi/FlowDo/releases) 提供分开的可执行产物：
+任务只有四个位置，一件事从进来到消失就走这一条路：
 
-- `FlowDo-server-docker-*.zip`：服务端 Docker 镜像和 PostgreSQL，解压到
-  有公网 IP 的机器上运行。`.env` 设置 `DOMAIN` 后走 HTTPS（只放行 80/443）；
-  API 和数据库不映射到公网。
-- `FlowDo-client-windows-x64-*.zip`：Windows 客户端，解压后运行 `FlowDo.exe`
-- `FlowDo-client-android-*.apk`：Android 客户端安装包
-- `FlowDo-client-ios-*.ipa`：iOS 客户端。默认是 **未签名** 包，不能直接装到
-  iPhone / iPad；需要 Apple 开发者账号签名后才能安装（见
-  [CONTRIBUTING.md](CONTRIBUTING.md)）
-- `FlowDo-client-web-*.zip`：可部署到静态网站的 Web 客户端
-
-版本号遵循 SemVer，从 `v0.0.1` 起。正式发布只走 GitHub Releases：更新
-`VERSION`、`CHANGELOG.md` 与包版本后，打 `vX.Y.Z` 标签并推送，Actions
-会构建上述产物并根据 changelog 创建 Release。细节见
-[CONTRIBUTING.md](CONTRIBUTING.md)。
-
-## 本机启动服务端
-
-需要本机已安装并打开 [Docker Desktop](https://www.docker.com/products/docker-desktop/)。辅助脚本在 [`scripts/`](scripts/)，只用于本机或自建环境，不参与发版。
-
-Windows（可双击 `scripts\deploy.bat`，或执行 `.\scripts\deploy.ps1`）：
-
-```bat
-scripts\deploy.bat
+```mermaid
+flowchart LR
+    A[任务池] -->|挑一件开始| B[聚焦]
+    B -->|搞定| C[完成]
+    B -->|先放回去| A
+    C -->|放够天数| D[归档]
+    C -->|还想再做| A
+    D -->|只读| E((删掉 / 一直留着))
 ```
 
-macOS / Linux：
+| 位置 | 你在这里做什么 |
+|---|---|
+| **任务池** | 想到就写一行，或按住麦克风说一句。默认中优先级，先收下来再说 |
+| **聚焦** | 从任务池挑几件真要动手的。有数量上限（默认 3 件），满了得先交差 |
+| **完成** | 搞定的事。留几天回头能看见，然后自动进归档 |
+| **归档** | 只读的旧账。可以手动删，也可以设成永久保留 |
+
+没有截止日期，没有倒计时压力。整体借鉴了 GTD 的「先收集、再理清、只做手头这几件」，
+但刻意做得更轻：不分情境标签，不建项目树，也不要求你每周坐下来做一次完整回顾。
+
+## 一天里怎么用
+
+**想到就收。** 任务池顶上是一行输入框，敲完回车就进来了。不方便打字就按住麦克风说，
+用的是系统自带的语音识别，松开即成文，结尾的句号会自动去掉。新任务一律中优先级，
+不在收集这一步逼你做判断。
+
+**回头再理清。** 点开任务卡可以补几句随手记；点一下优先级徽章，就地弹出高 / 中 / 低的小菜单。
+
+**只盯手头这几件。** 把任务从任务池放进聚焦。聚焦有上限，默认 3 件，满了想再加，
+得先搞定一件或者放回去。桌面和网页上用按钮操作，手机和平板上左右滑动，避免误触。
+
+**每天看一眼。** 当天第一次打开会弹出「今日看看」：先列正在聚焦的，如果手头空着，
+就从任务池挑几件高优先级的推荐给你。看完划走，标题栏的太阳图标随时能再叫出来。
+
+**完成之后自己收拾。** 完成的任务放够天数（默认 7 天）自动进归档；归档再放够天数
+（默认 30 天）自动清掉。想留着就把清理天数填 `0`，归档里会显示「永久保留」，
+定时任务不会碰它。
+
+其他：注册登录的多用户隔离（JWT），薄荷绿 / 雾霾蓝 / 暖橘色 / 淡紫色四套主题跟着账号走，
+界面组件整理成了可复用的 [FlowDo UI Kit](docs/UI_KIT.md)。
+
+## 技术架构
+
+| 部分 | 用了什么 |
+|---|---|
+| 客户端 | Flutter 一套代码，出 Web / Windows / Android / iOS 包 |
+| 服务端 | NestJS + Prisma + PostgreSQL，JWT 鉴权，按账号隔离数据 |
+| 编排 | 仓库根目录一份 `docker-compose.yml`，靠环境变量和 profile 区分场景 |
+| 公网 | Caddy 反代，自动申请证书，只对外开 80 / 443 |
+
+API 默认只绑在 `127.0.0.1:3000`，数据库只绑 `127.0.0.1:5432`，都不对公网开放。
+公网访问一律走域名 + HTTPS。
+
+状态流转的硬规则：待办 ↔ 聚焦，聚焦 → 完成，完成 → 待办 / 归档；归档只读，
+不能改状态，只能删除。
+
+## 快速上手
+
+### 1. 起服务端
+
+从 [Releases](https://github.com/ShuangqiLi/FlowDo/releases) 下载 `FlowDo-server-docker-*.zip`，
+解压到装了 Docker 的机器上。包里有服务端镜像、PostgreSQL 和 Caddy，不需要 Node.js。
 
 ```bash
-chmod +x scripts/deploy.sh
-./scripts/deploy.sh
+chmod +x start.sh && ./start.sh    # Windows 用 start.ps1
 ```
 
-脚本会准备镜像、构建并启动 PostgreSQL + API。就绪后：
+不填域名就是本机自用，健康检查 `http://127.0.0.1:3000/health`。
 
-- API：`http://127.0.0.1:3000`（仅本机）
-- 健康检查：`GET /health`
-- 同一局域网：`FLOWDO_API_BIND=0.0.0.0` 后再 `docker compose up -d`，App 填 `http://<电脑局域网IP>:3000`
+要给外网用，先把域名的 A 记录指到这台机器、安全组放行 80 和 443，
+然后在脚本生成的 `.env` 里填好域名，再跑一次启动脚本：
 
-停掉：`docker compose down`
+```
+DOMAIN=api.example.com
+```
 
-## 公网部署
+就绪后 API 是 `https://api.example.com`，走 HTTPS，证书自动申请续期。
 
-`127.0.0.1` 只有这台电脑能访问。要给外网用，把项目放到一台有公网 IP 的服务器上（云主机即可）。
+### 2. 装客户端
 
-### 有域名（推荐，自动 HTTPS）
+同一个 Release 里按平台取：
 
-1. 域名加一条 **A 记录**，指到服务器公网 IP。
-2. 安全组 / 防火墙放行 **80、443**。
-3. 服务器安装 Docker 后，在仓库根目录执行：
+- `FlowDo-client-windows-x64-*.zip`：解压运行 `FlowDo.exe`
+- `FlowDo-client-android-*.apk`：Android 安装包
+- `FlowDo-client-web-*.zip`：静态站点，丢到任意 Web 服务器
+- `FlowDo-client-ios-unsigned-*.ipa`：**未签名**，需自备 Apple 开发者账号签名后才能安装，
+  见 [CONTRIBUTING.md](CONTRIBUTING.md)
+
+首次打开在登录页填 API 地址（本机是 `http://127.0.0.1:3000`，公网填你的域名），
+注册一个账号就能用。手机连电脑上的服务端时不要填 `127.0.0.1`，要填电脑的局域网 IP。
+
+### 从源码跑
+
+想改代码或者不想用发版包：
 
 ```bash
-chmod +x scripts/deploy-public.sh
-DOMAIN=api.example.com JWT_SECRET='请换成很长的随机串' ./scripts/deploy-public.sh
+# 服务端：准备镜像、构建并启动 PostgreSQL + API
+./scripts/deploy.sh          # Windows 双击 scripts\deploy.bat
+
+# 客户端
+cd app && flutter pub get && flutter run
 ```
 
-就绪后 API 是 `https://api.example.com`。App 登录页把 API 地址改成这个。
+公网部署对应 `DOMAIN=api.example.com JWT_SECRET='长随机串' ./scripts/deploy-public.sh`。
+不用 Docker 直接跑服务端，以及 Flutter 各平台的构建细节，见 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
-也可以等价写成：
-
-```bash
-export DOMAIN=api.example.com
-export JWT_SECRET='请换成很长的随机串'
-docker build -t flowdo-server:latest ./server
-docker compose --profile https up -d
-```
-
-公网模式不会把数据库端口暴露到外网。
-
-### 只有公网 IP、暂时没有域名
-
-不要把 3000 对公网开放。先配一个域名再走上面的 HTTPS。本机检查用
-`http://127.0.0.1:3000/health`。同一局域网调试可设 `FLOWDO_API_BIND=0.0.0.0`，
-仍然不要把该端口放到安全组的公网规则里。
-
-## 不用 Docker 启动服务端
-
-需要本机 PostgreSQL，库名/账号与 [server/.env.example](server/.env.example) 一致。
-
-```bash
-cd server
-copy .env.example .env   # Windows
-npm install
-npx prisma generate
-npx prisma db push
-npm run start:dev
-```
-
-局域网手机访问：把 Flutter 设置里的 API 地址改成 `http://<电脑局域网IP>:3000`，并保证防火墙放行 3000 端口。API 已监听 `0.0.0.0`。
-
-## Flutter 客户端
-
-先安装 [Flutter SDK](https://docs.flutter.dev/get-started/install)。国内建议：
-
-```
-FLUTTER_STORAGE_BASE_URL=https://storage.flutter-io.cn
-PUB_HOSTED_URL=https://pub.flutter-io.cn
-```
-
-然后：
-
-```bash
-cd app
-flutter create . --project-name flowdo --platforms web,windows,android,ios,linux,macos
-flutter pub get
-flutter run -d chrome
-```
-
-Windows 桌面：
-
-```bash
-flutter run -d windows
-```
-
-Android（需 Android SDK）：
-
-```bash
-flutter run -d android
-```
-
-首次登录页填写 API 地址。Web 调试默认 `http://127.0.0.1:3000`。真机不要用 `127.0.0.1`，改成电脑的局域网 IP。
-
-打开 App 时若当天还没看过「今日看看」，会先晃一眼前来；可跳过。标题栏太阳图标随时再看。
-
-## API 摘要
+<details>
+<summary>API 摘要</summary>
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
@@ -156,18 +140,25 @@ flutter run -d android
 | GET/PATCH | `/me` | 当前用户；PATCH `{archiveAfterDays, focusLimit, deleteArchivedAfterDays, showArchiveTab, themeKey}` |
 | GET | `/tasks?status=TODO` | 列表，按优先级 |
 | POST | `/tasks` | 新建，默认待办 + 中优先级 |
-| PATCH | `/tasks/:id` | 改标题/正文/优先级/状态；归档任务只读 |
-| DELETE | `/tasks/:id` | 待办（取消不做）或归档任务可删 |
+| PATCH | `/tasks/:id` | 改标题 / 正文 / 优先级 / 状态；归档任务只读 |
+| DELETE | `/tasks/:id` | 待办（不做了）或归档任务可删 |
 | GET | `/briefing/today` | 今日看看 |
-| POST | `/archive/run` | 立即执行归档与过期归档清理（需登录） |
+| POST | `/archive/run` | 立即执行归档与过期清理 |
 
-除 `/auth/*` 和 `/health` 外均需 `Authorization: Bearer <accessToken>`。
+除 `/auth/*` 和 `/health` 外都需要 `Authorization: Bearer <accessToken>`。
 
-## 状态流转
+进入完成时写入 `completedAt`，服务端每小时把超过 `archiveAfterDays` 的完成任务转为归档并写入
+`archivedAt`；归档超过 `deleteArchivedAfterDays`（默认 30）自动删除，设为 `0` 则永不清理。
+同时聚焦的数量受 `focusLimit`（默认 3）限制。
 
-- 待办 ↔ 聚焦
-- 聚焦 → 完成
-- 完成 → 待办 / 归档
-- 归档只读，不可改状态，只能删除
+</details>
 
-进入完成时写入 `completedAt`；服务端每小时把超过 `archiveAfterDays` 的完成任务改为归档（写入 `archivedAt`）。归档超过 `deleteArchivedAfterDays`（默认 30）后自动删除；设为 `0` 则永不自动清掉。聚焦同时数量受用户 `focusLimit`（默认 3）限制。
+## 参与
+
+欢迎提 issue 和 pull request。提交信息用约定式提交，发版走 `vX.Y.Z` 标签，
+GitHub Actions 会构建上面那些产物并创建 Release。细节见
+[CONTRIBUTING.md](CONTRIBUTING.md) 和 [CHANGELOG.md](CHANGELOG.md)。
+
+## 许可证
+
+[MIT](LICENSE)

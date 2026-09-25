@@ -94,3 +94,46 @@ Apple 不允许未签名的 IPA 装到真机上。CI 在 `macos-latest` 上打�
 本机服务端可用 `scripts/deploy.bat` / `./scripts/deploy.sh`，或先
 `docker build -t flowdo-server:latest ./server` 再 `docker compose up -d`。  
 客户端：`cd app && flutter pub get && flutter run`。
+
+### 不用 Docker 启动服务端
+
+需要本机 PostgreSQL，库名和账号与 [server/.env.example](server/.env.example) 一致。
+
+```bash
+cd server
+cp .env.example .env     # Windows 用 copy
+npm install
+npx prisma generate
+npx prisma db push
+npm run start:dev
+```
+
+API 监听 `0.0.0.0:3000`。局域网手机访问时，把客户端设置里的 API 地址改成
+`http://<电脑局域网IP>:3000`，并放行防火墙的 3000 端口。
+
+### Flutter 客户端
+
+先安装 [Flutter SDK](https://docs.flutter.dev/get-started/install)。国内建议配好镜像：
+
+```
+FLUTTER_STORAGE_BASE_URL=https://storage.flutter-io.cn
+PUB_HOSTED_URL=https://pub.flutter-io.cn
+```
+
+首次拉起某个平台时需要生成对应的平台目录：
+
+```bash
+cd app
+flutter create . --project-name flowdo --platforms web,windows,android,ios,linux,macos
+flutter pub get
+flutter run -d chrome     # 或 -d windows / -d android
+```
+
+Web 调试默认连 `http://127.0.0.1:3000`；真机不要填 `127.0.0.1`，要填电脑的局域网 IP。
+
+改完代码提 PR 前先跑一遍：
+
+```bash
+cd app && flutter analyze && flutter test
+cd server && npm test
+```
