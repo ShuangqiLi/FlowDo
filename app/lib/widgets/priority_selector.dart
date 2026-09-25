@@ -16,40 +16,91 @@ String priorityLabel(String priority) {
   };
 }
 
+/// 贴着被点的优先级图标弹出的小菜单。
+///
+/// [anchorContext] 要来自图标本身，菜单按它的位置定位，而不是铺满整屏。
 Future<String?> showPriorityPicker(
-  BuildContext context, {
+  BuildContext anchorContext, {
   required String current,
 }) {
-  return showDialog<String>(
-    context: context,
-    builder: (ctx) {
-      return AlertDialog(
-        title: const Text('挑个优先级'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (final p in priorityOrder)
-              ListTile(
-                title: Text(priorityLabel(p)),
-                trailing: p == current
-                    ? Icon(
-                        Icons.check,
-                        color: Theme.of(ctx).colorScheme.primary,
-                      )
-                    : null,
-                onTap: () => Navigator.of(ctx).pop(p),
-              ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('取消'),
-          ),
-        ],
-      );
-    },
+  final anchor = anchorContext.findRenderObject() as RenderBox?;
+  final overlay = Overlay.of(anchorContext).context.findRenderObject() as RenderBox?;
+  if (anchor == null || overlay == null || !anchor.hasSize) {
+    return Future<String?>.value();
+  }
+
+  final theme = Theme.of(anchorContext);
+  final scheme = theme.colorScheme;
+  final topLeft = anchor.localToGlobal(Offset.zero, ancestor: overlay);
+  final bottomRight = anchor.localToGlobal(
+    anchor.size.bottomRight(Offset.zero),
+    ancestor: overlay,
   );
+
+  return showMenu<String>(
+    context: anchorContext,
+    position: RelativeRect.fromLTRB(
+      topLeft.dx,
+      bottomRight.dy + AppSpacing.xxs,
+      overlay.size.width - bottomRight.dx,
+      overlay.size.height - bottomRight.dy,
+    ),
+    constraints: const BoxConstraints(minWidth: 132, maxWidth: 180),
+    color: theme.cardColor,
+    surfaceTintColor: Colors.transparent,
+    elevation: 3,
+    shadowColor: scheme.shadow.withValues(alpha: 0.16),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(AppRadii.large),
+      side: BorderSide(color: scheme.outlineVariant),
+    ),
+    popUpAnimationStyle: AnimationStyle(
+      duration: AppMotion.quick,
+      curve: AppMotion.curve,
+    ),
+    items: [
+      for (final p in priorityOrder)
+        PopupMenuItem<String>(
+          value: p,
+          height: 40,
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+          child: _PriorityMenuRow(priority: p, selected: p == current),
+        ),
+    ],
+  );
+}
+
+class _PriorityMenuRow extends StatelessWidget {
+  const _PriorityMenuRow({required this.priority, required this.selected});
+
+  final String priority;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final color = priorityColor(context, priority);
+
+    return Row(
+      children: [
+        Container(
+          width: 10,
+          height: 10,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        Text(
+          priorityLabel(priority),
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                color: selected ? color : scheme.onSurface,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+              ),
+        ),
+        const Spacer(),
+        if (selected) Icon(Icons.check_rounded, size: 18, color: color),
+      ],
+    );
+  }
 }
 
 /// Three-way chip selector for create / detail screens.

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 abstract final class AppSpacing {
@@ -40,4 +41,15 @@ abstract final class AppText {
 abstract final class AppLayout {
   static const double contentMaxWidth = 760;
   static const double readingMaxWidth = 620;
+
+  /// 桌面和网页用按钮操作任务；手机、平板用左右滑，不放按钮以免误触。
+  static bool usesPointerActions(BuildContext context) {
+    if (kIsWeb) {
+      return true;
+    }
+    return switch (Theme.of(context).platform) {
+      TargetPlatform.android || TargetPlatform.iOS || TargetPlatform.fuchsia => false,
+      _ => true,
+    };
+  }
 }

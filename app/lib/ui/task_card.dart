@@ -17,7 +17,9 @@ class TaskCard extends StatelessWidget {
   final Task task;
   final Widget? subtitle;
   final VoidCallback onOpen;
-  final VoidCallback? onPickPriority;
+
+  /// 参数是优先级图标自己的 context，菜单要贴着它弹出。
+  final void Function(BuildContext anchorContext)? onPickPriority;
   final List<Widget> actions;
 
   @override
@@ -50,17 +52,19 @@ class TaskCard extends StatelessWidget {
               ),
               Material(
                 color: Colors.transparent,
-                child: InkWell(
-                  onTap: onPickPriority,
-                  borderRadius: BorderRadius.circular(AppRadii.control),
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(
-                      AppSpacing.sm,
-                      AppSpacing.sm,
-                      AppSpacing.xs,
-                      AppSpacing.sm,
+                child: Builder(
+                  builder: (badgeContext) => InkWell(
+                    onTap: onPickPriority == null ? null : () => onPickPriority!(badgeContext),
+                    borderRadius: BorderRadius.circular(AppRadii.control),
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(
+                        AppSpacing.sm,
+                        AppSpacing.sm,
+                        AppSpacing.xs,
+                        AppSpacing.sm,
+                      ),
+                      child: PriorityBadge(priority: task.priority),
                     ),
-                    child: PriorityBadge(priority: task.priority),
                   ),
                 ),
               ),

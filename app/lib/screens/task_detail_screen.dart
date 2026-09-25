@@ -6,7 +6,6 @@ import '../providers.dart';
 import '../theme.dart';
 import '../ui/flowdo_card.dart';
 import '../ui/flowdo_dialog.dart';
-import '../widgets/priority_selector.dart';
 
 class TaskDetailScreen extends ConsumerStatefulWidget {
   const TaskDetailScreen({super.key, required this.task});
@@ -22,13 +21,6 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
   late final TextEditingController _body;
   bool _deleted = false;
   bool _saving = false;
-
-  static const _statusLabels = {
-    'TODO': '待办',
-    'FOCUS': '聚焦',
-    'DONE': '完成',
-    'ARCHIVED': '归档',
-  };
 
   @override
   void initState() {
@@ -108,7 +100,6 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final statusLabel = _statusLabels[widget.task.status] ?? widget.task.status;
 
     return PopScope(
       canPop: false,
@@ -128,7 +119,7 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
           actions: [
             if (_canDelete)
               IconButton(
-                tooltip: _archived ? '清掉' : '先不做了',
+                tooltip: _archived ? '清掉' : '不做了',
                 icon: const Icon(Icons.delete_outline),
                 onPressed: _confirmDelete,
               ),
@@ -146,25 +137,6 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                   decoration: const InputDecoration(
                     labelText: '要办的事',
                   ),
-                ),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              FlowDoCard(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.md,
-                  vertical: AppSpacing.sm,
-                ),
-                child: Row(
-                  children: [
-                    PriorityBadge(priority: widget.task.priority),
-                    const SizedBox(width: AppSpacing.sm),
-                    Text(
-                      statusLabel,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: scheme.onSurfaceVariant,
-                          ),
-                    ),
-                  ],
                 ),
               ),
               const SizedBox(height: AppSpacing.sm),
