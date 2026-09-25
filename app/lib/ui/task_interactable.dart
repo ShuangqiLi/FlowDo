@@ -1,4 +1,3 @@
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 import '../models/task.dart';
@@ -26,9 +25,10 @@ class TaskInteractable extends StatefulWidget {
 
 class _TaskInteractableState extends State<TaskInteractable>
     with SingleTickerProviderStateMixin {
-  double _dx = 0;
-  double _opacity = 1;
+  final _dx = ValueNotifier<double>(0);
+  final _opacity = ValueNotifier<double>(1);
   late final AnimationController _motion;
+  late final Listenable _tick;
 
   TaskSwipeHint? get _right =>
       TaskGesturePolicy.swipeRight(widget.task.status);
@@ -38,20 +38,19 @@ class _TaskInteractableState extends State<TaskInteractable>
   void initState() {
     super.initState();
     _motion = AnimationController(vsync: this, duration: AppMotion.standard);
+    _tick = Listenable.merge([_dx, _opacity]);
   }
 
   @override
   void dispose() {
     _motion.dispose();
+    _dx.dispose();
+    _opacity.dispose();
     super.dispose();
   }
 
-  void _onDragStart(DragStartDetails details) {
-    _motion.stop();
-  }
-
   void _onDragUpdate(DragUpdateDetails details) {
-    var next = _dx + details.delta.dx;
+    var next = _dx.value + details.delta.dx;
     if (next > 0 && _right == null) {
       next *= 0.28;
     }
@@ -59,11 +58,8 @@ class _TaskInteractableState extends State<TaskInteractable>
       next *= 0.28;
     }
     final width = context.size?.width ?? 320;
-    final fade = (1 - (next.abs() / width) * 0.45).clamp(0.45, 1.0);
-    setState(() {
-      _dx = next;
-      _opacity = fade;
-    });
+    _dx.value = next;
+    _opacity.value = (1 - (next.abs() / width) * 0.45).clamp(0.45, 1.0);
   }
 
   Future<void> _onDragEnd(DragEndDetails details) async {
@@ -71,9 +67,9 @@ class _TaskInteractableState extends State<TaskInteractable>
     final threshold = width * 0.32;
     final velocity = details.primaryVelocity ?? 0;
     String? target;
-    if ((_dx > threshold || velocity > 700) && _right != null) {
+    if ((_dx.value > threshold || velocity > 700) && _right != null) {
       target = _right!.status;
-    } else if ((_dx < -threshold || velocity < -700) && _left != null) {
+    } else if ((_dx.value < -threshold || velocity < -700) && _left != null) {
       target = _left!.status;
     }
     if (target == null) {
@@ -96,15 +92,13 @@ class _TaskInteractableState extends State<TaskInteractable>
   }
 
   Future<void> _animateTo({required double dx, required double opacity}) async {
-    final startDx = _dx;
-    final startOpacity = _opacity;
+    final startDx = _dx.value;
+    final startOpacity = _opacity.value;
     _motion.reset();
     void listener() {
       final t = AppMotion.curve.transform(_motion.value);
-      setState(() {
-        _dx = startDx + (dx - startDx) * t;
-        _opacity = startOpacity + (opacity - startOpacity) * t;
-      });
+      _dx.value = startDx + (dx - startDx) * t;
+      _opacity.value = startOpacity + (opacity - startOpacity) * t;
     }
 
     _motion.addListener(listener);
@@ -119,63 +113,60 @@ class _TaskInteractableState extends State<TaskInteractable>
       return widget.child;
     }
 
-    return RawGestureDetector(
-      gestures: {
-        HorizontalDragGestureRecognizer:
-            GestureRecognizerFactoryWithHandlers<
-                HorizontalDragGestureRecognizer>(
-          () => HorizontalDragGestureRecognizer(),
-          (instance) {
-            instance.onStart = _onDragStart;
-            instance.onUpdate = _onDragUpdate;
-            instance.onEnd = _onDragEnd;
-          },
-        ),
-      },
+    return GestureDetector(
+      onHorizontalDragUpdate: _onDragUpdate,
+      onHorizontalDragEnd: _onDragEnd,
+      behavior: HitTestBehavior.deferToChild,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(AppRadii.card),
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: Opacity(
-                opacity: (_dx.abs() / 48).clamp(0.0, 1.0),
-                child: ColoredBox(
-                  color: _dx >= 0
-                      ? scheme.primary.withValues(alpha: 0.16)
-                      : _left?.status == 'DELETE'
-                          ? scheme.error.withValues(alpha: 0.16)
-                          : scheme.secondaryContainer,
-                  child: Align(
-                    alignment: _dx >= 0
-                        ? Alignment.centerLeft
-                        : Alignment.centerRight,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.md,
-                      ),
-                      child: Icon(
-                        _dx >= 0
-                            ? (_right?.icon ?? Icons.block_rounded)
-                            : (_left?.icon ?? Icons.block_rounded),
-                        color: _dx >= 0
-                            ? scheme.primary
-                            : _left?.status == 'DELETE'
-                                ? scheme.error
-                                : scheme.onSecondaryContainer,
+        child: AnimatedBuilder(
+          animation: _tick,
+          builder: (context, child) {
+            final dx = _dx.value;
+            return Stack(
+              children: [
+                Positioned.fill(
+                  child: Opacity(
+                    opacity: (dx.abs() / 48).clamp(0.0, 1.0),
+                    child: ColoredBox(
+                      color: dx >= 0
+                          ? scheme.primary.withValues(alpha: 0.16)
+                          : _left?.status == 'DELETE'
+                              ? scheme.error.withValues(alpha: 0.16)
+                              : scheme.secondaryContainer,
+                      child: Align(
+                        alignment:
+                            dx >= 0 ? Alignment.centerLeft : Alignment.centerRight,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.md,
+                          ),
+                          child: Icon(
+                            dx >= 0
+                                ? (_right?.icon ?? Icons.block_rounded)
+                                : (_left?.icon ?? Icons.block_rounded),
+                            color: dx >= 0
+                                ? scheme.primary
+                                : _left?.status == 'DELETE'
+                                    ? scheme.error
+                                    : scheme.onSecondaryContainer,
+                          ),
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-            ),
-            Transform.translate(
-              offset: Offset(_dx, 0),
-              child: Opacity(
-                opacity: _opacity,
-                child: widget.child,
-              ),
-            ),
-          ],
+                Transform.translate(
+                  offset: Offset(dx, 0),
+                  child: Opacity(
+                    opacity: _opacity.value,
+                    child: child,
+                  ),
+                ),
+              ],
+            );
+          },
+          child: RepaintBoundary(child: widget.child),
         ),
       ),
     );

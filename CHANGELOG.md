@@ -14,6 +14,13 @@
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-09-25
+
+### Changed
+
+- 减轻左右滑切页与任务卡拖动时的卡顿（去掉底栏 3D 透视、列表入场动画，滑动时少重建）
+- 完成庆祝动画更轻：去掉模糊光晕、粒子减半、时长缩短
+
 ## [0.2.0] - 2026-09-25
 
 ### Added
@@ -99,7 +106,8 @@
 - 通过 GitHub Releases 发版（推送 `v*.*.*` 标签）
 - 账号级设置（聚焦上限、归档天数、是否显示归档页）
 
-[Unreleased]: https://github.com/ShuangqiLi/FlowDo/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/ShuangqiLi/FlowDo/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/ShuangqiLi/FlowDo/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/ShuangqiLi/FlowDo/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/ShuangqiLi/FlowDo/compare/v0.0.4...v0.1.0
 [0.0.4]: https://github.com/ShuangqiLi/FlowDo/compare/v0.0.3...v0.0.4

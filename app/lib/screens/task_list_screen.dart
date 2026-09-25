@@ -24,12 +24,16 @@ class TaskListScreen extends ConsumerStatefulWidget {
   ConsumerState<TaskListScreen> createState() => _TaskListScreenState();
 }
 
-class _TaskListScreenState extends ConsumerState<TaskListScreen> {
+class _TaskListScreenState extends ConsumerState<TaskListScreen>
+    with AutomaticKeepAliveClientMixin {
   /// 已经滑走或拖走、但服务端还没确认的任务。先本地隐藏，刷新后再决定是否复原。
   final _dismissing = <String>{};
 
   /// 被退回的任务要换一个新的手势层，避免还停在滑出屏幕的位置。
   final _swipeGeneration = <String, int>{};
+
+  @override
+  bool get wantKeepAlive => true;
 
   Future<void> _refresh() async {
     ref.invalidate(tasksProvider(widget.status));
@@ -160,6 +164,7 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final async = ref.watch(tasksProvider(widget.status));
     final me = ref.watch(meProvider);
     final archiveDays = me.value?.archiveAfterDays ?? 7;
@@ -198,8 +203,7 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
                   const SizedBox(height: AppSpacing.sm),
               itemBuilder: (context, i) {
                 final task = tasks[i];
-                final reduce = MediaQuery.disableAnimationsOf(context);
-                final card = TaskInteractable(
+                return TaskInteractable(
                   key: ValueKey(
                     '${task.id}-${_swipeGeneration[task.id] ?? 0}',
                   ),
@@ -207,22 +211,6 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
                   onSwipeTo: (status) => _dismissTo(task, status),
                   onDelete: () => _delete(task),
                   child: _card(task, archiveDays, deleteDays),
-                );
-                if (reduce) {
-                  return card;
-                }
-                return TweenAnimationBuilder<double>(
-                  key: ValueKey(
-                    'fade-${task.id}-${_swipeGeneration[task.id] ?? 0}',
-                  ),
-                  tween: Tween(begin: 0, end: 1),
-                  duration: AppMotion.standard,
-                  curve: AppMotion.curve,
-                  builder: (context, value, child) => Opacity(
-                    opacity: value,
-                    child: child,
-                  ),
-                  child: card,
                 );
               },
             ),

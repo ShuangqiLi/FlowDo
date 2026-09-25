@@ -23,7 +23,7 @@ abstract final class AppMotion {
   /// Flat Design：150–200ms。
   static const Duration quick = Duration(milliseconds: 150);
   static const Duration standard = Duration(milliseconds: 200);
-  static const Duration celebration = Duration(milliseconds: 1200);
+  static const Duration celebration = Duration(milliseconds: 800);
   static const Curve curve = Curves.easeOut;
 }
 

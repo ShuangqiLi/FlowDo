@@ -75,21 +75,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     await prefs.setString('lastBriefingDate', today);
   }
 
-  void _goTab(int index, {bool animate = true}) {
+  void _goTab(int index) {
     final next = index.clamp(0, 2);
-    ref.read(homeTabProvider.notifier).setIndex(next);
-    if (!_pages.hasClients) {
+    if (ref.read(homeTabProvider) == next) {
       return;
     }
-    if (animate) {
-      _pages.animateToPage(
-        next,
-        duration: AppMotion.standard,
-        curve: AppMotion.curve,
-      );
-    } else {
-      _pages.jumpToPage(next);
-    }
+    // 只改 provider；PageView 由 listen 跟过去，避免连点两次 animate。
+    ref.read(homeTabProvider.notifier).setIndex(next);
   }
 
   Future<void> _openSettings() async {
@@ -122,16 +114,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget build(BuildContext context) {
     final index = ref.watch(homeTabProvider).clamp(0, 2);
     final showArchive = ref.watch(meProvider).value?.showArchiveTab ?? true;
-    // 外部改 tab（例如聚焦满了跳过去）时跟上 PageView。
+    // 外部改 tab（加号建完、聚焦满了）时跟上 PageView。
     ref.listen<int>(homeTabProvider, (prev, next) {
       final page = next.clamp(0, 2);
-      if (_pages.hasClients && (_pages.page?.round() ?? index) != page) {
-        _pages.animateToPage(
-          page,
-          duration: AppMotion.standard,
-          curve: AppMotion.curve,
-        );
+      if (!_pages.hasClients) {
+        return;
       }
+      final current = _pages.page?.round() ?? index;
+      if (current == page) {
+        return;
+      }
+      _pages.animateToPage(
+        page,
+        duration: AppMotion.standard,
+        curve: AppMotion.curve,
+      );
     });
 
     return PopScope(
@@ -182,9 +179,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               children: [
                 PageView(
                   controller: _pages,
+                  allowImplicitScrolling: false,
                   onPageChanged: (i) {
                     ref.read(homeTabProvider.notifier).setIndex(i);
-                    _closeBriefing();
+                    if (_showBriefing) {
+                      _closeBriefing();
+                    }
                   },
                   children: const [
                     TaskListScreen(status: 'TODO'),
@@ -218,12 +218,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
               ],
             ),
-            bottomNavigationBar: _FocusDock(
-              selectedIndex: index,
-              onSelected: (i) {
-                _goTab(i);
-                _closeBriefing();
-              },
+            bottomNavigationBar: RepaintBoundary(
+              child: _FocusDock(
+                selectedIndex: index,
+                onSelected: (i) {
+                  _goTab(i);
+                  if (_showBriefing) {
+                    _closeBriefing();
+                  }
+                },
+              ),
             ),
           ),
           AddTaskFab(visible: !_showBriefing),
@@ -233,7 +237,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 }
 
-/// 半椭圆台面底栏：三个带透视的方块围弧而立，聚焦在弧顶更大更靠前。
+/// 半椭圆台面底栏：三个方块围弧而立（无 3D 透视，减轻滑动时的合成开销）。
 class _FocusDock extends StatelessWidget {
   const _FocusDock({
     required this.selectedIndex,
@@ -295,15 +299,13 @@ class _FocusDock extends StatelessWidget {
 
                   Widget place({
                     required Offset c,
-                    required double width,
-                    required double height,
                     required Widget child,
                   }) {
                     return Positioned(
-                      left: c.dx - width / 2,
-                      top: c.dy - height * 0.72,
-                      width: width,
-                      height: height,
+                      left: c.dx - 36,
+                      top: c.dy - 56,
+                      width: 72,
+                      height: 78,
                       child: child,
                     );
                   }
@@ -313,37 +315,28 @@ class _FocusDock extends StatelessWidget {
                     children: [
                       place(
                         c: pool,
-                        width: 72,
-                        height: 78,
-                        child: _PerspectiveBlock(
+                        child: _DockBlock(
                           selected: selectedIndex == 0,
                           icon: Icons.inbox_rounded,
                           label: '任务池',
-                          yaw: 0.42,
                           onTap: () => onSelected(0),
                         ),
                       ),
                       place(
                         c: done,
-                        width: 72,
-                        height: 78,
-                        child: _PerspectiveBlock(
+                        child: _DockBlock(
                           selected: selectedIndex == 2,
                           icon: Icons.check_circle_rounded,
                           label: '完成',
-                          yaw: -0.42,
                           onTap: () => onSelected(2),
                         ),
                       ),
                       place(
                         c: focus,
-                        width: 72,
-                        height: 78,
-                        child: _PerspectiveBlock(
+                        child: _DockBlock(
                           selected: selectedIndex == 1,
                           icon: Icons.center_focus_strong_rounded,
                           label: '聚焦',
-                          yaw: 0,
                           onTap: () => onSelected(1),
                         ),
                       ),
@@ -359,41 +352,25 @@ class _FocusDock extends StatelessWidget {
   }
 }
 
-/// Flat Design：三个底栏按钮同等大小，轻透视；无软阴影。
-class _PerspectiveBlock extends StatelessWidget {
-  const _PerspectiveBlock({
+class _DockBlock extends StatelessWidget {
+  const _DockBlock({
     required this.selected,
     required this.icon,
     required this.label,
-    required this.yaw,
     required this.onTap,
   });
 
   final bool selected;
   final IconData icon;
   final String label;
-  final double yaw;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final flow = context.flowColors;
-
-    final Color face;
-    final Color fg;
-    if (selected) {
-      face = scheme.primaryContainer;
-      fg = scheme.primary;
-    } else {
-      face = flow.card;
-      fg = scheme.onSurfaceVariant;
-    }
-
-    final matrix = Matrix4.identity()
-      ..setEntry(3, 2, 0.0011)
-      ..rotateX(-0.16)
-      ..rotateY(yaw * 0.85);
+    final face = selected ? scheme.primaryContainer : flow.card;
+    final fg = selected ? scheme.primary : scheme.onSurfaceVariant;
 
     return Semantics(
       button: true,
@@ -404,11 +381,7 @@ class _PerspectiveBlock extends StatelessWidget {
         child: GestureDetector(
           onTap: onTap,
           behavior: HitTestBehavior.opaque,
-          child: AnimatedContainer(
-            duration: AppMotion.standard,
-            curve: AppMotion.curve,
-            transformAlignment: Alignment.bottomCenter,
-            transform: matrix,
+          child: DecoratedBox(
             decoration: BoxDecoration(
               color: face,
               borderRadius: BorderRadius.circular(AppRadii.control),
@@ -416,7 +389,6 @@ class _PerspectiveBlock extends StatelessWidget {
                 color: selected
                     ? scheme.primary.withValues(alpha: 0.35)
                     : scheme.outlineVariant,
-                width: 1,
               ),
             ),
             child: Center(
@@ -425,11 +397,7 @@ class _PerspectiveBlock extends StatelessWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(
-                      icon,
-                      color: fg,
-                      size: selected ? 22 : 20,
-                    ),
+                    Icon(icon, color: fg, size: 20),
                     const SizedBox(height: 4),
                     Text(
                       label,
