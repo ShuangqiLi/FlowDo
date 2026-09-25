@@ -28,12 +28,9 @@ class Task {
       body: json['body'] as String?,
       status: json['status'] as String,
       priority: json['priority'] as String,
-      completedAt: json['completedAt'] == null
-          ? null
-          : DateTime.parse(json['completedAt'] as String),
-      archivedAt: json['archivedAt'] == null
-          ? null
-          : DateTime.parse(json['archivedAt'] as String),
+      completedAt:
+          json['completedAt'] == null ? null : DateTime.parse(json['completedAt'] as String),
+      archivedAt: json['archivedAt'] == null ? null : DateTime.parse(json['archivedAt'] as String),
       createdAt: DateTime.parse(json['createdAt'] as String),
       updatedAt: DateTime.parse(json['updatedAt'] as String),
     );

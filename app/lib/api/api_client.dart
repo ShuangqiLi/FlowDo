@@ -25,8 +25,7 @@ class ApiClient {
   static const _kAccess = 'accessToken';
   static const _kRefresh = 'refreshToken';
 
-  String get baseUrl =>
-      _prefs.getString(_kBase) ?? 'http://127.0.0.1:3000';
+  String get baseUrl => _prefs.getString(_kBase) ?? 'http://127.0.0.1:3000';
 
   Future<void> setBaseUrl(String url) async {
     final trimmed = url.trim().replaceAll(RegExp(r'/$'), '');
@@ -174,6 +173,7 @@ class ApiClient {
     int? focusLimit,
     int? deleteArchivedAfterDays,
     bool? showArchiveTab,
+    String? themeKey,
   }) async {
     final body = <String, dynamic>{};
     if (archiveAfterDays != null) {
@@ -188,6 +188,9 @@ class ApiClient {
     if (showArchiveTab != null) {
       body['showArchiveTab'] = showArchiveTab;
     }
+    if (themeKey != null) {
+      body['themeKey'] = themeKey;
+    }
     final json = await _request('PATCH', '/me', body: body);
     return Me.fromJson(json as Map<String, dynamic>);
   }
@@ -198,9 +201,7 @@ class ApiClient {
       '/tasks',
       query: status == null ? null : {'status': status, 'sort': 'priority'},
     );
-    return (json as List<dynamic>)
-        .map((e) => Task.fromJson(e as Map<String, dynamic>))
-        .toList();
+    return (json as List<dynamic>).map((e) => Task.fromJson(e as Map<String, dynamic>)).toList();
   }
 
   Future<Task> createTask({

@@ -29,9 +29,7 @@ class Briefing {
 
   factory Briefing.fromJson(Map<String, dynamic> json) {
     List<Task> list(dynamic raw) {
-      return (raw as List<dynamic>)
-          .map((e) => Task.fromJson(e as Map<String, dynamic>))
-          .toList();
+      return (raw as List<dynamic>).map((e) => Task.fromJson(e as Map<String, dynamic>)).toList();
     }
 
     final counts = json['counts'] as Map<String, dynamic>;

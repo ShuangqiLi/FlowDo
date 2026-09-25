@@ -5,6 +5,7 @@ import 'api/api_client.dart';
 import 'models/briefing.dart';
 import 'models/task.dart';
 import 'models/user.dart';
+import 'theme.dart';
 
 final prefsProvider = Provider<SharedPreferences>((ref) {
   throw UnimplementedError('prefs must be overridden');
@@ -43,8 +44,7 @@ final meProvider = FutureProvider<Me>((ref) async {
   return ref.watch(apiProvider).getMe();
 });
 
-final tasksProvider =
-    FutureProvider.family<List<Task>, String>((ref, status) async {
+final tasksProvider = FutureProvider.family<List<Task>, String>((ref, status) async {
   ref.watch(authStateProvider);
   return ref.watch(apiProvider).listTasks(status: status);
 });
@@ -52,6 +52,11 @@ final tasksProvider =
 final briefingProvider = FutureProvider<Briefing>((ref) async {
   ref.watch(authStateProvider);
   return ref.watch(apiProvider).todayBriefing();
+});
+
+final appThemeProvider = Provider<AppThemeKey>((ref) {
+  if (!ref.watch(authStateProvider)) return AppThemeKey.mint;
+  return AppThemeKey.fromKey(ref.watch(meProvider).value?.themeKey);
 });
 
 /// 0 任务池, 1 聚焦, 2 完成, 3 归档, 4 设置

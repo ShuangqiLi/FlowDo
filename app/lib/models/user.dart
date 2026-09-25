@@ -6,6 +6,7 @@ class Me {
     required this.focusLimit,
     required this.deleteArchivedAfterDays,
     required this.showArchiveTab,
+    required this.themeKey,
   });
 
   final String id;
@@ -14,6 +15,7 @@ class Me {
   final int focusLimit;
   final int deleteArchivedAfterDays;
   final bool showArchiveTab;
+  final String themeKey;
 
   factory Me.fromJson(Map<String, dynamic> json) {
     return Me(
@@ -21,9 +23,9 @@ class Me {
       email: json['email'] as String,
       archiveAfterDays: json['archiveAfterDays'] as int,
       focusLimit: (json['focusLimit'] as int?) ?? 3,
-      deleteArchivedAfterDays:
-          (json['deleteArchivedAfterDays'] as int?) ?? 30,
+      deleteArchivedAfterDays: (json['deleteArchivedAfterDays'] as int?) ?? 30,
       showArchiveTab: (json['showArchiveTab'] as bool?) ?? true,
+      themeKey: (json['themeKey'] as String?) ?? 'mint',
     );
   }
 }

@@ -97,8 +97,48 @@ jobs:
           path: dist/*
           if-no-files-found: error
 
+  ios:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Prepare Flutter iOS project
+        working-directory: app
+        run: |
+          flutter create . --project-name taskmgr --org com.flowdo --platforms ios
+          /usr/libexec/PlistBuddy -c 'Add :CFBundleDisplayName string 随随办办 FlowDo' ios/Runner/Info.plist \
+            || /usr/libexec/PlistBuddy -c 'Set :CFBundleDisplayName 随随办办 FlowDo' ios/Runner/Info.plist
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("ios/Runner.xcodeproj/project.pbxproj")
+          text = p.read_text(encoding="utf-8")
+          p.write_text(
+              text.replace("com.flowdo.taskmgr", "com.flowdo.app"),
+              encoding="utf-8",
+          )
+          PY
+          flutter pub get
+          dart run flutter_launcher_icons
+      - name: Build unsigned iOS IPA
+        working-directory: app
+        run: |
+          flutter build ios --release --no-codesign
+          mkdir -p Payload
+          cp -R build/ios/iphoneos/Runner.app Payload/Runner.app
+          zip -9 -y -r "FlowDo-client-ios-unsigned-${GITHUB_REF_NAME}.ipa" Payload
+          mkdir -p ../dist
+          mv "FlowDo-client-ios-unsigned-${GITHUB_REF_NAME}.ipa" ../dist/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ios
+          path: dist/*
+          if-no-files-found: error
+
   github-release:
-    needs: [server, android-and-web, windows]
+    needs: [server, android-and-web, windows, ios]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

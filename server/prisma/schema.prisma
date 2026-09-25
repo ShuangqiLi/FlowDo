@@ -28,6 +28,7 @@ model User {
   focusLimit       Int      @default(3)
   deleteArchivedAfterDays Int @default(30)
   showArchiveTab   Boolean  @default(true)
+  themeKey         String   @default("mint")
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
   tasks            Task[]

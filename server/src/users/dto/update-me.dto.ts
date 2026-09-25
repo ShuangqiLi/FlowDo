@@ -1,4 +1,4 @@
-import { IsBoolean, IsInt, IsOptional, Max, Min } from 'class-validator';
+import { IsBoolean, IsIn, IsInt, IsOptional, Max, Min } from 'class-validator';
 
 export class UpdateMeDto {
   @IsOptional()
@@ -22,4 +22,10 @@ export class UpdateMeDto {
   @IsOptional()
   @IsBoolean({ message: '显示归档请用开或关' })
   showArchiveTab?: boolean;
+
+  @IsOptional()
+  @IsIn(['mint', 'hazeBlue', 'warmOrange', 'lightPurple'], {
+    message: '还没有这个主题哦',
+  })
+  themeKey?: string;
 }

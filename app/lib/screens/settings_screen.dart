@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers.dart';
+import '../theme.dart';
+import '../ui/flowdo_card.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -31,30 +33,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     super.dispose();
   }
 
-  Widget _sectionTitle(BuildContext context, String text) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Text(
-        text,
-        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w700,
-            ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final me = ref.watch(meProvider);
     final scheme = Theme.of(context).colorScheme;
 
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        _sectionTitle(context, '账号'),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
+    return ResponsiveContent(
+      child: ListView(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        children: [
+          const SectionHeader('账号'),
+          FlowDoCard(
             child: me.when(
               loading: () => const LinearProgressIndicator(),
               error: (e, _) => Text('$e'),
@@ -89,12 +78,28 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               },
             ),
           ),
-        ),
-        const SizedBox(height: 24),
-        _sectionTitle(context, '连接'),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
+          const SizedBox(height: AppSpacing.lg),
+          const SectionHeader('外观', caption: '选一种舒服的颜色，跟着账号一起走。'),
+          FlowDoCard(
+            child: Wrap(
+              spacing: AppSpacing.sm,
+              runSpacing: AppSpacing.sm,
+              children: [
+                for (final theme in AppThemeKey.values)
+                  _ThemeChoice(
+                    theme: theme,
+                    selected: me.value?.themeKey == theme.key,
+                    onTap: () async {
+                      await ref.read(apiProvider).updateMe(themeKey: theme.key);
+                      ref.invalidate(meProvider);
+                    },
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          const SectionHeader('连接'),
+          FlowDoCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -120,12 +125,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ],
             ),
           ),
-        ),
-        const SizedBox(height: 24),
-        _sectionTitle(context, '聚焦'),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
+          const SizedBox(height: AppSpacing.lg),
+          const SectionHeader('聚焦'),
+          FlowDoCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -161,12 +163,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ],
             ),
           ),
-        ),
-        const SizedBox(height: 24),
-        _sectionTitle(context, '归档'),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
+          const SizedBox(height: AppSpacing.lg),
+          const SectionHeader('归档'),
+          FlowDoCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -183,9 +182,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   subtitle: const Text('关掉后底部就只留任务池、聚焦、完成和设置'),
                   value: me.value?.showArchiveTab ?? true,
                   onChanged: (v) async {
-                    await ref
-                        .read(apiProvider)
-                        .updateMe(showArchiveTab: v);
+                    await ref.read(apiProvider).updateMe(showArchiveTab: v);
                     ref.invalidate(meProvider);
                   },
                 ),
@@ -211,8 +208,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 FilledButton.tonal(
                   onPressed: () async {
                     final days = int.tryParse(_days.text.trim()) ?? 7;
-                    final deleteDays =
-                        int.tryParse(_deleteDays.text.trim()) ?? 30;
+                    final deleteDays = int.tryParse(_deleteDays.text.trim()) ?? 30;
                     await ref.read(apiProvider).updateMe(
                           archiveAfterDays: days,
                           deleteArchivedAfterDays: deleteDays,
@@ -248,13 +244,74 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ],
             ),
           ),
+          const SizedBox(height: 32),
+          FilledButton(
+            onPressed: () => ref.read(authStateProvider.notifier).logout(),
+            child: const Text('退出登录'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ThemeChoice extends StatelessWidget {
+  const _ThemeChoice({
+    required this.theme,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final AppThemeKey theme;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Semantics(
+      selected: selected,
+      button: true,
+      label: '${theme.label}主题',
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppRadii.control),
+        child: AnimatedContainer(
+          duration: AppMotion.standard,
+          width: 132,
+          padding: const EdgeInsets.all(AppSpacing.sm),
+          decoration: BoxDecoration(
+            color: selected
+                ? scheme.primaryContainer.withValues(alpha: 0.7)
+                : context.flowColors.softFill,
+            borderRadius: BorderRadius.circular(AppRadii.control),
+            border: Border.all(
+              color: selected ? scheme.primary : scheme.outlineVariant,
+              width: selected ? 1.7 : 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: theme.preview,
+                  borderRadius: BorderRadius.circular(AppRadii.small),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              Expanded(
+                child: Text(
+                  theme.label,
+                  style: Theme.of(context).textTheme.labelLarge,
+                ),
+              ),
+              if (selected) Icon(Icons.check_rounded, size: 18, color: scheme.primary),
+            ],
+          ),
         ),
-        const SizedBox(height: 32),
-        FilledButton(
-          onPressed: () => ref.read(authStateProvider.notifier).logout(),
-          child: const Text('退出登录'),
-        ),
-      ],
+      ),
     );
   }
 }

@@ -24,9 +24,13 @@ class TaskMgrApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final loggedIn = ref.watch(authStateProvider);
+    final themeKey = ref.watch(appThemeProvider);
     return MaterialApp(
       title: '随随办办 FlowDo',
-      theme: buildAppTheme(),
+      debugShowCheckedModeBanner: false,
+      theme: buildAppTheme(themeKey),
+      themeAnimationDuration: AppMotion.standard,
+      themeAnimationCurve: AppMotion.curve,
       home: loggedIn ? const HomeScreen() : const LoginScreen(),
     );
   }

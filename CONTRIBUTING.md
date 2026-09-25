@@ -66,10 +66,28 @@ BREAKING CHANGE: TODO cannot transition directly to DONE
 3. 提交：`chore(release): vX.Y.Z`
 4. 打标签并推送：`git tag -a vX.Y.Z -m "chore(release): vX.Y.Z"`，再 `git push origin vX.Y.Z`
 5. 推送 `v*.*.*` 标签后，`.github/workflows/release.yml` 会构建并上传服务端
-   Docker 包、Windows 客户端、Android APK 和 Web 客户端，再用该版本的
+   Docker 包、Windows 客户端、Android APK、Web 客户端和 iOS IPA，再用该版本的
    changelog 创建 GitHub Release
 
 也可以在 GitHub 网页上对已推送的标签起草 Release。
+
+### iOS 安装包
+
+Apple 不允许未签名的 IPA 装到真机上。CI 在 `macos-latest` 上打出
+`FlowDo-client-ios-*.ipa`，**默认未签名**，方便用自己的证书重签，但不能直接
+点开安装。
+
+要打出可安装的包，需要：
+
+1. 加入 [Apple Developer Program](https://developer.apple.com/programs/)
+2. 在 Apple Developer 后台创建 App ID（`com.flowdo.app`）、发行证书和
+   Ad Hoc / App Store 描述文件
+3. 把 `.p12` 证书和 `.mobileprovision` 配到仓库 Secrets 后，再改 CI 为
+   `flutter build ipa` 并带上导出选项（当前工作流尚未接入这些 Secrets）
+4. 更稳妥的分发方式是 Xcode / Transporter 上传到 TestFlight，而不是把
+   签名 IPA 放到公开 GitHub Release
+
+没有开发者账号时，iPhone 请用 Web 客户端。
 
 ## 开发
 

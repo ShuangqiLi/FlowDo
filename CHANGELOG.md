@@ -12,6 +12,20 @@
 
 发版时同步改这三处，并在本文件新增一节。
 
+## [Unreleased]
+
+## [0.0.3] - 2026-09-25
+
+### Added
+
+- 薄荷绿、雾霾蓝、暖橘色、淡紫色四套账号同步主题
+- FlowDo UI Kit、跨平台中文字体、对勾图形标与任务完成庆祝动画
+- GitHub Release 增加 iOS IPA（默认未签名，见下方说明）
+
+### Changed
+
+- 以低饱和配色、留白卡片、圆角图标和轻量转场重设计全部客户端页面
+
 ## [0.0.2] - 2026-09-25
 
 ### Added
@@ -35,5 +49,7 @@
 - 通过 GitHub Releases 发版（推送 `v*.*.*` 标签）
 - 账号级设置（聚焦上限、归档天数、是否显示归档页）
 
+[Unreleased]: https://github.com/ShuangqiLi/FlowDo/compare/v0.0.3...HEAD
+[0.0.3]: https://github.com/ShuangqiLi/FlowDo/compare/v0.0.2...v0.0.3
 [0.0.2]: https://github.com/ShuangqiLi/FlowDo/compare/v0.0.1...v0.0.2
 [0.0.1]: https://github.com/ShuangqiLi/FlowDo/releases/tag/v0.0.1

@@ -3,6 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/task.dart';
 import '../providers.dart';
+import '../theme.dart';
+import '../ui/flowdo_card.dart';
+import '../ui/flowdo_dialog.dart';
 import '../widgets/priority_selector.dart';
 
 class TaskDetailScreen extends ConsumerStatefulWidget {
@@ -50,8 +53,7 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
 
   bool get _archived => widget.task.status == 'ARCHIVED';
 
-  bool get _canDelete =>
-      widget.task.status == 'TODO' || widget.task.status == 'ARCHIVED';
+  bool get _canDelete => widget.task.status == 'TODO' || widget.task.status == 'ARCHIVED';
 
   Future<void> _saveIfNeeded() async {
     if (_deleted || _saving || !_dirty || _archived) {
@@ -86,26 +88,14 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
 
   Future<void> _confirmDelete() async {
     final archived = _archived;
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(archived ? '清掉这条归档？' : '不做了？'),
-        content: Text(
-          archived ? '删掉就回不来啦。' : '会从任务池里拿走，回不来哦。',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('先留着'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('删掉'),
-          ),
-        ],
-      ),
+    final ok = await showFlowDoConfirmDialog(
+      context,
+      title: archived ? '清掉这条归档？' : '不做了？',
+      message: archived ? '删掉就回不来啦。' : '会从任务池里拿走，回不来哦。',
+      confirmLabel: '删掉',
+      destructive: true,
     );
-    if (ok != true) {
+    if (!ok) {
       return;
     }
     _deleted = true;
@@ -144,42 +134,65 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
               ),
           ],
         ),
-        body: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            TextField(
-              controller: _title,
-              readOnly: _archived,
-              decoration: const InputDecoration(
-                labelText: '要办的事',
+        body: ResponsiveContent(
+          maxWidth: AppLayout.readingMaxWidth,
+          child: ListView(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            children: [
+              FlowDoCard(
+                child: TextField(
+                  controller: _title,
+                  readOnly: _archived,
+                  decoration: const InputDecoration(
+                    labelText: '要办的事',
+                  ),
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                PriorityBadge(priority: widget.task.priority),
-                const SizedBox(width: 8),
+              const SizedBox(height: AppSpacing.sm),
+              FlowDoCard(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.md,
+                  vertical: AppSpacing.sm,
+                ),
+                child: Row(
+                  children: [
+                    PriorityBadge(priority: widget.task.priority),
+                    const SizedBox(width: AppSpacing.sm),
+                    Text(
+                      statusLabel,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              FlowDoCard(
+                child: TextField(
+                  controller: _body,
+                  readOnly: _archived,
+                  minLines: 10,
+                  maxLines: 24,
+                  decoration: InputDecoration(
+                    labelText: '过程小记',
+                    hintText: _archived ? null : '想到什么就记一笔（可选）',
+                    alignLabelWithHint: true,
+                  ),
+                ),
+              ),
+              if (_archived) ...[
+                const SizedBox(height: AppSpacing.sm),
                 Text(
-                  statusLabel,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  '这条已经收进归档，只能看看。',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: scheme.onSurfaceVariant,
                       ),
                 ),
               ],
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _body,
-              readOnly: _archived,
-              minLines: 10,
-              maxLines: 24,
-              decoration: InputDecoration(
-                labelText: '过程小记',
-                hintText: _archived ? null : '想到什么就记一笔（可选）',
-                alignLabelWithHint: true,
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

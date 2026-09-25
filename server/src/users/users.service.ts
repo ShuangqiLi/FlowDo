@@ -16,6 +16,7 @@ export class UsersService {
         focusLimit: true,
         deleteArchivedAfterDays: true,
         showArchiveTab: true,
+        themeKey: true,
         createdAt: true,
       },
     });
@@ -39,6 +40,7 @@ export class UsersService {
         ...(dto.showArchiveTab !== undefined
           ? { showArchiveTab: dto.showArchiveTab }
           : {}),
+        ...(dto.themeKey !== undefined ? { themeKey: dto.themeKey } : {}),
       },
       select: {
         id: true,
@@ -47,6 +49,7 @@ export class UsersService {
         focusLimit: true,
         deleteArchivedAfterDays: true,
         showArchiveTab: true,
+        themeKey: true,
         createdAt: true,
       },
     });

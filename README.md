@@ -4,7 +4,7 @@
 Go with the flow, get it done.  
 随随办办——无压力任务管理。服务端（NestJS + PostgreSQL）与客户端（Flutter）分离，个人账号空间，只管状态和优先级，不赶截止日期。
 
-开源协议：[MIT](LICENSE) · 当前版本 [v0.0.2](CHANGELOG.md) · [参与指南](CONTRIBUTING.md) · [Releases](https://github.com/ShuangqiLi/FlowDo/releases)
+开源协议：[MIT](LICENSE) · 当前版本 [v0.0.3](CHANGELOG.md) · [参与指南](CONTRIBUTING.md) · [Releases](https://github.com/ShuangqiLi/FlowDo/releases)
 
 ## 功能
 
@@ -16,6 +16,8 @@ Go with the flow, get it done.
 - 完成后按设置天数自动归档（默认 7 天）
 - 归档只读，可手动删除；到期自动清掉（默认 30 天）
 - Web / 手机 / PC 共用 Flutter，连同一 API
+- 薄荷绿、雾霾蓝、暖橘色、淡紫色四套账号同步主题
+- 可复用的 [FlowDo UI Kit](docs/UI_KIT.md)
 
 ## 下载与发版
 
@@ -25,6 +27,9 @@ Go with the flow, get it done.
   `start.ps1`（Windows）或 `start.sh`（macOS / Linux）
 - `FlowDo-client-windows-x64-*.zip`：Windows 客户端，解压后运行 `FlowDo.exe`
 - `FlowDo-client-android-*.apk`：Android 客户端安装包
+- `FlowDo-client-ios-*.ipa`：iOS 客户端。默认是 **未签名** 包，不能直接装到
+  iPhone / iPad；需要 Apple 开发者账号签名后才能安装（见
+  [CONTRIBUTING.md](CONTRIBUTING.md)）
 - `FlowDo-client-web-*.zip`：可部署到静态网站的 Web 客户端
 
 版本号遵循 SemVer，从 `v0.0.1` 起。正式发布只走 GitHub Releases：更新
@@ -148,7 +153,7 @@ flutter run -d android
 | POST | `/auth/register` `{email,password}` | 注册，密码至少 8 位 |
 | POST | `/auth/login` | 登录 |
 | POST | `/auth/refresh` `{refreshToken}` | 刷新令牌 |
-| GET/PATCH | `/me` | 当前用户；PATCH `{archiveAfterDays, focusLimit, deleteArchivedAfterDays, showArchiveTab}` |
+| GET/PATCH | `/me` | 当前用户；PATCH `{archiveAfterDays, focusLimit, deleteArchivedAfterDays, showArchiveTab, themeKey}` |
 | GET | `/tasks?status=TODO` | 列表，按优先级 |
 | POST | `/tasks` | 新建，默认待办 + 中优先级 |
 | PATCH | `/tasks/:id` | 改标题/正文/优先级/状态；归档任务只读 |

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers.dart';
+import '../theme.dart';
 import 'briefing_screen.dart';
 import 'settings_screen.dart';
 import 'task_list_screen.dart';
@@ -87,8 +88,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       const TaskListScreen(status: 'ARCHIVED'),
       const SettingsScreen(),
     ];
-    final showArchive =
-        ref.watch(meProvider).value?.showArchiveTab ?? true;
+    final showArchive = ref.watch(meProvider).value?.showArchiveTab ?? true;
     var index = ref.watch(homeTabProvider);
     if (!showArchive && index == 3) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -124,14 +124,30 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         body: Stack(
           children: [
             IndexedStack(index: index, children: pages),
-            if (_showBriefing)
-              Dismissible(
-                key: const ValueKey('briefing-panel'),
-                direction: DismissDirection.startToEnd,
-                onDismissed: (_) => _closeBriefing(),
-                background: ColoredBox(color: scheme.surface),
-                child: const BriefingScreen(),
+            AnimatedSwitcher(
+              duration: AppMotion.standard,
+              switchInCurve: AppMotion.curve,
+              switchOutCurve: AppMotion.curve,
+              transitionBuilder: (child, animation) => FadeTransition(
+                opacity: animation,
+                child: SlideTransition(
+                  position: Tween<Offset>(
+                    begin: const Offset(0.04, 0),
+                    end: Offset.zero,
+                  ).animate(animation),
+                  child: child,
+                ),
               ),
+              child: _showBriefing
+                  ? Dismissible(
+                      key: const ValueKey('briefing-panel'),
+                      direction: DismissDirection.startToEnd,
+                      onDismissed: (_) => _closeBriefing(),
+                      background: ColoredBox(color: scheme.surface),
+                      child: const BriefingScreen(),
+                    )
+                  : const SizedBox.shrink(key: ValueKey('briefing-hidden')),
+            ),
           ],
         ),
         bottomNavigationBar: NavigationBar(
@@ -144,24 +160,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           },
           destinations: [
             const NavigationDestination(
-              icon: Icon(Icons.inbox_outlined),
+              icon: Icon(Icons.inbox_rounded),
               label: '任务池',
             ),
             const NavigationDestination(
-              icon: Icon(Icons.center_focus_strong_outlined),
+              icon: Icon(Icons.center_focus_strong_rounded),
               label: '聚焦',
             ),
             const NavigationDestination(
-              icon: Icon(Icons.check_circle_outline),
+              icon: Icon(Icons.check_circle_rounded),
               label: '完成',
             ),
             if (showArchive)
               const NavigationDestination(
-                icon: Icon(Icons.archive_outlined),
+                icon: Icon(Icons.archive_rounded),
                 label: '归档',
               ),
             const NavigationDestination(
-              icon: Icon(Icons.settings_outlined),
+              icon: Icon(Icons.settings_rounded),
               label: '设置',
             ),
           ],

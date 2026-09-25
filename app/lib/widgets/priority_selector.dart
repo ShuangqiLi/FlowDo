@@ -1,12 +1,18 @@
 import 'package:flutter/material.dart';
 
+import '../theme.dart';
+
 const priorityOrder = ['HIGH', 'MEDIUM', 'LOW'];
 
-Color priorityColor(String priority) {
+Color priorityColor(BuildContext context, String priority) {
+  return context.flowColors.priority(priority);
+}
+
+IconData priorityIcon(String priority) {
   return switch (priority) {
-    'HIGH' => const Color(0xFFD64545),
-    'LOW' => const Color(0xFF6B7C85),
-    _ => const Color(0xFFE08A2C),
+    'HIGH' => Icons.keyboard_double_arrow_up_rounded,
+    'LOW' => Icons.keyboard_arrow_down_rounded,
+    _ => Icons.remove_rounded,
   };
 }
 
@@ -72,8 +78,9 @@ class PrioritySelector extends StatelessWidget {
       spacing: 8,
       children: priorityOrder.map((p) {
         final selected = p == value;
-        final color = priorityColor(p);
+        final color = priorityColor(context, p);
         return ChoiceChip(
+          avatar: Icon(priorityIcon(p), size: 16, color: color),
           label: Text(priorityLabel(p)),
           selected: selected,
           onSelected: (_) => onChanged(p),
@@ -103,22 +110,24 @@ class PriorityBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = priorityColor(priority);
-    return Container(
-      width: 32,
-      height: 32,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.16),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withValues(alpha: 0.35)),
-      ),
-      child: Text(
-        priorityLabel(priority),
-        style: TextStyle(
-          color: color,
-          fontSize: 13,
-          fontWeight: FontWeight.w700,
+    final color = priorityColor(context, priority);
+    return Semantics(
+      label: '${priorityLabel(priority)}优先级',
+      child: ExcludeSemantics(
+        child: Container(
+          width: 32,
+          height: 32,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.16),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: color.withValues(alpha: 0.35)),
+          ),
+          child: Icon(
+            priorityIcon(priority),
+            color: color,
+            size: 19,
+          ),
         ),
       ),
     );

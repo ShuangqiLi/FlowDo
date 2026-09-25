@@ -6,6 +6,13 @@ import 'package:flutter_slidable/flutter_slidable.dart';
 import '../api/api_client.dart';
 import '../models/task.dart';
 import '../providers.dart';
+import '../theme.dart';
+import '../ui/celebration_overlay.dart';
+import '../ui/empty_state.dart';
+import '../ui/flowdo_card.dart';
+import '../ui/flowdo_dialog.dart';
+import '../ui/quick_add_field.dart';
+import '../ui/task_card.dart';
 import '../widgets/priority_selector.dart';
 import 'task_detail_screen.dart';
 
@@ -98,8 +105,7 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
   Future<void> _setStatus(Task task, String status) async {
     if (status == 'FOCUS') {
       final limit = ref.read(meProvider).value?.focusLimit ?? 3;
-      final focused =
-          ref.read(tasksProvider('FOCUS')).value?.length ?? 0;
+      final focused = ref.read(tasksProvider('FOCUS')).value?.length ?? 0;
       if (focused >= limit) {
         _goFocusWithHint(
           '手头这 $limit 件先盯紧啦。搞定或先放回任务池，再接新的。',
@@ -110,12 +116,14 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
     }
     try {
       await ref.read(apiProvider).updateTask(task.id, status: status);
+      if (status == 'DONE' && mounted) {
+        showFlowDoCelebration(context);
+      }
       await _refresh();
       if (status != widget.status) {
         ref.invalidate(tasksProvider(status));
       }
-      if (status == 'TODO' &&
-          (widget.status == 'FOCUS' || widget.status == 'DONE')) {
+      if (status == 'TODO' && (widget.status == 'FOCUS' || widget.status == 'DONE')) {
         ref.read(homeTabProvider.notifier).setIndex(0);
       }
     } on ApiException catch (e) {
@@ -149,28 +157,14 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
 
   Future<void> _delete(Task task) async {
     final archived = task.status == 'ARCHIVED';
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(archived ? '清掉这条归档？' : '不做了？'),
-        content: Text(
-          archived
-              ? '「${task.title}」删掉就回不来啦。'
-              : '「${task.title}」会从任务池里拿走，回不来哦。',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('先留着'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('删掉'),
-          ),
-        ],
-      ),
+    final ok = await showFlowDoConfirmDialog(
+      context,
+      title: archived ? '清掉这条归档？' : '不做了？',
+      message: archived ? '「${task.title}」删掉就回不来啦。' : '「${task.title}」会从任务池里拿走，回不来哦。',
+      confirmLabel: '删掉',
+      destructive: true,
     );
-    if (ok != true) {
+    if (!ok) {
       return;
     }
     await ref.read(apiProvider).deleteTask(task.id);
@@ -192,161 +186,131 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
     final deleteDays = me.value?.deleteArchivedAfterDays ?? 30;
     final scheme = Theme.of(context).colorScheme;
 
-    return Column(
-      children: [
-        if (widget.status == 'TODO')
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                TextField(
-                  controller: _quickAdd,
-                  textInputAction: TextInputAction.done,
-                  decoration: InputDecoration(
-                    hintText: '想到什么？点右边加入任务池',
-                    prefixIcon: const Icon(Icons.add_task_outlined),
-                    suffixIcon: IconButton(
-                      tooltip: '添加',
-                      onPressed: _add,
-                      icon: const Icon(Icons.arrow_upward),
-                    ),
+    return ResponsiveContent(
+      child: Column(
+        children: [
+          if (widget.status == 'TODO')
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  QuickAddField(
+                    controller: _quickAdd,
+                    onSubmit: _add,
                   ),
-                  onSubmitted: (_) => _add(),
-                ),
-                const SizedBox(height: 10),
-                Focus(
-                  focusNode: _priorityFocus,
-                  child: Listener(
-                    behavior: HitTestBehavior.translucent,
-                    onPointerDown: (event) {
-                      _priorityPointerStartX = event.position.dx;
-                      _priorityFocus.requestFocus();
-                    },
-                    onPointerUp: (event) {
-                      final start = _priorityPointerStartX;
-                      _priorityPointerStartX = null;
-                      if (start == null) {
-                        return;
-                      }
-                      final dx = event.position.dx - start;
-                      if (dx > 48) {
-                        _cycleNewPriority(-1);
-                      } else if (dx < -48) {
-                        _cycleNewPriority(1);
-                      }
-                    },
-                    onPointerCancel: (_) => _priorityPointerStartX = null,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 6),
-                      child: Row(
-                        children: [
-                          Text(
-                            '优先级',
-                            style: Theme.of(context)
-                                .textTheme
-                                .labelLarge
-                                ?.copyWith(
-                                  color: scheme.onSurfaceVariant,
+                  const SizedBox(height: 10),
+                  FlowDoCard(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.sm,
+                      vertical: AppSpacing.xxs,
+                    ),
+                    child: Focus(
+                      focusNode: _priorityFocus,
+                      child: Listener(
+                        behavior: HitTestBehavior.translucent,
+                        onPointerDown: (event) {
+                          _priorityPointerStartX = event.position.dx;
+                          _priorityFocus.requestFocus();
+                        },
+                        onPointerUp: (event) {
+                          final start = _priorityPointerStartX;
+                          _priorityPointerStartX = null;
+                          if (start == null) {
+                            return;
+                          }
+                          final dx = event.position.dx - start;
+                          if (dx > 48) {
+                            _cycleNewPriority(-1);
+                          } else if (dx < -48) {
+                            _cycleNewPriority(1);
+                          }
+                        },
+                        onPointerCancel: (_) => _priorityPointerStartX = null,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 6),
+                          child: Row(
+                            children: [
+                              Text(
+                                '优先级',
+                                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                                      color: scheme.onSurfaceVariant,
+                                    ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: PrioritySelector(
+                                  value: _newPriority,
+                                  onChanged: (v) => setState(() => _newPriority = v),
                                 ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: PrioritySelector(
-                              value: _newPriority,
-                              onChanged: (v) =>
-                                  setState(() => _newPriority = v),
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        Expanded(
-          child: async.when(
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Center(child: Text('$e')),
-            data: (tasks) {
-              if (tasks.isEmpty) {
+          Expanded(
+            child: async.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (e, _) => Center(child: Text('$e')),
+              data: (tasks) {
+                if (tasks.isEmpty) {
+                  return RefreshIndicator(
+                    onRefresh: _refresh,
+                    child: ListView(
+                      children: [
+                        SizedBox(
+                          height: 280,
+                          child: EmptyState(
+                            icon: Icons.inbox_rounded,
+                            message: _emptyText(widget.status),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
                 return RefreshIndicator(
                   onRefresh: _refresh,
-                  child: ListView(
-                    children: [
-                      SizedBox(
-                        height: 280,
-                        child: Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(32),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.inbox_outlined,
-                                  size: 48,
-                                  color: scheme.outline,
+                  child: SlidableAutoCloseBehavior(
+                    child: ListView.separated(
+                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+                      itemCount: tasks.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm),
+                      itemBuilder: (context, i) {
+                        final task = tasks[i];
+                        return _wrapSwipe(
+                          task,
+                          TaskCard(
+                            key: ValueKey(task.id),
+                            task: task,
+                            subtitle: _subtitle(task, archiveDays, deleteDays),
+                            onOpen: () async {
+                              await Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => TaskDetailScreen(task: task),
                                 ),
-                                const SizedBox(height: 12),
-                                Text(
-                                  _emptyText(widget.status),
-                                  textAlign: TextAlign.center,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodyLarge
-                                      ?.copyWith(
-                                        color: scheme.onSurfaceVariant,
-                                      ),
-                                ),
-                              ],
-                            ),
+                              );
+                              await _refresh();
+                            },
+                            onPickPriority:
+                                widget.status == 'ARCHIVED' ? null : () => _pickPriority(task),
+                            actions: _actions(task),
                           ),
-                        ),
-                      ),
-                    ],
+                        );
+                      },
+                    ),
                   ),
                 );
-              }
-              return RefreshIndicator(
-                onRefresh: _refresh,
-                child: SlidableAutoCloseBehavior(
-                  child: ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-                    itemCount: tasks.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 8),
-                    itemBuilder: (context, i) {
-                      final task = tasks[i];
-                      return _wrapSwipe(
-                        task,
-                        _TaskRow(
-                          key: ValueKey(task.id),
-                          task: task,
-                          subtitle: _subtitle(task, archiveDays, deleteDays),
-                          accent: priorityColor(task.priority),
-                          onOpen: () async {
-                            await Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => TaskDetailScreen(task: task),
-                              ),
-                            );
-                            await _refresh();
-                          },
-                          onPickPriority: widget.status == 'ARCHIVED'
-                              ? null
-                              : () => _pickPriority(task),
-                          actions: _actions(task),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              );
-            },
+              },
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -367,7 +331,7 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
                 onPressed: (_) => _setStatus(task, 'FOCUS'),
                 backgroundColor: scheme.primary,
                 foregroundColor: scheme.onPrimary,
-                icon: Icons.center_focus_strong,
+                icon: Icons.center_focus_strong_rounded,
                 label: '聚焦',
               ),
             ],
@@ -380,7 +344,7 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
                 onPressed: (_) => _delete(task),
                 backgroundColor: scheme.error,
                 foregroundColor: scheme.onError,
-                icon: Icons.delete_outline,
+                icon: Icons.delete_outline_rounded,
                 label: '删除',
               ),
             ],
@@ -401,7 +365,7 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
                 onPressed: (_) => _setStatus(task, 'DONE'),
                 backgroundColor: scheme.primary,
                 foregroundColor: scheme.onPrimary,
-                icon: Icons.check_circle_outline,
+                icon: Icons.check_circle_rounded,
                 label: '完成',
               ),
             ],
@@ -417,7 +381,7 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
                 onPressed: (_) => _setStatus(task, 'TODO'),
                 backgroundColor: scheme.secondaryContainer,
                 foregroundColor: scheme.onSecondaryContainer,
-                icon: Icons.inbox_outlined,
+                icon: Icons.inbox_rounded,
                 label: '任务池',
               ),
             ],
@@ -438,7 +402,7 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
                 onPressed: (_) => _setStatus(task, 'TODO'),
                 backgroundColor: scheme.secondaryContainer,
                 foregroundColor: scheme.onSecondaryContainer,
-                icon: Icons.undo,
+                icon: Icons.undo_rounded,
                 label: '任务池',
               ),
             ],
@@ -468,7 +432,7 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
         return [
           IconButton(
             tooltip: '聚焦',
-            icon: const Icon(Icons.center_focus_strong),
+            icon: const Icon(Icons.center_focus_strong_rounded),
             onPressed: () => _setStatus(task, 'FOCUS'),
           ),
         ];
@@ -476,12 +440,12 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
         return [
           IconButton(
             tooltip: '先放回任务池',
-            icon: const Icon(Icons.inbox_outlined),
+            icon: const Icon(Icons.inbox_rounded),
             onPressed: () => _setStatus(task, 'TODO'),
           ),
           IconButton(
             tooltip: '搞定啦',
-            icon: const Icon(Icons.check_circle_outline),
+            icon: const Icon(Icons.check_circle_rounded),
             onPressed: () => _setStatus(task, 'DONE'),
           ),
         ];
@@ -489,7 +453,7 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
         return [
           IconButton(
             tooltip: '先放回任务池',
-            icon: const Icon(Icons.undo),
+            icon: const Icon(Icons.undo_rounded),
             onPressed: () => _setStatus(task, 'TODO'),
           ),
         ];
@@ -497,7 +461,7 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
         return [
           IconButton(
             tooltip: '清掉',
-            icon: const Icon(Icons.delete_outline),
+            icon: const Icon(Icons.delete_outline_rounded),
             onPressed: () => _delete(task),
           ),
         ];
@@ -514,113 +478,5 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
       'ARCHIVED' => '归档柜空着，挺清爽。',
       _ => '暂时没有任务',
     };
-  }
-}
-
-class _TaskRow extends StatelessWidget {
-  const _TaskRow({
-    super.key,
-    required this.task,
-    required this.accent,
-    required this.onOpen,
-    this.onPickPriority,
-    required this.actions,
-    this.subtitle,
-  });
-
-  final Task task;
-  final Color accent;
-  final Widget? subtitle;
-  final VoidCallback onOpen;
-  final VoidCallback? onPickPriority;
-  final List<Widget> actions;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(14),
-      child: Ink(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: Theme.of(context)
-                .colorScheme
-                .outlineVariant
-                .withValues(alpha: 0.7),
-          ),
-        ),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 56),
-          child: IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Container(
-                width: 4,
-                decoration: BoxDecoration(
-                  color: accent,
-                  borderRadius: const BorderRadius.horizontal(
-                    left: Radius.circular(14),
-                  ),
-                ),
-              ),
-              Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: onPickPriority,
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(10, 8, 4, 8),
-                    child: Center(
-                      child: PriorityBadge(priority: task.priority),
-                    ),
-                  ),
-                ),
-              ),
-              Expanded(
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: onOpen,
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(6, 8, 4, 8),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            task.title,
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleMedium
-                                ?.copyWith(fontWeight: FontWeight.w600),
-                          ),
-                          if (subtitle != null) ...[
-                            const SizedBox(height: 2),
-                            DefaultTextStyle(
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodySmall!
-                                  .copyWith(
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .onSurfaceVariant,
-                                  ),
-                              child: subtitle!,
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              ...actions,
-            ],
-          ),
-          ),
-        ),
-      ),
-    );
   }
 }
