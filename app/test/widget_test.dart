@@ -23,24 +23,8 @@ void main() {
     expect(find.text('随随办办，总会办完。'), findsOneWidget);
     expect(find.text('Go with the flow, get it done.'), findsOneWidget);
     expect(find.text('登录'), findsWidgets);
+    expect(find.text('API 地址'), findsNothing);
+    expect(find.textContaining('注册'), findsNothing);
     expect(find.text('确认密码'), findsNothing);
-  });
-
-  testWidgets('register mode shows confirm password', (tester) async {
-    SharedPreferences.setMockInitialValues({});
-    final prefs = await SharedPreferences.getInstance();
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [prefsProvider.overrideWithValue(prefs)],
-        child: const FlowDoApp(),
-      ),
-    );
-    await tester.pumpAndSettle();
-    final register = find.text('还没有账号？来注册');
-    await tester.ensureVisible(register);
-    await tester.tap(register);
-    await tester.pumpAndSettle();
-    expect(find.text('确认密码'), findsOneWidget);
-    expect(find.text('注册'), findsWidgets);
   });
 }

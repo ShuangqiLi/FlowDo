@@ -1,15 +1,12 @@
-# 一份编排，靠环境变量和 profile 区分场景。
+# 内网部署：数据库只在容器网络里，网页端和 API 端口可配置。
 #
-# 本机（源码构建后）：
+# 源码构建后：
 #   docker build -t flowdo-server:latest ./server
+#   (cd app && flutter build web --release --no-web-resources-cdn)
+#   docker build -f web/Dockerfile -t flowdo-web:latest .
 #   docker compose up -d
-#   API 默认只绑 127.0.0.1:13000（容器内仍是 3000，避开 Grafana 等占用）。
-#   数据库不映射到宿主机，仅容器内 db:5432。
-#   要给同一局域网的手机连：FLOWDO_API_BIND=0.0.0.0
-#
-# 公网 HTTPS：
-#   DOMAIN=api.example.com JWT_SECRET='长随机串' docker compose --profile https up -d
-#   只对外开 80/443，安全组放行这两端口即可。
+#   浏览器打开 http://<主机 IP>:8080。
+#   网页端把 API 路径同源反代到 api:3000，客户端不用知道 API 地址。
 name: flowdo
 
 services:
@@ -34,38 +31,26 @@ services:
     pull_policy: if_not_present
     restart: unless-stopped
     ports:
-      - "${FLOWDO_API_BIND:-127.0.0.1}:${API_PORT:-13000}:3000"
+      - "${FLOWDO_API_BIND:-0.0.0.0}:${API_PORT:-13000}:3000"
     environment:
       DATABASE_URL: postgresql://flowdo:flowdo@db:5432/flowdo
       JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
       JWT_ACCESS_EXPIRES: 30m
       JWT_REFRESH_EXPIRES: 7d
       PORT: 3000
-      CORS_ORIGIN: ${CORS_ORIGIN:-*}
     depends_on:
       db:
         condition: service_healthy
 
-  caddy:
-    profiles: [https]
-    image: caddy:2-alpine
+  web:
+    image: flowdo-web:latest
     pull_policy: if_not_present
     restart: unless-stopped
     ports:
-      - "80:80"
-      - "443:443"
-      - "443:443/udp"
-    environment:
-      DOMAIN: ${DOMAIN:-}
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-      - caddy_config:/config
+      - "${FLOWDO_WEB_BIND:-0.0.0.0}:${WEB_PORT:-8080}:80"
     depends_on:
       api:
         condition: service_started
 
 volumes:
   flowdo_data:
-  caddy_data:
-  caddy_config:

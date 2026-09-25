@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:speech_to_text/speech_to_text.dart';
@@ -19,6 +20,24 @@ class AddTaskFab extends ConsumerStatefulWidget {
   static const double size = 56;
   static const double margin = 16;
   static const String prefsPrefix = 'fabPos:';
+
+  /// 正式发布的只有网页端；本地调试跑桌面时，Windows / Linux 的识别插件
+  /// 会把整个进程带崩，这些平台只留打字。
+  static bool get voiceSupported {
+    if (kIsWeb) {
+      return true;
+    }
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.android:
+      case TargetPlatform.iOS:
+      case TargetPlatform.macOS:
+        return true;
+      case TargetPlatform.windows:
+      case TargetPlatform.linux:
+      case TargetPlatform.fuchsia:
+        return false;
+    }
+  }
 
   @override
   ConsumerState<AddTaskFab> createState() => _AddTaskFabState();
@@ -59,7 +78,7 @@ class _AddTaskFabState extends ConsumerState<AddTaskFab>
   @override
   void dispose() {
     _pulse.dispose();
-    _speech.cancel();
+    _speech.cancel().catchError((_) {});
     _controller.dispose();
     _focus.dispose();
     super.dispose();
@@ -220,25 +239,50 @@ class _AddTaskFabState extends ConsumerState<AddTaskFab>
     }
   }
 
-  Future<void> _startVoiceInput() async {
-    final available = await _speech.initialize(
-      onStatus: (status) {
-        if (!mounted) return;
-        setState(() => _isListening = status == 'listening');
-      },
-      onError: (error) {
-        if (!mounted) return;
-        setState(() => _isListening = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('语音输入没听清：${error.errorMsg}')),
-        );
-      },
-    );
-    if (!available) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('当前设备暂不支持语音输入')),
+  void _hintNoVoice() {
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(
+        const SnackBar(content: Text('这个平台还不能语音输入，松开手打字吧')),
       );
+  }
+
+  void _voiceFailed(String message) {
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
+  Future<void> _startVoiceInput() async {
+    if (!AddTaskFab.voiceSupported) {
+      _hintNoVoice();
+      await _closeComposer();
+      return;
+    }
+
+    final bool available;
+    try {
+      available = await _speech.initialize(
+        onStatus: (status) {
+          if (!mounted) return;
+          setState(() => _isListening = status == 'listening');
+        },
+        onError: (error) {
+          if (!mounted) return;
+          setState(() => _isListening = false);
+          _voiceFailed('语音输入没听清：${error.errorMsg}');
+        },
+      );
+    } catch (_) {
+      _voiceFailed('语音输入没启动起来，先打字吧');
+      await _closeComposer();
+      return;
+    }
+    if (!available) {
+      _voiceFailed('当前设备暂不支持语音输入');
       await _closeComposer();
       return;
     }
@@ -248,38 +292,52 @@ class _AddTaskFabState extends ConsumerState<AddTaskFab>
 
     final session = ++_speechSession;
     _speechPrefix = _controller.text.trim();
-    final locales = await _speech.locales();
     String? chineseLocale;
-    for (final locale in locales) {
-      if (locale.localeId.toLowerCase().startsWith('zh')) {
-        chineseLocale = locale.localeId;
-        break;
-      }
-    }
-    await _speech.listen(
-      listenOptions: SpeechListenOptions(
-        localeId: chineseLocale,
-        pauseFor: const Duration(seconds: 30),
-      ),
-      onResult: (result) {
-        if (session != _speechSession) {
-          return;
+    try {
+      final locales = await _speech.locales();
+      for (final locale in locales) {
+        if (locale.localeId.toLowerCase().startsWith('zh')) {
+          chineseLocale = locale.localeId;
+          break;
         }
-        final spoken = stripTrailingPunctuation(result.recognizedWords.trim());
-        final text =
-            [_speechPrefix, spoken].where((part) => part.isNotEmpty).join(' ');
-        _controller.value = TextEditingValue(
-          text: text,
-          selection: TextSelection.collapsed(offset: text.length),
-        );
-        setState(() {});
-      },
-    );
+      }
+    } catch (_) {
+      // 拿不到语言列表就交给系统默认的那一个。
+    }
+    try {
+      await _speech.listen(
+        listenOptions: SpeechListenOptions(
+          localeId: chineseLocale,
+          pauseFor: const Duration(seconds: 30),
+        ),
+        onResult: (result) {
+          if (session != _speechSession) {
+            return;
+          }
+          final spoken =
+              stripTrailingPunctuation(result.recognizedWords.trim());
+          final text =
+              [_speechPrefix, spoken].where((part) => part.isNotEmpty).join(' ');
+          _controller.value = TextEditingValue(
+            text: text,
+            selection: TextSelection.collapsed(offset: text.length),
+          );
+          setState(() {});
+        },
+      );
+    } catch (_) {
+      _voiceFailed('语音输入没启动起来，先打字吧');
+      await _closeComposer();
+    }
   }
 
   Future<void> _endVoiceInput() async {
-    if (_speech.isListening) {
-      await _speech.stop();
+    try {
+      if (_speech.isListening) {
+        await _speech.stop();
+      }
+    } catch (_) {
+      // 停不下来也别挡着提交。
     }
     if (mounted) {
       setState(() => _isListening = false);
@@ -395,6 +453,10 @@ class _AddTaskFabState extends ConsumerState<AddTaskFab>
                   if (!mounted || _moved || _origin == null) {
                     return;
                   }
+                  if (!AddTaskFab.voiceSupported) {
+                    _hintNoVoice();
+                    return;
+                  }
                   _holdingVoice = true;
                   _openComposer(voice: true);
                 });
@@ -442,7 +504,11 @@ class _AddTaskFabState extends ConsumerState<AddTaskFab>
                 }
               },
               child: Tooltip(
-                message: _composerOpen ? '关掉' : '点按输入，长按说话，拖动贴边',
+                message: _composerOpen
+                    ? '关掉'
+                    : AddTaskFab.voiceSupported
+                        ? '点按输入，长按说话，拖动贴边'
+                        : '点按输入，拖动贴边',
                 child: Material(
                   key: const ValueKey('add-task-fab'),
                   elevation: _moved ? 10 : 6,

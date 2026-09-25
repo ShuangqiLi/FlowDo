@@ -24,6 +24,17 @@ ensure_image() {
 
 ensure_image postgres:16-alpine docker.m.daocloud.io/library/postgres:16-alpine
 ensure_image node:22-alpine docker.m.daocloud.io/library/node:22-alpine
+ensure_image nginx:1.27-alpine docker.m.daocloud.io/library/nginx:1.27-alpine
+
+if ! command -v flutter >/dev/null 2>&1; then
+  echo "没找到 flutter，网页端镜像没法从源码构建。"
+  echo "装一个 Flutter SDK，或者直接用 Releases 里的 FlowDo-docker-*.zip 部署包。"
+  exit 1
+fi
+
+echo "正在构建网页端..."
+(cd app && flutter build web --release --no-web-resources-cdn)
+docker build -f web/Dockerfile -t flowdo-web:latest .
 
 echo "正在启动服务端..."
 docker build -t flowdo-server:latest ./server
@@ -46,8 +57,10 @@ if [ "$ok" -ne 1 ]; then
 fi
 
 echo
-echo "服务端已就绪"
-echo "  API：  http://127.0.0.1:13000"
-echo "  健康： http://127.0.0.1:13000/health"
-echo "App 里把 API 地址填成上面这个即可。"
+echo "FlowDo 已就绪"
+echo "  网页端：http://127.0.0.1:8080"
+echo "  API：   http://127.0.0.1:13000"
+echo "  健康：  http://127.0.0.1:13000/health"
+echo "第一次使用先创建账号："
+echo "  docker compose exec api npm run user:create -- user@example.com '至少8位密码'"
 echo "停掉：docker compose down"

@@ -14,20 +14,12 @@ class SettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
-  final _url = TextEditingController();
   final _days = TextEditingController();
   final _focusLimit = TextEditingController();
   final _deleteDays = TextEditingController();
 
   @override
-  void initState() {
-    super.initState();
-    _url.text = ref.read(apiProvider).baseUrl;
-  }
-
-  @override
   void dispose() {
-    _url.dispose();
     _days.dispose();
     _focusLimit.dispose();
     _deleteDays.dispose();
@@ -138,34 +130,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     onTap:
                         me.value?.themeKey == theme.key ? null : () => _saveMe(themeKey: theme.key),
                   ),
-              ],
-            ),
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          const SectionHeader('连接'),
-          FlowDoCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                TextField(
-                  controller: _url,
-                  decoration: const InputDecoration(
-                    labelText: 'API 地址',
-                    prefixIcon: Icon(Icons.link),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                FilledButton.tonal(
-                  onPressed: () async {
-                    await ref.read(apiProvider).setBaseUrl(_url.text);
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('地址已记住')),
-                      );
-                    }
-                  },
-                  child: const Text('保存地址'),
-                ),
               ],
             ),
           ),

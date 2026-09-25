@@ -9,137 +9,47 @@ permissions:
   contents: write
 
 jobs:
-  server:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Build server Docker image
-        run: docker build -t flowdo-server:latest ./server
-      - name: Package server
-        env:
-          TAG: ${{ github.ref_name }}
-        run: |
-          mkdir -p dist/server
-          cp Caddyfile docker-compose.yml dist/server/
-          cp release/server/start.sh release/server/start.ps1 release/server/README.md dist/server/
-          docker save flowdo-server:latest | gzip -9 > dist/server/flowdo-server-image.tar.gz
-          cd dist/server
-          zip -9 -r "../FlowDo-server-docker-${TAG}.zip" .
-      - uses: actions/upload-artifact@v4
-        with:
-          name: server
-          path: dist/FlowDo-server-docker-*.zip
-          if-no-files-found: error
-
-  android-and-web:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
           cache: true
-      - name: Prepare Flutter project
+      - name: Check the web client
         working-directory: app
         run: |
-          flutter create . --project-name flowdo --platforms android,web
           flutter pub get
           flutter analyze
           flutter test
-      - name: Build Android and Web clients
+      - name: Build the web client
         working-directory: app
+        run: flutter build web --release --no-web-resources-cdn
+      - name: Build Docker images
         run: |
-          flutter build apk --release
-          flutter build web --release
-      - name: Package clients
+          docker build -t flowdo-server:latest ./server
+          docker build -f web/Dockerfile -t flowdo-web:latest .
+      - name: Package
         env:
           TAG: ${{ github.ref_name }}
         run: |
-          mkdir -p dist
-          cp app/build/app/outputs/flutter-apk/app-release.apk \
-            "dist/FlowDo-client-android-${TAG}.apk"
-          cd app/build/web
-          zip -9 -r "../../../dist/FlowDo-client-web-${TAG}.zip" .
+          mkdir -p dist/package/web-build
+          cp docker-compose.yml dist/package/
+          cp release/docker/start.sh release/docker/start.ps1 release/docker/README.md dist/package/
+          cp -R app/build/web/. dist/package/web-build/
+          docker save flowdo-server:latest | gzip -9 > dist/package/flowdo-server-image.tar.gz
+          docker save flowdo-web:latest | gzip -9 > dist/package/flowdo-web-image.tar.gz
+          (cd dist/package && zip -9 -r "../FlowDo-docker-${TAG}.zip" .)
+          rm -rf dist/package
       - uses: actions/upload-artifact@v4
         with:
-          name: android-and-web
-          path: dist/*
-          if-no-files-found: error
-
-  windows:
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          cache: true
-      - name: Build Windows client
-        working-directory: app
-        run: |
-          flutter config --enable-windows-desktop
-          flutter create . --project-name flowdo --platforms windows
-          flutter pub get
-          flutter build windows --release
-      - name: Package Windows client
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force dist | Out-Null
-          Compress-Archive `
-            -Path app/build/windows/x64/runner/Release/* `
-            -DestinationPath "dist/FlowDo-client-windows-x64-${env:GITHUB_REF_NAME}.zip"
-      - uses: actions/upload-artifact@v4
-        with:
-          name: windows
-          path: dist/*
-          if-no-files-found: error
-
-  ios:
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          cache: true
-      - name: Prepare Flutter iOS project
-        working-directory: app
-        run: |
-          flutter create . --project-name flowdo --org com.flowdo --platforms ios
-          /usr/libexec/PlistBuddy -c 'Add :CFBundleDisplayName string 随随办办 FlowDo' ios/Runner/Info.plist \
-            || /usr/libexec/PlistBuddy -c 'Set :CFBundleDisplayName 随随办办 FlowDo' ios/Runner/Info.plist
-          python3 - <<'PY'
-          from pathlib import Path
-          p = Path("ios/Runner.xcodeproj/project.pbxproj")
-          text = p.read_text(encoding="utf-8")
-          p.write_text(
-              text.replace("com.flowdo.flowdo", "com.flowdo.app"),
-              encoding="utf-8",
-          )
-          PY
-          flutter pub get
-          dart run flutter_launcher_icons
-      - name: Build unsigned iOS IPA
-        working-directory: app
-        run: |
-          flutter build ios --release --no-codesign
-          mkdir -p Payload
-          cp -R build/ios/iphoneos/Runner.app Payload/Runner.app
-          zip -9 -y -r "FlowDo-client-ios-unsigned-${GITHUB_REF_NAME}.ipa" Payload
-          mkdir -p ../dist
-          mv "FlowDo-client-ios-unsigned-${GITHUB_REF_NAME}.ipa" ../dist/
-      - uses: actions/upload-artifact@v4
-        with:
-          name: ios
+          name: release-files
           path: dist/*
           if-no-files-found: error
 
   github-release:
-    needs: [server, android-and-web, windows, ios]
+    needs: [build]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

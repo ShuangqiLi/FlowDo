@@ -1,0 +1,4 @@
+# 根目录只用来构建 web/Dockerfile，上下文里只需要产物和 nginx 配置。
+*
+!app/build/web
+!web/nginx.conf

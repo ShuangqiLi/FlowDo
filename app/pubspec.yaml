@@ -1,7 +1,7 @@
 name: flowdo
 description: 随随办办 / FlowDo — 无压力任务管理
 publish_to: "none"
-version: 0.2.2+8
+version: 0.3.0+9
 
 environment:
   sdk: ">=3.5.0 <4.0.0"
@@ -32,16 +32,9 @@ flutter:
         - asset: assets/fonts/ZCOOLKuaiLe-Regular.ttf
 
 flutter_launcher_icons:
-  android: true
-  ios: true
   image_path: assets/branding/flowdo_app_icon.png
-  min_sdk_android: 21
   web:
     generate: true
     image_path: assets/branding/flowdo_app_icon.png
     background_color: "#E8F5EE"
     theme_color: "#4F8F70"
-  windows:
-    generate: true
-    image_path: assets/branding/flowdo_app_icon.png
-    icon_size: 256

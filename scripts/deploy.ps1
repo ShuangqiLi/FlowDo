@@ -42,6 +42,26 @@ if (-not (Test-Docker)) {
 
 Ensure-Image 'postgres:16-alpine' 'docker.m.daocloud.io/library/postgres:16-alpine'
 Ensure-Image 'node:22-alpine' 'docker.m.daocloud.io/library/node:22-alpine'
+Ensure-Image 'nginx:1.27-alpine' 'docker.m.daocloud.io/library/nginx:1.27-alpine'
+
+if (-not (Get-Command flutter -ErrorAction SilentlyContinue)) {
+    Write-Host "没找到 flutter，网页端镜像没法从源码构建。"
+    Write-Host "装一个 Flutter SDK，或者直接用 Releases 里的 FlowDo-docker-*.zip 部署包。"
+    exit 1
+}
+
+Write-Host "正在构建网页端..."
+Push-Location app
+flutter build web --release --no-web-resources-cdn
+$built = $LASTEXITCODE
+Pop-Location
+if ($built -ne 0) {
+    throw "flutter build web 失败。"
+}
+docker build -f web/Dockerfile -t flowdo-web:latest .
+if ($LASTEXITCODE -ne 0) {
+    throw "网页端 docker build 失败。"
+}
 
 Write-Host "正在启动服务端..."
 docker build -t flowdo-server:latest ./server
@@ -75,8 +95,10 @@ if (-not $ok) {
 }
 
 Write-Host ""
-Write-Host "服务端已就绪"
-Write-Host "  API：  http://127.0.0.1:13000"
-Write-Host "  健康： $health"
-Write-Host "App 里把 API 地址填成上面这个即可。"
+Write-Host "FlowDo 已就绪"
+Write-Host "  网页端：http://127.0.0.1:8080"
+Write-Host "  API：   http://127.0.0.1:13000"
+Write-Host "  健康：  $health"
+Write-Host "第一次使用先创建账号："
+Write-Host "  docker compose exec api npm run user:create -- user@example.com '至少8位密码'"
 Write-Host "停掉：docker compose down"

@@ -6,3 +6,10 @@ build/
 .idea/
 .vscode/
 *.iml
+
+# 只维护网页端。本地想调其他平台可以 flutter create，但别提交进来。
+/android/
+/ios/
+/linux/
+/macos/
+/windows/

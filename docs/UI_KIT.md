@@ -1,6 +1,7 @@
 # FlowDo UI Kit
 
 新增界面优先复用本 UI Kit，不在页面中直接写颜色、圆角和动画时长。
+客户端只有网页端，一套界面同时照顾手机浏览器和桌面浏览器：手势和鼠标拖动都要能用。
 
 ## 主题
 
@@ -30,6 +31,7 @@
 
 - 正文：Noto Sans SC（思源黑体）
 - 品牌标题/少量空状态：ZCOOL KuaiLe（站酷快乐体）
+- 两套字体都打进产物，网页端首屏要下载十几兆；加字体前先想清楚值不值
 - 图标优先使用 Material Rounded/Outlined，放入 `FlowDoIconTile` 时使用
   主色浅底 + 发丝描边
 
@@ -50,7 +52,7 @@
 - `TaskInteractable`：左右滑归类（任务池左滑删除），离场淡出
 - `SwipeAway` / `SwipeToPop`：右滑离开
 - `FlowDoPageRoute`：设置 / 归档 / 详情等子页路由
-- `AddTaskFab`：可拖动贴边的加号；点按文字、长按语音
+- `AddTaskFab`：可拖动贴边的加号；点按文字、长按语音（浏览器不支持语音时只提示打字）
 - `MonthReviewCalendar`：月完成日历
 - `EmptyState`：轻量空状态
 - `showFlowDoConfirmDialog` / `showFlowDoCelebration`

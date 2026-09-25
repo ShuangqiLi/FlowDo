@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -132,6 +133,40 @@ void main() {
       tester.getCenter(fab).dx,
       lessThan(tester.getSize(find.byType(MaterialApp)).width / 2),
     );
+  });
+
+  testWidgets('holding the FAB without speech support falls back to typing',
+      (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    try {
+      await _pumpHome(tester);
+
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.byKey(const ValueKey('add-task-fab'))),
+      );
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.textContaining('还不能语音输入'), findsOneWidget);
+      expect(find.text('正在听，松开就好'), findsNothing);
+
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(find.text('想到什么？先放进任务池'), findsOneWidget);
+    } finally {
+      debugDefaultTargetPlatformOverride = null;
+    }
+  });
+
+  testWidgets('dock blocks stay inside the bottom bar', (tester) async {
+    await _pumpHome(tester);
+    final bodyBottom = tester.getRect(find.byType(PageView)).bottom;
+    final screenHeight = tester.getSize(find.byType(MaterialApp)).height;
+
+    for (final label in ['任务池', '聚焦', '完成']) {
+      final rect = tester.getRect(find.byTooltip(label));
+      expect(rect.top, greaterThanOrEqualTo(bodyBottom), reason: label);
+      expect(rect.bottom, lessThanOrEqualTo(screenHeight), reason: label);
+      expect(rect.height, greaterThanOrEqualTo(48), reason: label);
+    }
   });
 
   testWidgets('settings and archive open from top-left app bar', (tester) async {

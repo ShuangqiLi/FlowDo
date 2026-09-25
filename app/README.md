@@ -1,11 +1,20 @@
-# Flutter client
+# Flutter web client
 
 Requires the [Flutter SDK](https://docs.flutter.dev/get-started/install).
+FlowDo ships a web client only — the `web/` project directory is committed, so
+no `flutter create` step is needed.
 
 ```bash
-flutter create . --project-name flowdo --platforms web,windows,android,ios,linux,macos
 flutter pub get
 flutter run -d chrome
 ```
 
-Set the API URL on the login screen (default `http://127.0.0.1:3000`).
+Release build (CanvasKit is bundled instead of loaded from the Google CDN):
+
+```bash
+flutter build web --release --no-web-resources-cdn
+```
+
+The client always calls API paths on the current origin. In production,
+`web/nginx.conf` proxies those paths to the API container. The login page only
+asks for email and password; accounts are created from the deployment host.

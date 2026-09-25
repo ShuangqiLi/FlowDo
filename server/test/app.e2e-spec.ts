@@ -13,12 +13,17 @@ describe('Health (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, transform: true }),
+    );
     await app.init();
   });
 
   it('/health (GET)', () => {
-    return request(app.getHttpServer()).get('/health').expect(200).expect({ ok: true });
+    return request(app.getHttpServer())
+      .get('/health')
+      .expect(200)
+      .expect({ ok: true });
   });
 
   afterEach(async () => {

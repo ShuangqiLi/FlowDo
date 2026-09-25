@@ -42,7 +42,7 @@ feat: add swipe actions on inbox cards
 
 fix(auth): show a friendly message for invalid credentials
 
-docs: explain public HTTPS deploy with Caddy
+docs: explain LAN Docker deployment
 
 feat(api)!: require focus before marking a task done
 
@@ -65,35 +65,24 @@ BREAKING CHANGE: TODO cannot transition directly to DONE
 2. 在 `CHANGELOG.md` 顶部增加对应章节
 3. 提交：`chore(release): vX.Y.Z`
 4. 打标签并推送：`git tag -a vX.Y.Z -m "chore(release): vX.Y.Z"`，再 `git push origin vX.Y.Z`
-5. 推送 `v*.*.*` 标签后，`.github/workflows/release.yml` 会构建并上传服务端
-   Docker 包、Windows 客户端、Android APK、Web 客户端和 iOS IPA，再用该版本的
-   changelog 创建 GitHub Release
+5. 推送 `v*.*.*` 标签后，`.github/workflows/release.yml` 只上传一个
+   `FlowDo-docker-*.zip`：服务端/网页端镜像、Compose、启动脚本和 `web-build/`
+   静态产物都在里面，再用该版本的 changelog 创建 GitHub Release
 
 也可以在 GitHub 网页上对已推送的标签起草 Release。
 
-### iOS 安装包
+## 只做网页端
 
-Apple 不允许未签名的 IPA 装到真机上。CI 在 `macos-latest` 上打出
-`FlowDo-client-ios-*.ipa`，**默认未签名**，方便用自己的证书重签，但不能直接
-点开安装。
-
-要打出可安装的包，需要：
-
-1. 加入 [Apple Developer Program](https://developer.apple.com/programs/)
-2. 在 Apple Developer 后台创建 App ID（`com.flowdo.app`）、发行证书和
-   Ad Hoc / App Store 描述文件
-3. 把 `.p12` 证书和 `.mobileprovision` 配到仓库 Secrets 后，再改 CI 为
-   `flutter build ipa` 并带上导出选项（当前工作流尚未接入这些 Secrets）
-4. 更稳妥的分发方式是 Xcode / Transporter 上传到 TestFlight，而不是把
-   签名 IPA 放到公开 GitHub Release
-
-没有开发者账号时，iPhone 请用 Web 客户端。
+客户端只发布网页端，仓库里也只留 `app/web/` 一个平台目录。Android / iOS /
+Windows / macOS / Linux 都不再维护，请不要再往回加平台目录或平台专属代码；
+需要调某个桌面平台来调试是可以的，但那属于本地临时行为，别提交进来。
 
 ## 开发
 
-本机服务端可用 `scripts/deploy.bat` / `./scripts/deploy.sh`，或先
-`docker build -t flowdo-server:latest ./server` 再 `docker compose up -d`。
-Docker 时 API 在 `http://127.0.0.1:13000`。客户端：`cd app && flutter pub get && flutter run`。
+本机一键起全套（需要 Flutter SDK）：`scripts/deploy.bat` / `./scripts/deploy.sh`，
+它会构建网页端和服务端镜像再 `docker compose up -d`。起来后网页端在
+`http://127.0.0.1:8080`，API 在 `http://127.0.0.1:13000`。
+只调客户端：`cd app && flutter pub get && flutter run -d chrome`。
 
 ### 不用 Docker 启动服务端
 
@@ -108,10 +97,11 @@ npx prisma db push
 npm run start:dev
 ```
 
-API 监听 `0.0.0.0:3000`。局域网手机访问时，把客户端设置里的 API 地址改成
-`http://<电脑局域网IP>:3000`，并放行防火墙的 3000 端口。
+API 监听 `0.0.0.0:3000`。正式部署时网页端 nginx 会同源反代 API；直接用
+`flutter run -d chrome` 调试时，浏览器开发服务器没有这层代理，优先用完整 Docker
+栈做联调。
 
-### Flutter 客户端
+### 网页端
 
 先安装 [Flutter SDK](https://docs.flutter.dev/get-started/install)。国内建议配好镜像：
 
@@ -120,16 +110,30 @@ FLUTTER_STORAGE_BASE_URL=https://storage.flutter-io.cn
 PUB_HOSTED_URL=https://pub.flutter-io.cn
 ```
 
-首次拉起某个平台时需要生成对应的平台目录：
+`app/web/` 已经在仓库里，不需要 `flutter create`：
 
 ```bash
 cd app
-flutter create . --project-name flowdo --platforms web,windows,android,ios,linux,macos
 flutter pub get
-flutter run -d chrome     # 或 -d windows / -d android
+flutter run -d chrome
 ```
 
-Web 调试默认连 `http://127.0.0.1:3000`；真机不要填 `127.0.0.1`，要填电脑的局域网 IP。
+出发布产物，再打成 nginx 镜像：
+
+```bash
+cd app && flutter build web --release --no-web-resources-cdn && cd ..
+docker build -f web/Dockerfile -t flowdo-web:latest .
+```
+
+`--no-web-resources-cdn` 一定要带上：默认的 CanvasKit 是从 `gstatic.com` 取的，
+内网和连不上谷歌的网络会直接白屏或满屏方块。产物目录必须整个一起部署，
+少了 `assets/`（字体、图标）或 `canvaskit/` 就是同一类故障。
+
+网页端固定请求当前 origin，不提供 API 地址设置。账号也不通过网络注册，只能在部署机执行：
+
+```bash
+docker compose exec api npm run user:create -- user@example.com '至少8位密码'
+```
 
 改完代码提 PR 前先跑一遍：
 

@@ -28,11 +28,6 @@ class AuthController extends Notifier<bool> {
     state = true;
   }
 
-  Future<void> register(String email, String password) async {
-    await ref.read(apiProvider).register(email, password);
-    state = true;
-  }
-
   Future<void> logout() async {
     await ref.read(apiProvider).logout();
     state = false;

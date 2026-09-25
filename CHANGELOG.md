@@ -14,10 +14,37 @@
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-26
+
+### Removed
+
+- **客户端只保留网页端**：不再发布和维护 Android、iOS、Windows 客户端，
+  仓库里的 `app/android`、`app/windows` 平台目录一并删除
+- 删除 Caddy、HTTPS profile、公网部署脚本和相关配置；项目只考虑可信内网 HTTP
+- 删除网页端注册入口、API 地址输入和设置；服务端不再暴露 `POST /auth/register`
+- 发版产物精简为唯一的 `FlowDo-docker-*.zip`
+
+### Added
+
+- 网页端有了自己的容器：`web/Dockerfile` + nginx 配置，`docker compose up -d`
+  一起拉起，默认开在 `8080`
+- nginx 把 API 路径同源反代给服务端，手机和电脑访问 `http://主机:8080` 即可
+- 新增部署机账号创建命令：`docker compose exec api npm run user:create -- 邮箱 密码`
+- 唯一部署包同时包含服务端/网页端镜像、Compose、启动脚本和完整 `web-build/`
+
+### Fixed
+
+- 网页端图标和中文变成方块乱码：产物必须整目录部署，少了 `assets/` 或 `canvaskit/`
+  就没有字体和图标。现在由镜像托管，nginx 对缺失的资源直接返回 404 而不是拿首页顶包，
+  构建时也会检查关键文件
+- 网页端改用打进镜像的 CanvasKit（`--no-web-resources-cdn`），不再依赖 `gstatic.com`
+- 本地 Windows 调试时长按加号不再因语音插件闪退
+- 底栏半椭圆台面恢复显示（弧线画反了，之前整个台面都没画出来）
+- 底栏「聚焦」等方块不再探出台面盖住上面的任务列表和今日看看
+
 ### Changed
 
-- Docker 将 API 映射到本机 `127.0.0.1:13000`，不再占用常被 Grafana 占用的 3000
-- 数据库不再映射到宿主机 5432，只在 Compose 网络内访问
+- Web 和 API 端口分别通过 `WEB_PORT` / `API_PORT` 配置；数据库只在 Compose 网络内访问
 
 ## [0.2.2] - 2026-09-25
 
@@ -121,7 +148,8 @@
 - 通过 GitHub Releases 发版（推送 `v*.*.*` 标签）
 - 账号级设置（聚焦上限、归档天数、是否显示归档页）
 
-[Unreleased]: https://github.com/ShuangqiLi/FlowDo/compare/v0.2.2...HEAD
+[Unreleased]: https://github.com/ShuangqiLi/FlowDo/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/ShuangqiLi/FlowDo/compare/v0.2.2...v0.3.0
 [0.2.2]: https://github.com/ShuangqiLi/FlowDo/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/ShuangqiLi/FlowDo/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/ShuangqiLi/FlowDo/compare/v0.1.0...v0.2.0

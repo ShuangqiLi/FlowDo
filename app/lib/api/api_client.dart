@@ -21,16 +21,8 @@ class ApiClient {
 
   final SharedPreferences _prefs;
 
-  static const _kBase = 'apiBaseUrl';
   static const _kAccess = 'accessToken';
   static const _kRefresh = 'refreshToken';
-
-  String get baseUrl => _prefs.getString(_kBase) ?? 'http://127.0.0.1:3000';
-
-  Future<void> setBaseUrl(String url) async {
-    final trimmed = url.trim().replaceAll(RegExp(r'/$'), '');
-    await _prefs.setString(_kBase, trimmed);
-  }
 
   String? get accessToken => _prefs.getString(_kAccess);
 
@@ -47,7 +39,7 @@ class ApiClient {
   }
 
   Uri _uri(String path, [Map<String, String>? query]) {
-    return Uri.parse('$baseUrl$path').replace(queryParameters: query);
+    return Uri.base.resolve(path).replace(queryParameters: query);
   }
 
   Map<String, String> _headers({bool auth = true, bool jsonBody = false}) {
@@ -141,16 +133,6 @@ class ApiClient {
       await logout();
       return false;
     }
-  }
-
-  Future<void> register(String email, String password) async {
-    final json = await _request(
-      'POST',
-      '/auth/register',
-      body: {'email': email, 'password': password},
-      auth: false,
-    );
-    await _saveTokens(json as Map<String, dynamic>);
   }
 
   Future<void> login(String email, String password) async {

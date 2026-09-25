@@ -248,6 +248,8 @@ class _FocusDock extends StatelessWidget {
   final ValueChanged<int> onSelected;
 
   static const double _arcHeight = 118;
+  static const double _blockWidth = 72;
+  static const double _blockHeight = 66;
 
   @override
   Widget build(BuildContext context) {
@@ -281,16 +283,15 @@ class _FocusDock extends StatelessWidget {
                   final w = constraints.maxWidth;
                   final h = constraints.maxHeight;
 
+                  // 和台面画笔共用同一条弧线，方块才会真的坐在台面上。
+                  final oval = _dockOval(w, h);
+
                   Offset onArc(double t) {
                     final angle = math.pi * (1 - t);
-                    final cx = w / 2;
-                    final cy = h + 2;
-                    final rx = w * 0.36;
-                    final ry = h * 0.68;
-                    return Offset(
-                      cx + rx * math.cos(angle),
-                      cy - ry * math.sin(angle),
-                    );
+                    final dx = w * 0.36 * math.cos(angle);
+                    final unit = (dx / (oval.width / 2)).clamp(-1.0, 1.0);
+                    final dy = oval.height / 2 * math.sqrt(1 - unit * unit);
+                    return Offset(oval.center.dx + dx, oval.center.dy - dy);
                   }
 
                   final pool = onArc(0.14);
@@ -301,17 +302,19 @@ class _FocusDock extends StatelessWidget {
                     required Offset c,
                     required Widget child,
                   }) {
+                    // 整块都要留在台面里，探出去就会盖住上面的列表。
+                    final maxTop = math.max(0.0, h - _blockHeight - 4);
                     return Positioned(
-                      left: c.dx - 36,
-                      top: c.dy - 56,
-                      width: 72,
-                      height: 78,
+                      left: c.dx - _blockWidth / 2,
+                      top: (c.dy + 6).clamp(0.0, maxTop),
+                      width: _blockWidth,
+                      height: _blockHeight,
                       child: child,
                     );
                   }
 
                   return Stack(
-                    clipBehavior: Clip.none,
+                    clipBehavior: Clip.hardEdge,
                     children: [
                       place(
                         c: pool,
@@ -421,6 +424,15 @@ class _DockBlock extends StatelessWidget {
   }
 }
 
+/// 台面那条半椭圆：底栏画笔和上面的方块都按它摆位。
+Rect _dockOval(double width, double arcBottom) {
+  return Rect.fromCenter(
+    center: Offset(width / 2, arcBottom + arcBottom * 0.08),
+    width: width * 1.08,
+    height: arcBottom * 1.85,
+  );
+}
+
 /// 底部半椭圆台面（Flat：纯色填充 + 发丝描边）。
 class _SemiEllipseDockPainter extends CustomPainter {
   const _SemiEllipseDockPainter({
@@ -436,16 +448,13 @@ class _SemiEllipseDockPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final arcBottom = size.height - bottomInset;
-    final oval = Rect.fromCenter(
-      center: Offset(size.width / 2, arcBottom + arcBottom * 0.08),
-      width: size.width * 1.08,
-      height: arcBottom * 1.85,
-    );
+    final oval = _dockOval(size.width, arcBottom);
 
+    // 正角度是顺时针（y 向下），所以 +π 才是从左端翻过顶再落到右端。
     final path = Path()
       ..moveTo(0, size.height)
       ..lineTo(0, arcBottom)
-      ..arcTo(oval, math.pi, -math.pi, false)
+      ..arcTo(oval, math.pi, math.pi, false)
       ..lineTo(size.width, size.height)
       ..close();
 
@@ -455,7 +464,7 @@ class _SemiEllipseDockPainter extends CustomPainter {
       ..color = rim
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1;
-    canvas.drawPath(Path()..addArc(oval, math.pi, -math.pi), rimPaint);
+    canvas.drawPath(Path()..addArc(oval, math.pi, math.pi), rimPaint);
   }
 
   @override
