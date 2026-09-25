@@ -31,6 +31,13 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
   String _newPriority = 'MEDIUM';
   double? _priorityPointerStartX;
 
+  /// 已经滑走、但服务端还没确认的任务。Slidable 要求滑动结束时立刻把卡片
+  /// 移出列表，所以先本地隐藏，等刷新结果回来再决定是消失还是复原。
+  final _dismissing = <String>{};
+
+  /// 被退回的任务要换一个新的 Slidable，否则复用到的还是那个「已滑走」的状态。
+  final _swipeGeneration = <String, int>{};
+
   @override
   void initState() {
     super.initState();
@@ -77,6 +84,25 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
   Future<void> _refresh() async {
     ref.invalidate(tasksProvider(widget.status));
     ref.invalidate(briefingProvider);
+    try {
+      await ref.read(tasksProvider(widget.status).future);
+    } catch (_) {
+      // 列表本身会渲染错误态，这里只要等这一轮刷新结束
+    }
+  }
+
+  /// 滑动结束后立刻隐藏卡片，再把状态变更发给服务端。
+  void _dismissTo(Task task, String status) {
+    setState(() => _dismissing.add(task.id));
+    _setStatus(task, status).whenComplete(() {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _dismissing.remove(task.id);
+        _swipeGeneration[task.id] = (_swipeGeneration[task.id] ?? 0) + 1;
+      });
+    });
   }
 
   Future<void> _add() async {
@@ -257,7 +283,10 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
             child: async.when(
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (e, _) => Center(child: Text('$e')),
-              data: (tasks) {
+              data: (all) {
+                final tasks = _dismissing.isEmpty
+                    ? all
+                    : all.where((t) => !_dismissing.contains(t.id)).toList();
                 if (tasks.isEmpty) {
                   return RefreshIndicator(
                     onRefresh: _refresh,
@@ -316,15 +345,16 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
 
   Widget _wrapSwipe(Task task, Widget child) {
     final scheme = Theme.of(context).colorScheme;
+    final key = ValueKey('swipe-${task.id}-${_swipeGeneration[task.id] ?? 0}');
     switch (widget.status) {
       case 'TODO':
         return Slidable(
-          key: ValueKey('swipe-${task.id}'),
+          key: key,
           startActionPane: ActionPane(
             motion: const DrawerMotion(),
             extentRatio: 0.28,
             dismissible: DismissiblePane(
-              onDismissed: () => _setStatus(task, 'FOCUS'),
+              onDismissed: () => _dismissTo(task, 'FOCUS'),
             ),
             children: [
               SlidableAction(
@@ -353,12 +383,12 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
         );
       case 'FOCUS':
         return Slidable(
-          key: ValueKey('swipe-${task.id}'),
+          key: key,
           startActionPane: ActionPane(
             motion: const DrawerMotion(),
             extentRatio: 0.28,
             dismissible: DismissiblePane(
-              onDismissed: () => _setStatus(task, 'DONE'),
+              onDismissed: () => _dismissTo(task, 'DONE'),
             ),
             children: [
               SlidableAction(
@@ -374,7 +404,7 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
             motion: const DrawerMotion(),
             extentRatio: 0.32,
             dismissible: DismissiblePane(
-              onDismissed: () => _setStatus(task, 'TODO'),
+              onDismissed: () => _dismissTo(task, 'TODO'),
             ),
             children: [
               SlidableAction(
@@ -390,12 +420,12 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
         );
       case 'DONE':
         return Slidable(
-          key: ValueKey('swipe-${task.id}'),
+          key: key,
           endActionPane: ActionPane(
             motion: const DrawerMotion(),
             extentRatio: 0.32,
             dismissible: DismissiblePane(
-              onDismissed: () => _setStatus(task, 'TODO'),
+              onDismissed: () => _dismissTo(task, 'TODO'),
             ),
             children: [
               SlidableAction(

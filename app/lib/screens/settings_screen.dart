@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../api/api_client.dart';
 import '../providers.dart';
 import '../theme.dart';
 import '../ui/flowdo_card.dart';
@@ -31,6 +32,47 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     _focusLimit.dispose();
     _deleteDays.dispose();
     super.dispose();
+  }
+
+  Future<bool> _saveMe({
+    int? archiveAfterDays,
+    int? focusLimit,
+    int? deleteArchivedAfterDays,
+    bool? showArchiveTab,
+    String? themeKey,
+    String? successMessage,
+  }) async {
+    try {
+      await ref.read(apiProvider).updateMe(
+            archiveAfterDays: archiveAfterDays,
+            focusLimit: focusLimit,
+            deleteArchivedAfterDays: deleteArchivedAfterDays,
+            showArchiveTab: showArchiveTab,
+            themeKey: themeKey,
+          );
+      ref.invalidate(meProvider);
+      if (successMessage != null && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(successMessage)),
+        );
+      }
+      return true;
+    } on ApiException catch (e) {
+      _showSaveError(e.message);
+      return false;
+    } catch (_) {
+      _showSaveError('没记下，等会儿再试一次。');
+      return false;
+    }
+  }
+
+  void _showSaveError(String message) {
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
   }
 
   @override
@@ -89,10 +131,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   _ThemeChoice(
                     theme: theme,
                     selected: me.value?.themeKey == theme.key,
-                    onTap: () async {
-                      await ref.read(apiProvider).updateMe(themeKey: theme.key);
-                      ref.invalidate(meProvider);
-                    },
+                    onTap:
+                        me.value?.themeKey == theme.key ? null : () => _saveMe(themeKey: theme.key),
                   ),
               ],
             ),
@@ -150,13 +190,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 FilledButton.tonal(
                   onPressed: () async {
                     final limit = int.tryParse(_focusLimit.text.trim()) ?? 3;
-                    await ref.read(apiProvider).updateMe(focusLimit: limit);
-                    ref.invalidate(meProvider);
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('聚焦上限已更新')),
-                      );
-                    }
+                    await _saveMe(
+                      focusLimit: limit,
+                      successMessage: '聚焦上限已更新',
+                    );
                   },
                   child: const Text('保存聚焦上限'),
                 ),
@@ -181,10 +218,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   title: const Text('在导航里显示归档'),
                   subtitle: const Text('关掉后底部就只留任务池、聚焦、完成和设置'),
                   value: me.value?.showArchiveTab ?? true,
-                  onChanged: (v) async {
-                    await ref.read(apiProvider).updateMe(showArchiveTab: v);
-                    ref.invalidate(meProvider);
-                  },
+                  onChanged: (v) => _saveMe(showArchiveTab: v),
                 ),
                 const SizedBox(height: 12),
                 TextField(
@@ -209,16 +243,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   onPressed: () async {
                     final days = int.tryParse(_days.text.trim()) ?? 7;
                     final deleteDays = int.tryParse(_deleteDays.text.trim()) ?? 30;
-                    await ref.read(apiProvider).updateMe(
-                          archiveAfterDays: days,
-                          deleteArchivedAfterDays: deleteDays,
-                        );
-                    ref.invalidate(meProvider);
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('归档习惯已记下')),
-                      );
-                    }
+                    await _saveMe(
+                      archiveAfterDays: days,
+                      deleteArchivedAfterDays: deleteDays,
+                      successMessage: '归档习惯已记下',
+                    );
                   },
                   child: const Text('保存归档设置'),
                 ),
@@ -264,7 +293,7 @@ class _ThemeChoice extends StatelessWidget {
 
   final AppThemeKey theme;
   final bool selected;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
