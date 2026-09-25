@@ -17,10 +17,12 @@ ThemeData buildAppTheme([AppThemeKey themeKey = AppThemeKey.mint]) {
     secondary: palette.secondary,
     secondaryContainer: palette.secondaryContainer,
     surface: palette.card,
-    onSurface: const Color(0xFF29332E),
-    onSurfaceVariant: const Color(0xFF65716B),
-    outline: const Color(0xFF909C96),
+    onSurface: palette.onSurface,
+    onSurfaceVariant: palette.onSurfaceVariant,
+    outline: palette.outline.withValues(alpha: 0.9),
     outlineVariant: palette.outline,
+    error: const Color(0xFFDC2626),
+    onError: Colors.white,
   );
 
   final baseText = Typography.material2021().black.apply(
@@ -51,7 +53,7 @@ ThemeData buildAppTheme([AppThemeKey themeKey = AppThemeKey.mint]) {
 
   final cardShape = RoundedRectangleBorder(
     borderRadius: BorderRadius.circular(AppRadii.card),
-    side: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.55)),
+    side: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.4)),
   );
 
   return ThemeData(
@@ -68,9 +70,9 @@ ThemeData buildAppTheme([AppThemeKey themeKey = AppThemeKey.mint]) {
         card: palette.card,
         softFill: palette.softFill,
         success: palette.success,
-        highPriority: const Color(0xFFB96F72),
-        mediumPriority: const Color(0xFFC18D55),
-        lowPriority: const Color(0xFF738D9D),
+        highPriority: const Color(0xFFB86B6B),
+        mediumPriority: const Color(0xFFC4895A),
+        lowPriority: const Color(0xFF7A8694),
       ),
     ],
     appBarTheme: AppBarTheme(
@@ -78,10 +80,10 @@ ThemeData buildAppTheme([AppThemeKey themeKey = AppThemeKey.mint]) {
       elevation: 0,
       scrolledUnderElevation: 0,
       backgroundColor: palette.canvas,
-      foregroundColor: scheme.onSurface,
+      foregroundColor: palette.onSurface,
       surfaceTintColor: Colors.transparent,
       titleTextStyle: textTheme.titleLarge?.copyWith(
-        color: scheme.onSurface,
+        color: palette.onSurface,
         fontWeight: FontWeight.w600,
       ),
     ),
@@ -116,7 +118,7 @@ ThemeData buildAppTheme([AppThemeKey themeKey = AppThemeKey.mint]) {
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(AppRadii.control),
-        borderSide: BorderSide(color: scheme.outlineVariant),
+        borderSide: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.85)),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(AppRadii.control),
@@ -124,20 +126,21 @@ ThemeData buildAppTheme([AppThemeKey themeKey = AppThemeKey.mint]) {
       ),
     ),
     cardTheme: CardThemeData(
-      elevation: 0.8,
-      shadowColor: scheme.shadow.withValues(alpha: 0.08),
+      elevation: 0,
+      shadowColor: Colors.transparent,
       color: palette.card,
       surfaceTintColor: Colors.transparent,
       margin: EdgeInsets.zero,
       shape: cardShape,
     ),
     dividerTheme: DividerThemeData(
-      color: scheme.outlineVariant.withValues(alpha: 0.7),
+      color: scheme.outlineVariant.withValues(alpha: 0.65),
       thickness: 1,
       space: 1,
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
+        minimumSize: const Size(48, 48),
         padding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.lg,
           vertical: 15,
@@ -150,6 +153,7 @@ ThemeData buildAppTheme([AppThemeKey themeKey = AppThemeKey.mint]) {
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
+        minimumSize: const Size(48, 48),
         padding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.lg,
           vertical: 15,
@@ -162,6 +166,7 @@ ThemeData buildAppTheme([AppThemeKey themeKey = AppThemeKey.mint]) {
     ),
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(
+        minimumSize: const Size(44, 44),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadii.control),
         ),
@@ -191,57 +196,66 @@ ThemeData buildAppTheme([AppThemeKey themeKey = AppThemeKey.mint]) {
 }
 
 _Palette _palette(AppThemeKey key) => switch (key) {
+      // 低饱和生产力色：保留色相，压低 chroma
       AppThemeKey.mint => const _Palette(
-          primary: Color(0xFF4F8F70),
+          primary: Color(0xFF5F9B82),
           onPrimary: Colors.white,
-          primaryContainer: Color(0xFFE8F5EE),
-          onPrimaryContainer: Color(0xFF285641),
-          secondary: Color(0xFF728E81),
-          secondaryContainer: Color(0xFFE9F0EC),
-          canvas: Color(0xFFF6F9F7),
-          card: Color(0xFFFCFEFD),
-          softFill: Color(0xFFF0F6F3),
-          outline: Color(0xFFD9E5DE),
-          success: Color(0xFF5E9A79),
+          primaryContainer: Color(0xFFE3EEE7),
+          onPrimaryContainer: Color(0xFF355244),
+          secondary: Color(0xFF79A88C),
+          secondaryContainer: Color(0xFFE6EEE8),
+          canvas: Color(0xFFF4F7F4),
+          card: Color(0xFFFFFFFF),
+          softFill: Color(0xFFE6EEE8),
+          outline: Color(0xFFC3D4C8),
+          onSurface: Color(0xFF3A4A40),
+          onSurfaceVariant: Color(0xFF66727A),
+          success: Color(0xFF5F9B82),
         ),
       AppThemeKey.hazeBlue => const _Palette(
-          primary: Color(0xFF5E7F99),
+          primary: Color(0xFF5B82A8),
           onPrimary: Colors.white,
-          primaryContainer: Color(0xFFE8F0F6),
-          onPrimaryContainer: Color(0xFF334F65),
-          secondary: Color(0xFF798995),
-          secondaryContainer: Color(0xFFEBEFF2),
-          canvas: Color(0xFFF5F8FA),
-          card: Color(0xFFFCFDFE),
-          softFill: Color(0xFFEEF3F6),
-          outline: Color(0xFFD8E1E7),
-          success: Color(0xFF6B9385),
+          primaryContainer: Color(0xFFE2EAF3),
+          onPrimaryContainer: Color(0xFF354A5C),
+          secondary: Color(0xFF7396B5),
+          secondaryContainer: Color(0xFFE6EEF4),
+          canvas: Color(0xFFF3F6F9),
+          card: Color(0xFFFFFFFF),
+          softFill: Color(0xFFE6EEF4),
+          outline: Color(0xFFC2D0DC),
+          onSurface: Color(0xFF384A58),
+          onSurfaceVariant: Color(0xFF66727A),
+          success: Color(0xFF5F9B82),
         ),
       AppThemeKey.warmOrange => const _Palette(
-          primary: Color(0xFFA86F43),
+          primary: Color(0xFFC4895A),
           onPrimary: Colors.white,
-          primaryContainer: Color(0xFFF8EDE3),
-          onPrimaryContainer: Color(0xFF674326),
-          secondary: Color(0xFF927D6C),
-          secondaryContainer: Color(0xFFF1ECE7),
-          canvas: Color(0xFFFAF7F3),
-          card: Color(0xFFFFFDFC),
-          softFill: Color(0xFFF6F0EA),
-          outline: Color(0xFFE9DDD2),
-          success: Color(0xFF72917A),
+          primaryContainer: Color(0xFFF2EBE3),
+          onPrimaryContainer: Color(0xFF5C4636),
+          secondary: Color(0xFFD0A07A),
+          secondaryContainer: Color(0xFFF3EEE8),
+          canvas: Color(0xFFF7F4F0),
+          card: Color(0xFFFFFFFF),
+          softFill: Color(0xFFF2EBE3),
+          outline: Color(0xFFDDD0C2),
+          onSurface: Color(0xFF4A4038),
+          onSurfaceVariant: Color(0xFF73685E),
+          success: Color(0xFF5F9B82),
         ),
       AppThemeKey.lightPurple => const _Palette(
-          primary: Color(0xFF78679B),
+          primary: Color(0xFF8A7BA5),
           onPrimary: Colors.white,
-          primaryContainer: Color(0xFFF0EBF7),
-          onPrimaryContainer: Color(0xFF4C3E6A),
-          secondary: Color(0xFF887F95),
-          secondaryContainer: Color(0xFFF0EDF3),
-          canvas: Color(0xFFF8F6FA),
-          card: Color(0xFFFEFDFE),
-          softFill: Color(0xFFF3EFF6),
-          outline: Color(0xFFE4DDEB),
-          success: Color(0xFF708F80),
+          primaryContainer: Color(0xFFECE8F2),
+          onPrimaryContainer: Color(0xFF4A4458),
+          secondary: Color(0xFF9E91B5),
+          secondaryContainer: Color(0xFFF1EEF5),
+          canvas: Color(0xFFF6F5F8),
+          card: Color(0xFFFFFFFF),
+          softFill: Color(0xFFECE8F2),
+          outline: Color(0xFFD4CEDC),
+          onSurface: Color(0xFF443F4C),
+          onSurfaceVariant: Color(0xFF66727A),
+          success: Color(0xFF5F9B82),
         ),
     };
 
@@ -257,6 +271,8 @@ class _Palette {
     required this.card,
     required this.softFill,
     required this.outline,
+    required this.onSurface,
+    required this.onSurfaceVariant,
     required this.success,
   });
 
@@ -270,5 +286,7 @@ class _Palette {
   final Color card;
   final Color softFill;
   final Color outline;
+  final Color onSurface;
+  final Color onSurfaceVariant;
   final Color success;
 }

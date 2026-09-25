@@ -9,25 +9,34 @@ class FlowDoCard extends StatelessWidget {
     this.padding = const EdgeInsets.all(AppSpacing.md),
     this.margin,
     this.onTap,
-    this.color,
   });
 
   final Widget child;
   final EdgeInsetsGeometry padding;
   final EdgeInsetsGeometry? margin;
   final VoidCallback? onTap;
-  final Color? color;
 
   @override
   Widget build(BuildContext context) {
-    return Card(
+    final scheme = Theme.of(context).colorScheme;
+    final fill = context.flowColors.card;
+
+    return Container(
       margin: margin,
-      color: color,
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
+      decoration: BoxDecoration(
+        color: fill,
         borderRadius: BorderRadius.circular(AppRadii.card),
-        child: Padding(padding: padding, child: child),
+        border: Border.all(color: scheme.outlineVariant),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(AppRadii.card),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(AppRadii.card),
+          child: Padding(padding: padding, child: child),
+        ),
       ),
     );
   }
@@ -37,17 +46,15 @@ class FlowDoIconTile extends StatelessWidget {
   const FlowDoIconTile({
     super.key,
     required this.icon,
-    this.color,
     this.size = 42,
   });
 
   final IconData icon;
-  final Color? color;
   final double size;
 
   @override
   Widget build(BuildContext context) {
-    final tone = color ?? Theme.of(context).colorScheme.primary;
+    final tone = Theme.of(context).colorScheme.primary;
     return Container(
       width: size,
       height: size,
@@ -55,6 +62,7 @@ class FlowDoIconTile extends StatelessWidget {
       decoration: BoxDecoration(
         color: tone.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(AppRadii.control),
+        border: Border.all(color: tone.withValues(alpha: 0.18)),
       ),
       child: Icon(icon, color: tone, size: size * 0.52),
     );
@@ -82,6 +90,7 @@ class SectionHeader extends StatelessWidget {
               caption!,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: scheme.onSurfaceVariant,
+                    height: 1.4,
                   ),
             ),
           ],

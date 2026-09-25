@@ -5,6 +5,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers.dart';
 import '../theme.dart';
+import '../ui/add_task_fab.dart';
+import '../ui/flowdo_page_route.dart';
+import '../ui/swipe_away.dart';
+import 'archive_screen.dart';
 import 'briefing_screen.dart';
 import 'settings_screen.dart';
 import 'task_list_screen.dart';
@@ -19,13 +23,25 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   bool _showBriefing = false;
   bool _autoOpenedBriefing = false;
+  late final PageController _pages;
 
   @override
   void initState() {
     super.initState();
+    final initial = ref.read(homeTabProvider).clamp(0, 2);
+    _pages = PageController(initialPage: initial);
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
       _maybeOpenBriefing();
     });
+  }
+
+  @override
+  void dispose() {
+    _pages.dispose();
+    super.dispose();
   }
 
   Future<void> _maybeOpenBriefing() async {
@@ -59,46 +75,64 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     await prefs.setString('lastBriefingDate', today);
   }
 
-  int _visualIndex(int real, bool showArchive) {
-    if (showArchive) {
-      return real;
+  void _goTab(int index, {bool animate = true}) {
+    final next = index.clamp(0, 2);
+    ref.read(homeTabProvider.notifier).setIndex(next);
+    if (!_pages.hasClients) {
+      return;
     }
-    if (real >= 3) {
-      return real - 1;
+    if (animate) {
+      _pages.animateToPage(
+        next,
+        duration: AppMotion.standard,
+        curve: AppMotion.curve,
+      );
+    } else {
+      _pages.jumpToPage(next);
     }
-    return real;
   }
 
-  int _realIndex(int visual, bool showArchive) {
-    if (showArchive) {
-      return visual;
+  Future<void> _openSettings() async {
+    await _closeBriefing();
+    if (!mounted) {
+      return;
     }
-    if (visual >= 3) {
-      return visual + 1;
+    await Navigator.of(context).push(
+      FlowDoPageRoute(
+        swipeFromLeftEdgeOnly: false,
+        builder: (_) => const SettingsScreen(),
+      ),
+    );
+  }
+
+  Future<void> _openArchive() async {
+    await _closeBriefing();
+    if (!mounted) {
+      return;
     }
-    return visual;
+    await Navigator.of(context).push(
+      FlowDoPageRoute(
+        swipeFromLeftEdgeOnly: false,
+        builder: (_) => const ArchiveScreen(),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final pages = [
-      const TaskListScreen(status: 'TODO'),
-      const TaskListScreen(status: 'FOCUS'),
-      const TaskListScreen(status: 'DONE'),
-      const TaskListScreen(status: 'ARCHIVED'),
-      const SettingsScreen(),
-    ];
+    final index = ref.watch(homeTabProvider).clamp(0, 2);
     final showArchive = ref.watch(meProvider).value?.showArchiveTab ?? true;
-    var index = ref.watch(homeTabProvider);
-    if (!showArchive && index == 3) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (ref.read(homeTabProvider) == 3) {
-          ref.read(homeTabProvider.notifier).setIndex(4);
-        }
-      });
-      index = 4;
-    }
-    final visual = _visualIndex(index, showArchive);
+    // 外部改 tab（例如聚焦满了跳过去）时跟上 PageView。
+    ref.listen<int>(homeTabProvider, (prev, next) {
+      final page = next.clamp(0, 2);
+      if (_pages.hasClients && (_pages.page?.round() ?? index) != page) {
+        _pages.animateToPage(
+          page,
+          duration: AppMotion.standard,
+          curve: AppMotion.curve,
+        );
+      }
+    });
 
     return PopScope(
       canPop: !_showBriefing,
@@ -107,135 +141,359 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           _closeBriefing();
         }
       },
-      child: Scaffold(
-        appBar: AppBar(
-          title: _showBriefing ? const Text('今日看看') : null,
-          automaticallyImplyLeading: false,
-          actions: [
-            IconButton(
-              tooltip: _showBriefing ? '关掉今日看看' : '今日看看',
-              icon: Icon(
-                _showBriefing ? Icons.close : Icons.wb_sunny_outlined,
-              ),
-              onPressed: _showBriefing ? _closeBriefing : _openBriefing,
-            ),
-          ],
-        ),
-        body: Stack(
-          children: [
-            IndexedStack(index: index, children: pages),
-            AnimatedSwitcher(
-              duration: AppMotion.standard,
-              switchInCurve: AppMotion.curve,
-              switchOutCurve: AppMotion.curve,
-              transitionBuilder: (child, animation) => FadeTransition(
-                opacity: animation,
-                child: SlideTransition(
-                  position: Tween<Offset>(
-                    begin: const Offset(0.04, 0),
-                    end: Offset.zero,
-                  ).animate(animation),
-                  child: child,
+      child: Stack(
+        children: [
+          Scaffold(
+            appBar: AppBar(
+              title: _showBriefing ? const Text('今日看看') : null,
+              automaticallyImplyLeading: false,
+              leadingWidth: showArchive && !_showBriefing ? 104 : 56,
+              leading: _showBriefing
+                  ? null
+                  : Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          key: const ValueKey('open-settings'),
+                          tooltip: '设置',
+                          icon: const Icon(Icons.settings_rounded),
+                          onPressed: _openSettings,
+                        ),
+                        if (showArchive)
+                          IconButton(
+                            key: const ValueKey('open-archive'),
+                            tooltip: '归档',
+                            icon: const Icon(Icons.archive_rounded),
+                            onPressed: _openArchive,
+                          ),
+                      ],
+                    ),
+              actions: [
+                IconButton(
+                  tooltip: _showBriefing ? '关掉今日看看' : '今日看看',
+                  icon: Icon(
+                    _showBriefing ? Icons.close : Icons.wb_sunny_outlined,
+                  ),
+                  onPressed: _showBriefing ? _closeBriefing : _openBriefing,
                 ),
-              ),
-              child: _showBriefing
-                  ? _SwipeToClose(
-                      key: const ValueKey('briefing-panel'),
-                      onClose: _closeBriefing,
-                      child: const BriefingScreen(),
-                    )
-                  : const SizedBox.shrink(key: ValueKey('briefing-hidden')),
+              ],
             ),
-          ],
-        ),
-        bottomNavigationBar: NavigationBar(
-          selectedIndex: visual,
-          onDestinationSelected: (i) {
-            ref.read(homeTabProvider.notifier).setIndex(
-                  _realIndex(i, showArchive),
-                );
-            _closeBriefing();
-          },
-          destinations: [
-            const NavigationDestination(
-              icon: Icon(Icons.inbox_rounded),
-              label: '任务池',
+            body: Stack(
+              children: [
+                PageView(
+                  controller: _pages,
+                  onPageChanged: (i) {
+                    ref.read(homeTabProvider.notifier).setIndex(i);
+                    _closeBriefing();
+                  },
+                  children: const [
+                    TaskListScreen(status: 'TODO'),
+                    TaskListScreen(status: 'FOCUS'),
+                    TaskListScreen(status: 'DONE'),
+                  ],
+                ),
+                AnimatedSwitcher(
+                  duration: AppMotion.standard,
+                  switchInCurve: AppMotion.curve,
+                  switchOutCurve: AppMotion.curve,
+                  transitionBuilder: (child, animation) => FadeTransition(
+                    opacity: animation,
+                    child: SlideTransition(
+                      position: Tween<Offset>(
+                        begin: const Offset(0.04, 0),
+                        end: Offset.zero,
+                      ).animate(animation),
+                      child: child,
+                    ),
+                  ),
+                  child: _showBriefing
+                      ? SwipeAway(
+                          key: const ValueKey('briefing-panel'),
+                          onAway: _closeBriefing,
+                          child: const BriefingScreen(),
+                        )
+                      : const SizedBox.shrink(
+                          key: ValueKey('briefing-hidden'),
+                        ),
+                ),
+              ],
             ),
-            const NavigationDestination(
-              icon: Icon(Icons.center_focus_strong_rounded),
-              label: '聚焦',
+            bottomNavigationBar: _FocusDock(
+              selectedIndex: index,
+              onSelected: (i) {
+                _goTab(i);
+                _closeBriefing();
+              },
             ),
-            const NavigationDestination(
-              icon: Icon(Icons.check_circle_rounded),
-              label: '完成',
-            ),
-            if (showArchive)
-              const NavigationDestination(
-                icon: Icon(Icons.archive_rounded),
-                label: '归档',
-              ),
-            const NavigationDestination(
-              icon: Icon(Icons.settings_rounded),
-              label: '设置',
-            ),
-          ],
-        ),
+          ),
+          AddTaskFab(visible: !_showBriefing),
+        ],
       ),
     );
   }
 }
 
-/// 往右滑关掉今日看看。
-///
-/// 这里不用 `Dismissible`：它自己维护一套「已滑走」状态，和 `_showBriefing`
-/// 是两套真相。滑完面板会立刻塌成零高度，但要等收起动画跑完才回调，中间那段
-/// 时间按钮显示的是关闭态、面板却已经看不见；动画要是没跑完就一直卡在那儿。
-class _SwipeToClose extends StatefulWidget {
-  const _SwipeToClose({super.key, required this.onClose, required this.child});
+/// 半椭圆台面底栏：三个带透视的方块围弧而立，聚焦在弧顶更大更靠前。
+class _FocusDock extends StatelessWidget {
+  const _FocusDock({
+    required this.selectedIndex,
+    required this.onSelected,
+  });
 
-  final VoidCallback onClose;
-  final Widget child;
+  final int selectedIndex;
+  final ValueChanged<int> onSelected;
 
-  @override
-  State<_SwipeToClose> createState() => _SwipeToCloseState();
-}
-
-class _SwipeToCloseState extends State<_SwipeToClose> {
-  double _dragX = 0;
-  bool _dragging = false;
-
-  void _reset() {
-    setState(() {
-      _dragging = false;
-      _dragX = 0;
-    });
-  }
+  static const double _arcHeight = 118;
 
   @override
   Widget build(BuildContext context) {
-    final width = MediaQuery.sizeOf(context).width;
+    final scheme = Theme.of(context).colorScheme;
+    final flow = context.flowColors;
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
 
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onHorizontalDragStart: (_) => setState(() => _dragging = true),
-      onHorizontalDragUpdate: (details) {
-        setState(() => _dragX = math.max(0, _dragX + details.delta.dx));
-      },
-      onHorizontalDragEnd: (details) {
-        final velocity = details.primaryVelocity ?? 0;
-        if (velocity > 700 || _dragX > width * 0.3) {
-          widget.onClose();
-          return;
-        }
-        _reset();
-      },
-      onHorizontalDragCancel: _reset,
-      child: AnimatedSlide(
-        offset: Offset(width == 0 ? 0 : _dragX / width, 0),
-        duration: _dragging ? Duration.zero : AppMotion.quick,
-        curve: AppMotion.curve,
-        child: widget.child,
+    return SizedBox(
+      height: _arcHeight + bottomInset,
+      child: Material(
+        color: Colors.transparent,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Positioned.fill(
+              child: CustomPaint(
+                painter: _SemiEllipseDockPainter(
+                  fill: flow.card,
+                  rim: scheme.outlineVariant,
+                  bottomInset: bottomInset,
+                ),
+              ),
+            ),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: bottomInset,
+              height: _arcHeight,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final w = constraints.maxWidth;
+                  final h = constraints.maxHeight;
+
+                  Offset onArc(double t) {
+                    final angle = math.pi * (1 - t);
+                    final cx = w / 2;
+                    final cy = h + 2;
+                    final rx = w * 0.36;
+                    final ry = h * 0.68;
+                    return Offset(
+                      cx + rx * math.cos(angle),
+                      cy - ry * math.sin(angle),
+                    );
+                  }
+
+                  final pool = onArc(0.14);
+                  final focus = onArc(0.5);
+                  final done = onArc(0.86);
+
+                  Widget place({
+                    required Offset c,
+                    required double width,
+                    required double height,
+                    required Widget child,
+                  }) {
+                    return Positioned(
+                      left: c.dx - width / 2,
+                      top: c.dy - height * 0.72,
+                      width: width,
+                      height: height,
+                      child: child,
+                    );
+                  }
+
+                  return Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      place(
+                        c: pool,
+                        width: 72,
+                        height: 78,
+                        child: _PerspectiveBlock(
+                          selected: selectedIndex == 0,
+                          icon: Icons.inbox_rounded,
+                          label: '任务池',
+                          yaw: 0.42,
+                          onTap: () => onSelected(0),
+                        ),
+                      ),
+                      place(
+                        c: done,
+                        width: 72,
+                        height: 78,
+                        child: _PerspectiveBlock(
+                          selected: selectedIndex == 2,
+                          icon: Icons.check_circle_rounded,
+                          label: '完成',
+                          yaw: -0.42,
+                          onTap: () => onSelected(2),
+                        ),
+                      ),
+                      place(
+                        c: focus,
+                        width: 72,
+                        height: 78,
+                        child: _PerspectiveBlock(
+                          selected: selectedIndex == 1,
+                          icon: Icons.center_focus_strong_rounded,
+                          label: '聚焦',
+                          yaw: 0,
+                          onTap: () => onSelected(1),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
       ),
     );
+  }
+}
+
+/// Flat Design：三个底栏按钮同等大小，轻透视；无软阴影。
+class _PerspectiveBlock extends StatelessWidget {
+  const _PerspectiveBlock({
+    required this.selected,
+    required this.icon,
+    required this.label,
+    required this.yaw,
+    required this.onTap,
+  });
+
+  final bool selected;
+  final IconData icon;
+  final String label;
+  final double yaw;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final flow = context.flowColors;
+
+    final Color face;
+    final Color fg;
+    if (selected) {
+      face = scheme.primaryContainer;
+      fg = scheme.primary;
+    } else {
+      face = flow.card;
+      fg = scheme.onSurfaceVariant;
+    }
+
+    final matrix = Matrix4.identity()
+      ..setEntry(3, 2, 0.0011)
+      ..rotateX(-0.16)
+      ..rotateY(yaw * 0.85);
+
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: label,
+      child: Tooltip(
+        message: label,
+        child: GestureDetector(
+          onTap: onTap,
+          behavior: HitTestBehavior.opaque,
+          child: AnimatedContainer(
+            duration: AppMotion.standard,
+            curve: AppMotion.curve,
+            transformAlignment: Alignment.bottomCenter,
+            transform: matrix,
+            decoration: BoxDecoration(
+              color: face,
+              borderRadius: BorderRadius.circular(AppRadii.control),
+              border: Border.all(
+                color: selected
+                    ? scheme.primary.withValues(alpha: 0.35)
+                    : scheme.outlineVariant,
+                width: 1,
+              ),
+            ),
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(8, 12, 8, 8),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      icon,
+                      color: fg,
+                      size: selected ? 22 : 20,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            color: fg,
+                            fontWeight: FontWeight.w700,
+                            height: 1.05,
+                            fontSize: 11,
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 底部半椭圆台面（Flat：纯色填充 + 发丝描边）。
+class _SemiEllipseDockPainter extends CustomPainter {
+  const _SemiEllipseDockPainter({
+    required this.fill,
+    required this.rim,
+    required this.bottomInset,
+  });
+
+  final Color fill;
+  final Color rim;
+  final double bottomInset;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final arcBottom = size.height - bottomInset;
+    final oval = Rect.fromCenter(
+      center: Offset(size.width / 2, arcBottom + arcBottom * 0.08),
+      width: size.width * 1.08,
+      height: arcBottom * 1.85,
+    );
+
+    final path = Path()
+      ..moveTo(0, size.height)
+      ..lineTo(0, arcBottom)
+      ..arcTo(oval, math.pi, -math.pi, false)
+      ..lineTo(size.width, size.height)
+      ..close();
+
+    canvas.drawPath(path, Paint()..color = fill);
+
+    final rimPaint = Paint()
+      ..color = rim
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+    canvas.drawPath(Path()..addArc(oval, math.pi, -math.pi), rimPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _SemiEllipseDockPainter oldDelegate) {
+    return fill != oldDelegate.fill ||
+        rim != oldDelegate.rim ||
+        bottomInset != oldDelegate.bottomInset;
   }
 }

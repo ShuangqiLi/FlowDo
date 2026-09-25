@@ -44,10 +44,16 @@ export class BriefingService {
     startOfToday.setHours(0, 0, 0, 0);
     const startOfYesterday = new Date(startOfToday);
     startOfYesterday.setDate(startOfYesterday.getDate() - 1);
-    const startOfWeek = new Date(startOfToday);
-    const weekday = startOfWeek.getDay();
-    const daysFromMonday = weekday === 0 ? 6 : weekday - 1;
-    startOfWeek.setDate(startOfWeek.getDate() - daysFromMonday);
+    const startOfMonth = new Date(startOfToday.getFullYear(), startOfToday.getMonth(), 1);
+    const endOfMonth = new Date(
+      startOfToday.getFullYear(),
+      startOfToday.getMonth() + 1,
+      0,
+      23,
+      59,
+      59,
+      999,
+    );
 
     const [
       todo,
@@ -56,7 +62,7 @@ export class BriefingService {
       archived,
       completedToday,
       completedYesterday,
-      completedThisWeek,
+      completedHistory,
       inboxHigh,
       me,
     ] = await Promise.all([
@@ -89,7 +95,7 @@ export class BriefingService {
         this.prisma.task.findMany({
           where: {
             userId,
-            completedAt: { gte: startOfWeek },
+            completedAt: { gte: startOfMonth, lte: endOfMonth },
           },
           orderBy: { completedAt: 'desc' },
         }),
@@ -113,8 +119,25 @@ export class BriefingService {
       me?.focusLimit ?? DEFAULT_SUGGEST_LIMIT,
     );
 
+    const dayCounts = new Map<string, number>();
+    const dayTasks = new Map<string, typeof completedHistory>();
+    for (const row of completedHistory) {
+      if (!row.completedAt) {
+        continue;
+      }
+      const key = toDateKey(row.completedAt);
+      dayCounts.set(key, (dayCounts.get(key) ?? 0) + 1);
+      const list = dayTasks.get(key) ?? [];
+      list.push(row);
+      dayTasks.set(key, list);
+    }
+
+    const monthDaysInMonth = endOfMonth.getDate();
+    const monthDays = buildDayRange(startOfMonth, monthDaysInMonth, dayCounts, dayTasks);
+    const monthCompleted = monthDays.reduce((sum, d) => sum + d.count, 0);
+
     return {
-      date: startOfToday.toISOString().slice(0, 10),
+      date: toDateKey(startOfToday),
       counts: {
         todo,
         focus: focusedTasks.length,
@@ -125,9 +148,45 @@ export class BriefingService {
       suggestedFocus,
       completedToday,
       completedYesterday,
-      completedThisWeek,
       pendingArchive: done,
+      monthReview: {
+        year: startOfToday.getFullYear(),
+        month: startOfToday.getMonth() + 1,
+        completedCount: monthCompleted,
+        activeDays: monthDays.filter((d) => d.count > 0).length,
+        days: monthDays,
+      },
     };
   }
+}
+
+function toDateKey(date: Date): string {
+  const y = date.getFullYear();
+  const m = `${date.getMonth() + 1}`.padStart(2, '0');
+  const d = `${date.getDate()}`.padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function addDays(date: Date, days: number): Date {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
+function buildDayRange(
+  start: Date,
+  length: number,
+  counts: Map<string, number>,
+  tasksByDay: Map<string, unknown[]>,
+): Array<{ date: string; count: number; tasks: unknown[] }> {
+  return Array.from({ length }, (_, i) => {
+    const day = addDays(start, i);
+    const key = toDateKey(day);
+    return {
+      date: key,
+      count: counts.get(key) ?? 0,
+      tasks: tasksByDay.get(key) ?? [],
+    };
+  });
 }
 

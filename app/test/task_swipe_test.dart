@@ -8,6 +8,7 @@ import 'package:flowdo/models/user.dart';
 import 'package:flowdo/providers.dart';
 import 'package:flowdo/screens/task_list_screen.dart';
 import 'package:flowdo/theme.dart';
+import 'package:flowdo/ui/task_gesture_policy.dart';
 import 'package:flowdo/widgets/priority_selector.dart';
 
 class _FakeApi extends ApiClient {
@@ -28,6 +29,11 @@ class _FakeApi extends ApiClient {
   @override
   Future<List<Task>> listTasks({String? status}) async =>
       tasks.where((t) => t.status == status).toList();
+
+  @override
+  Future<void> deleteTask(String id) async {
+    tasks.removeWhere((t) => t.id == id);
+  }
 
   @override
   Future<Task> updateTask(
@@ -85,6 +91,16 @@ Future<void> _pumpInbox(
   await tester.pumpAndSettle();
 }
 
+Future<void> _swipeLeft(WidgetTester tester, Finder target) async {
+  final gesture = await tester.startGesture(tester.getCenter(target));
+  for (var i = 0; i < 20; i++) {
+    await gesture.moveBy(const Offset(-35, 0));
+    await tester.pump();
+  }
+  await gesture.up();
+  await tester.pumpAndSettle();
+}
+
 Future<void> _swipeRight(WidgetTester tester, Finder target) async {
   final gesture = await tester.startGesture(tester.getCenter(target));
   for (var i = 0; i < 20; i++) {
@@ -98,13 +114,20 @@ Future<void> _swipeRight(WidgetTester tester, Finder target) async {
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({'accessToken': 'token'}));
 
-  testWidgets('swiping a task away removes its Slidable from the tree', (tester) async {
+  test('swipe targets share one policy', () {
+    expect(TaskGesturePolicy.swipeRight('TODO')?.status, 'FOCUS');
+    expect(TaskGesturePolicy.swipeLeft('TODO')?.status, 'DELETE');
+    expect(TaskGesturePolicy.swipeRight('FOCUS')?.status, 'DONE');
+    expect(TaskGesturePolicy.swipeLeft('FOCUS')?.status, 'TODO');
+    expect(TaskGesturePolicy.swipeLeft('DONE')?.status, 'TODO');
+  });
+
+  testWidgets('swiping a pool task to the right moves it to focus', (tester) async {
     final prefs = await SharedPreferences.getInstance();
     final api = _FakeApi(prefs);
     await _pumpInbox(tester, api);
     expect(find.text('喂猫'), findsOneWidget);
     expect(find.byTooltip('聚焦'), findsNothing);
-    expect(find.byTooltip('不做了'), findsNothing);
 
     await _swipeRight(tester, find.text('喂猫'));
 
@@ -113,7 +136,23 @@ void main() {
     expect(api.tasks.single.status, 'FOCUS');
   });
 
-  testWidgets('a rejected swipe brings the task back without a Slidable error', (tester) async {
+  testWidgets('swiping a pool task left asks to delete', (tester) async {
+    final prefs = await SharedPreferences.getInstance();
+    final api = _FakeApi(prefs);
+    await _pumpInbox(tester, api);
+
+    await _swipeLeft(tester, find.text('喂猫'));
+
+    expect(find.text('不做了？'), findsOneWidget);
+    expect(api.tasks, hasLength(1));
+
+    await tester.tap(find.text('删掉'));
+    await tester.pumpAndSettle();
+    expect(api.tasks, isEmpty);
+    expect(find.text('喂猫'), findsNothing);
+  });
+
+  testWidgets('a rejected swipe brings the task back', (tester) async {
     final prefs = await SharedPreferences.getInstance();
     final api = _FakeApi(prefs, failUpdate: true);
     await _pumpInbox(tester, api);
@@ -125,22 +164,17 @@ void main() {
     expect(api.tasks.single.status, 'TODO');
   });
 
-  testWidgets('desktop and web show action buttons and ignore a swipe', (tester) async {
+  testWidgets('desktop uses the same swipe to focus', (tester) async {
     final prefs = await SharedPreferences.getInstance();
     final api = _FakeApi(prefs);
     await _pumpInbox(tester, api, platform: TargetPlatform.windows);
 
-    expect(find.byTooltip('聚焦'), findsOneWidget);
-    expect(find.byTooltip('不做了'), findsOneWidget);
+    expect(find.byTooltip('聚焦'), findsNothing);
+    expect(find.byTooltip('不做了'), findsNothing);
 
     await _swipeRight(tester, find.text('喂猫'));
 
     expect(tester.takeException(), isNull);
-    expect(find.text('喂猫'), findsOneWidget);
-    expect(api.tasks.single.status, 'TODO');
-
-    await tester.tap(find.byTooltip('聚焦'));
-    await tester.pumpAndSettle();
     expect(api.tasks.single.status, 'FOCUS');
     expect(find.text('喂猫'), findsNothing);
   });

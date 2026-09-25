@@ -36,7 +36,9 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('还没有账号？来注册'));
+    final register = find.text('还没有账号？来注册');
+    await tester.ensureVisible(register);
+    await tester.tap(register);
     await tester.pumpAndSettle();
     expect(find.text('确认密码'), findsOneWidget);
     expect(find.text('注册'), findsWidgets);

@@ -36,10 +36,10 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('薄荷绿'), findsOneWidget);
-    expect(find.text('雾霾蓝'), findsOneWidget);
-    expect(find.text('暖橘色'), findsOneWidget);
-    expect(find.text('淡紫色'), findsOneWidget);
+    expect(find.text('闲云'), findsOneWidget);
+    expect(find.text('远山'), findsOneWidget);
+    expect(find.text('归途'), findsOneWidget);
+    expect(find.text('微光'), findsOneWidget);
     expect(find.text('hello@flowdo.test'), findsOneWidget);
   });
 
@@ -71,7 +71,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('薄荷绿'));
+    await tester.tap(find.text('闲云'));
     await tester.pumpAndSettle();
 
     expect(find.text('主题没换上，服务端还不认这个字段。'), findsOneWidget);

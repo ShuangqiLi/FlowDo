@@ -9,7 +9,6 @@ class TaskCard extends StatelessWidget {
     super.key,
     required this.task,
     required this.onOpen,
-    required this.actions,
     this.onPickPriority,
     this.subtitle,
   });
@@ -20,31 +19,43 @@ class TaskCard extends StatelessWidget {
 
   /// 参数是优先级图标自己的 context，菜单要贴着它弹出。
   final void Function(BuildContext anchorContext)? onPickPriority;
-  final List<Widget> actions;
+
+  static const _noOverlay = WidgetStatePropertyAll(Colors.transparent);
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final accent = context.flowColors.priority(task.priority);
+    final card = context.flowColors.card;
 
     return Card(
       clipBehavior: Clip.antiAlias,
+      elevation: 0,
+      color: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppRadii.card),
+        side: BorderSide(color: scheme.outlineVariant),
+      ),
       child: Ink(
         decoration: BoxDecoration(
           gradient: LinearGradient(
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
             colors: [
-              accent.withValues(alpha: 0.055),
-              context.flowColors.card,
+              Color.lerp(accent, card, 0.72)!,
+              Color.lerp(accent, card, 0.92)!,
+              card,
             ],
+            stops: const [0, 0.42, 1],
           ),
         ),
         child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 70),
+          constraints: const BoxConstraints(minHeight: 72),
           child: Row(
             children: [
               Container(
                 width: 4,
-                height: 42,
+                height: 44,
                 decoration: BoxDecoration(
                   color: accent,
                   borderRadius: BorderRadius.circular(AppRadii.pill),
@@ -54,7 +65,11 @@ class TaskCard extends StatelessWidget {
                 color: Colors.transparent,
                 child: Builder(
                   builder: (badgeContext) => InkWell(
-                    onTap: onPickPriority == null ? null : () => onPickPriority!(badgeContext),
+                    onTap: onPickPriority == null
+                        ? null
+                        : () => onPickPriority!(badgeContext),
+                    overlayColor: _noOverlay,
+                    splashFactory: NoSplash.splashFactory,
                     borderRadius: BorderRadius.circular(AppRadii.control),
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(
@@ -73,6 +88,8 @@ class TaskCard extends StatelessWidget {
                   color: Colors.transparent,
                   child: InkWell(
                     onTap: onOpen,
+                    overlayColor: _noOverlay,
+                    splashFactory: NoSplash.splashFactory,
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
                         horizontal: AppSpacing.xs,
@@ -104,8 +121,7 @@ class TaskCard extends StatelessWidget {
                   ),
                 ),
               ),
-              ...actions,
-              const SizedBox(width: AppSpacing.xxs),
+              const SizedBox(width: AppSpacing.sm),
             ],
           ),
         ),

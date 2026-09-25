@@ -14,6 +14,21 @@
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-25
+
+### Added
+
+- 可拖动贴边的加号：点按写任务、长按语音；加完跳到任务池
+- 今日看看的月度回顾日历，点一天能看见当天搞定的事
+
+### Changed
+
+- 底栏只留任务池 / 聚焦 / 完成，左右滑也能切页；归档改到左上角（设置里可关掉）
+- 设置、归档、详情可以右滑返回
+- 电脑和网页也改成和手机一样的左右滑，不再用按钮
+- 从聚焦或完成放回任务池后留在当前页，不再自动跳走
+- 四套主题改名为闲云 / 远山 / 归途 / 微光，配色更淡；任务卡按优先级铺浅渐变
+
 ## [0.1.0] - 2026-09-25
 
 ### Changed
@@ -84,7 +99,8 @@
 - 通过 GitHub Releases 发版（推送 `v*.*.*` 标签）
 - 账号级设置（聚焦上限、归档天数、是否显示归档页）
 
-[Unreleased]: https://github.com/ShuangqiLi/FlowDo/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/ShuangqiLi/FlowDo/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/ShuangqiLi/FlowDo/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/ShuangqiLi/FlowDo/compare/v0.0.4...v0.1.0
 [0.0.4]: https://github.com/ShuangqiLi/FlowDo/compare/v0.0.3...v0.0.4
 [0.0.3]: https://github.com/ShuangqiLi/FlowDo/compare/v0.0.2...v0.0.3

@@ -1,4 +1,4 @@
-# 本机启动随随办办服务端（PostgreSQL + API）
+﻿# 本机启动随随办办服务端（PostgreSQL + API）
 # 用法：powershell -ExecutionPolicy Bypass -File .\scripts\deploy.ps1
 
 $ErrorActionPreference = 'Continue'

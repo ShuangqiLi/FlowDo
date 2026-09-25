@@ -29,7 +29,6 @@ void main() {
               TaskCard(
                 task: task,
                 onOpen: () => opened = true,
-                actions: const [],
               ),
             ],
           ),

@@ -80,7 +80,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final me = ref.watch(meProvider);
     final scheme = Theme.of(context).colorScheme;
 
-    return ResponsiveContent(
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('设置'),
+      ),
+      body: ResponsiveContent(
       child: ListView(
         padding: const EdgeInsets.all(AppSpacing.md),
         children: [
@@ -121,7 +125,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
           ),
           const SizedBox(height: AppSpacing.lg),
-          const SectionHeader('外观', caption: '选一种舒服的颜色'),
+          const SectionHeader('外观', caption: '选一套顺眼的样子'),
           FlowDoCard(
             child: Wrap(
               spacing: AppSpacing.sm,
@@ -212,11 +216,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         color: scheme.onSurfaceVariant,
                       ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: AppSpacing.sm),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
-                  title: const Text('在导航里显示归档'),
-                  subtitle: const Text('关掉后底部就只留任务池、聚焦、完成和设置'),
+                  title: const Text('在首页显示归档入口'),
+                  subtitle: const Text('开着时左上角设置旁会出现归档；关掉后仍可自动归档'),
                   value: me.value?.showArchiveTab ?? true,
                   onChanged: (v) => _saveMe(showArchiveTab: v),
                 ),
@@ -280,6 +284,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             child: const Text('退出登录'),
           ),
         ],
+      ),
       ),
     );
   }

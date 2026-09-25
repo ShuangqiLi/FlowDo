@@ -59,7 +59,7 @@ final appThemeProvider = Provider<AppThemeKey>((ref) {
   return AppThemeKey.fromKey(ref.watch(meProvider).value?.themeKey);
 });
 
-/// 0 任务池, 1 聚焦, 2 完成, 3 归档, 4 设置
+/// 0 任务池, 1 聚焦, 2 完成
 final homeTabProvider = NotifierProvider<HomeTabController, int>(
   HomeTabController.new,
 );
@@ -68,5 +68,5 @@ class HomeTabController extends Notifier<int> {
   @override
   int build() => 0;
 
-  void setIndex(int index) => state = index;
+  void setIndex(int index) => state = index.clamp(0, 2);
 }

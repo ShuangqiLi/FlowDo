@@ -22,13 +22,15 @@ class EmptyState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            FlowDoIconTile(icon: icon, size: 64),
+            FlowDoIconTile(icon: icon, size: 72),
             const SizedBox(height: AppSpacing.md),
             Text(
               message,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                     color: scheme.onSurfaceVariant,
+                    height: 1.55,
+                    fontFamily: 'ZCOOLKuaiLe',
                   ),
             ),
           ],

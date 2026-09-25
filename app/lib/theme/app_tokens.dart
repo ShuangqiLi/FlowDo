@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 abstract final class AppSpacing {
@@ -12,18 +11,20 @@ abstract final class AppSpacing {
 }
 
 abstract final class AppRadii {
+  /// Flat Design：干净几何圆角，避免过度软拟物。
   static const double small = 8;
   static const double control = 12;
   static const double card = 12;
-  static const double large = 20;
+  static const double large = 16;
   static const double pill = 999;
 }
 
 abstract final class AppMotion {
-  static const Duration quick = Duration(milliseconds: 180);
-  static const Duration standard = Duration(milliseconds: 250);
-  static const Duration celebration = Duration(milliseconds: 700);
-  static const Curve curve = Curves.easeOutCubic;
+  /// Flat Design：150–200ms。
+  static const Duration quick = Duration(milliseconds: 150);
+  static const Duration standard = Duration(milliseconds: 200);
+  static const Duration celebration = Duration(milliseconds: 1200);
+  static const Curve curve = Curves.easeOut;
 }
 
 abstract final class AppText {
@@ -41,15 +42,4 @@ abstract final class AppText {
 abstract final class AppLayout {
   static const double contentMaxWidth = 760;
   static const double readingMaxWidth = 620;
-
-  /// 桌面和网页用按钮操作任务；手机、平板用左右滑，不放按钮以免误触。
-  static bool usesPointerActions(BuildContext context) {
-    if (kIsWeb) {
-      return true;
-    }
-    return switch (Theme.of(context).platform) {
-      TargetPlatform.android || TargetPlatform.iOS || TargetPlatform.fuchsia => false,
-      _ => true,
-    };
-  }
 }

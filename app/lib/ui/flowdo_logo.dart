@@ -2,22 +2,14 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-import '../theme.dart';
-
 /// 品牌图形标：一个柔和收笔的对勾。
 class FlowDoLogo extends StatelessWidget {
   const FlowDoLogo({
     super.key,
     this.size = 64,
-    this.withBackground = true,
-    this.color,
   });
 
   final double size;
-  final bool withBackground;
-
-  /// 单色场景下的描边色，留空则跟随当前主题。
-  final Color? color;
 
   @override
   Widget build(BuildContext context) {
@@ -29,11 +21,10 @@ class FlowDoLogo extends StatelessWidget {
       child: SizedBox.square(
         dimension: size * 0.62,
         child: CustomPaint(
-          painter: _FlowMarkPainter(stroke: color ?? scheme.primary),
+          painter: _FlowMarkPainter(stroke: scheme.primary),
         ),
       ),
     );
-    if (!withBackground) return mark;
 
     return Container(
       width: size,
@@ -42,13 +33,7 @@ class FlowDoLogo extends StatelessWidget {
       decoration: BoxDecoration(
         color: scheme.primaryContainer,
         borderRadius: BorderRadius.circular(size * 0.28),
-        boxShadow: [
-          BoxShadow(
-            color: scheme.primary.withValues(alpha: 0.12),
-            blurRadius: 18,
-            offset: const Offset(0, 6),
-          ),
-        ],
+        border: Border.all(color: scheme.outlineVariant),
       ),
       child: mark,
     );
@@ -98,42 +83,4 @@ class _FlowMarkPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_FlowMarkPainter oldDelegate) => oldDelegate.stroke != stroke;
-}
-
-class FlowDoBrand extends StatelessWidget {
-  const FlowDoBrand({super.key, this.compact = false});
-
-  final bool compact;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        FlowDoLogo(size: compact ? 36 : 46),
-        const SizedBox(width: AppSpacing.sm),
-        Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '随随办办',
-              style: (compact
-                      ? Theme.of(context).textTheme.titleLarge
-                      : Theme.of(context).textTheme.headlineSmall)
-                  ?.copyWith(fontFamily: 'ZCOOLKuaiLe'),
-            ),
-            Text(
-              'FlowDo',
-              style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.primary,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.8,
-                  ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
 }

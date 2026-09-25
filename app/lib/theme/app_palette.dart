@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
 enum AppThemeKey {
-  mint('mint', '薄荷绿', Color(0xFF7EC8A0)),
-  hazeBlue('hazeBlue', '雾霾蓝', Color(0xFF86A9C4)),
-  warmOrange('warmOrange', '暖橘色', Color(0xFFD8A06C)),
-  lightPurple('lightPurple', '淡紫色', Color(0xFFAA99C8));
+  mint('mint', '闲云', Color(0xFF5F9B82)),
+  hazeBlue('hazeBlue', '远山', Color(0xFF5B82A8)),
+  warmOrange('warmOrange', '归途', Color(0xFFC4895A)),
+  lightPurple('lightPurple', '微光', Color(0xFF8A7BA5));
 
   const AppThemeKey(this.key, this.label, this.preview);
 

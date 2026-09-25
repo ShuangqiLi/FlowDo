@@ -103,43 +103,6 @@ class _PriorityMenuRow extends StatelessWidget {
   }
 }
 
-/// Three-way chip selector for create / detail screens.
-class PrioritySelector extends StatelessWidget {
-  const PrioritySelector({
-    super.key,
-    required this.value,
-    required this.onChanged,
-  });
-
-  final String value;
-  final ValueChanged<String> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 8,
-      children: priorityOrder.map((p) {
-        final selected = p == value;
-        final color = priorityColor(context, p);
-        return ChoiceChip(
-          label: Text(priorityLabel(p)),
-          selected: selected,
-          onSelected: (_) => onChanged(p),
-          selectedColor: color.withValues(alpha: 0.22),
-          labelStyle: TextStyle(
-            color: selected ? color : Theme.of(context).colorScheme.onSurface,
-            fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-          ),
-          side: BorderSide(
-            color: selected ? color : Theme.of(context).colorScheme.outlineVariant,
-          ),
-          showCheckmark: false,
-        );
-      }).toList(),
-    );
-  }
-}
-
 /// Compact badge for list rows. Tap handling is left to the parent.
 class PriorityBadge extends StatelessWidget {
   const PriorityBadge({

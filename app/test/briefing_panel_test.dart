@@ -33,7 +33,6 @@ Briefing _briefing() {
     ],
     completedToday: const [],
     completedYesterday: const [],
-    completedThisWeek: const [],
     pendingArchive: 0,
   );
 }
@@ -70,7 +69,11 @@ Future<void> _pumpHome(WidgetTester tester) async {
 
 Finder _toggle() => find.descendant(
       of: find.byType(AppBar),
-      matching: find.byType(IconButton),
+      matching: find.byWidgetPredicate(
+        (widget) =>
+            widget is Icon &&
+            (widget.icon == Icons.wb_sunny_outlined || widget.icon == Icons.close),
+      ),
     );
 
 bool _panelVisible() => find.text('可以先做这些').evaluate().isNotEmpty;
@@ -79,7 +82,7 @@ bool _toggleSaysOpen() => find.byIcon(Icons.close).evaluate().isNotEmpty;
 
 Future<void> _openBriefing(WidgetTester tester) async {
   if (!_panelVisible()) {
-    await tester.tap(_toggle().first);
+    await tester.tap(_toggle());
     await tester.pumpAndSettle();
   }
 }
@@ -100,6 +103,7 @@ void main() {
       find.descendant(of: find.byType(AppBar), matching: find.text('任务池')),
       findsNothing,
     );
+    expect(find.byKey(const ValueKey('open-settings')), findsOneWidget);
     await _openBriefing(tester);
     expect(
       find.descendant(of: find.byType(AppBar), matching: find.text('今日看看')),
@@ -148,7 +152,7 @@ void main() {
           await _swipeAway(tester);
         } else {
           log.add('tap');
-          await tester.tap(_toggle().first);
+          await tester.tap(_toggle());
         }
         await tester.pump(Duration(milliseconds: rng.nextInt(500)));
 
