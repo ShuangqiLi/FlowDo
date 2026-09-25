@@ -121,7 +121,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
           ),
           const SizedBox(height: AppSpacing.lg),
-          const SectionHeader('外观', caption: '选一种舒服的颜色，跟着账号一起走。'),
+          const SectionHeader('外观', caption: '选一种舒服的颜色'),
           FlowDoCard(
             child: Wrap(
               spacing: AppSpacing.sm,

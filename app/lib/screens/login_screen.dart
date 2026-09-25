@@ -89,6 +89,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final obscuredStyle = AppText.obscuredStyle(
+      Theme.of(context).textTheme.bodyLarge,
+    );
 
     return Scaffold(
       body: DecoratedBox(
@@ -183,6 +186,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       TextField(
                         controller: _password,
                         obscureText: true,
+                        style: obscuredStyle,
                         decoration: InputDecoration(
                           labelText: _register ? '密码（至少 8 位）' : '密码',
                           prefixIcon: const Icon(Icons.lock_outline),
@@ -202,6 +206,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 child: TextField(
                                   controller: _confirmPassword,
                                   obscureText: true,
+                                  style: obscuredStyle,
                                   decoration: const InputDecoration(
                                     labelText: '确认密码',
                                     prefixIcon: Icon(Icons.lock_person_rounded),

@@ -8,14 +8,6 @@ Color priorityColor(BuildContext context, String priority) {
   return context.flowColors.priority(priority);
 }
 
-IconData priorityIcon(String priority) {
-  return switch (priority) {
-    'HIGH' => Icons.keyboard_double_arrow_up_rounded,
-    'LOW' => Icons.keyboard_arrow_down_rounded,
-    _ => Icons.remove_rounded,
-  };
-}
-
 String priorityLabel(String priority) {
   return switch (priority) {
     'HIGH' => '高',
@@ -38,7 +30,6 @@ Future<String?> showPriorityPicker(
           children: [
             for (final p in priorityOrder)
               ListTile(
-                leading: PriorityBadge(priority: p),
                 title: Text(priorityLabel(p)),
                 trailing: p == current
                     ? Icon(
@@ -80,7 +71,6 @@ class PrioritySelector extends StatelessWidget {
         final selected = p == value;
         final color = priorityColor(context, p);
         return ChoiceChip(
-          avatar: Icon(priorityIcon(p), size: 16, color: color),
           label: Text(priorityLabel(p)),
           selected: selected,
           onSelected: (_) => onChanged(p),
@@ -123,10 +113,14 @@ class PriorityBadge extends StatelessWidget {
             borderRadius: BorderRadius.circular(10),
             border: Border.all(color: color.withValues(alpha: 0.35)),
           ),
-          child: Icon(
-            priorityIcon(priority),
-            color: color,
-            size: 19,
+          child: Text(
+            priorityLabel(priority),
+            style: TextStyle(
+              color: color,
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              height: 1,
+            ),
           ),
         ),
       ),

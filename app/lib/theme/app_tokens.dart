@@ -25,6 +25,18 @@ abstract final class AppMotion {
   static const Curve curve = Curves.easeOutCubic;
 }
 
+abstract final class AppText {
+  /// 思源黑体里的 U+2022（•）是全角字形，密码掩码点会被拉开近一倍。
+  /// 字体里又没有窄一号的圆点可换，只能按字号收回这一段字距。
+  static const double obscuringTighten = 0.44;
+
+  /// 密码一类 `obscureText` 输入框的文字样式。只影响输入内容，标签不受牵连。
+  static TextStyle obscuredStyle(TextStyle? base) {
+    final fontSize = base?.fontSize ?? 16;
+    return (base ?? const TextStyle()).copyWith(letterSpacing: -fontSize * obscuringTighten);
+  }
+}
+
 abstract final class AppLayout {
   static const double contentMaxWidth = 760;
   static const double readingMaxWidth = 620;

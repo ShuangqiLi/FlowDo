@@ -38,7 +38,7 @@ void main() {
     );
 
     expect(find.bySemanticsLabel('FlowDo'), findsOneWidget);
-    expect(find.byIcon(Icons.keyboard_double_arrow_up_rounded), findsOneWidget);
+    expect(find.text('高'), findsOneWidget);
     await tester.tap(find.text('给窗边的绿植浇水'));
     expect(opened, isTrue);
   });

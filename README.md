@@ -4,7 +4,7 @@
 Go with the flow, get it done.  
 随随办办——无压力任务管理。服务端（NestJS + PostgreSQL）与客户端（Flutter）分离，个人账号空间，只管状态和优先级，不赶截止日期。
 
-开源协议：[MIT](LICENSE) · 当前版本 [v0.0.3](CHANGELOG.md) · [参与指南](CONTRIBUTING.md) · [Releases](https://github.com/ShuangqiLi/FlowDo/releases)
+开源协议：[MIT](LICENSE) · 当前版本 [v0.0.4](CHANGELOG.md) · [参与指南](CONTRIBUTING.md) · [Releases](https://github.com/ShuangqiLi/FlowDo/releases)
 
 ## 功能
 

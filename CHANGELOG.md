@@ -14,10 +14,17 @@
 
 ## [Unreleased]
 
+## [0.0.4] - 2026-09-25
+
+### Changed
+
+- 优先级改回用「高 / 中 / 低」文字显示，不再用箭头图标
+
 ### Fixed
 
 - 滑动任务时立刻移走卡片，避免 Slidable 报错
 - 外观主题切换失败时给出提示，不再静默吞掉错误
+- 登录和注册的密码掩码点过宽（思源黑体里的 • 是全角字形）
 
 ## [0.0.3] - 2026-09-25
 
@@ -54,7 +61,8 @@
 - 通过 GitHub Releases 发版（推送 `v*.*.*` 标签）
 - 账号级设置（聚焦上限、归档天数、是否显示归档页）
 
-[Unreleased]: https://github.com/ShuangqiLi/FlowDo/compare/v0.0.3...HEAD
+[Unreleased]: https://github.com/ShuangqiLi/FlowDo/compare/v0.0.4...HEAD
+[0.0.4]: https://github.com/ShuangqiLi/FlowDo/compare/v0.0.3...v0.0.4
 [0.0.3]: https://github.com/ShuangqiLi/FlowDo/compare/v0.0.2...v0.0.3
 [0.0.2]: https://github.com/ShuangqiLi/FlowDo/compare/v0.0.1...v0.0.2
 [0.0.1]: https://github.com/ShuangqiLi/FlowDo/releases/tag/v0.0.1
