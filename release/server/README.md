@@ -3,7 +3,8 @@
 此包包含 Linux AMD64 Docker 镜像、PostgreSQL 和 Caddy HTTPS 反代，不需要 Node.js。
 `Caddyfile` 与 `docker-compose.yml` 和仓库根目录是同一套文件，发版时拷进来。
 
-API 默认只绑在本机 `127.0.0.1:3000`。公网请用域名走 HTTPS，不要把 3000 对公网放行。
+API 默认只绑在本机 `127.0.0.1:13000`（容器内仍是 3000）。数据库不映射到宿主机。
+公网请用域名走 HTTPS，不要把 API 端口对公网放行。
 
 ## 公网部署
 
@@ -28,7 +29,7 @@ CORS_ORIGIN=*
 没有 `DOMAIN` 时，只能在这台机器访问：
 
 ```
-http://127.0.0.1:3000/health
+http://127.0.0.1:13000/health
 ```
 
 ## 停止

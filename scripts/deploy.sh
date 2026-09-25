@@ -32,7 +32,7 @@ docker compose up -d
 echo "等待 API 就绪..."
 ok=0
 for _ in $(seq 1 60); do
-  if curl -fsS http://127.0.0.1:3000/health >/dev/null 2>&1; then
+  if curl -fsS http://127.0.0.1:13000/health >/dev/null 2>&1; then
     ok=1
     break
   fi
@@ -40,14 +40,14 @@ for _ in $(seq 1 60); do
 done
 
 if [ "$ok" -ne 1 ]; then
-  echo "容器已启动，但健康检查还没通过。可稍后再打开 http://127.0.0.1:3000/health"
+  echo "容器已启动，但健康检查还没通过。可稍后再打开 http://127.0.0.1:13000/health"
   docker compose ps
   exit 1
 fi
 
 echo
 echo "服务端已就绪"
-echo "  API：  http://127.0.0.1:3000"
-echo "  健康： http://127.0.0.1:3000/health"
+echo "  API：  http://127.0.0.1:13000"
+echo "  健康： http://127.0.0.1:13000/health"
 echo "App 里把 API 地址填成上面这个即可。"
 echo "停掉：docker compose down"

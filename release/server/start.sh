@@ -34,7 +34,7 @@ if [ -n "${DOMAIN:-}" ]; then
   echo "安全组只放行 80、443。API 和数据库都不对公网开放。"
 else
   docker compose up -d
-  port="${API_PORT:-3000}"
+  port="${API_PORT:-13000}"
   echo "未设置 DOMAIN，API 只绑在本机 127.0.0.1:${port}，外网连不上。"
   echo "健康检查：http://127.0.0.1:${port}/health"
   echo "公网部署：在 .env 写入 DOMAIN=api.example.com（A 记录指到这台机器），"

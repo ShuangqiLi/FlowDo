@@ -13,7 +13,7 @@ if (-not (Test-Path '.env')) {
 }
 
 $domain = $null
-$port = '3000'
+$port = '13000'
 Get-Content '.env' | ForEach-Object {
     if ($_ -match '^\s*#' -or $_ -notmatch '=') { return }
     $name, $value = $_.Split('=', 2)

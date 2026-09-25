@@ -53,7 +53,7 @@ if ($LASTEXITCODE -ne 0) {
     throw "docker compose 启动失败。"
 }
 
-$health = 'http://127.0.0.1:3000/health'
+$health = 'http://127.0.0.1:13000/health'
 Write-Host "等待 API 就绪..."
 $ok = $false
 for ($i = 0; $i -lt 60; $i++) {
@@ -76,7 +76,7 @@ if (-not $ok) {
 
 Write-Host ""
 Write-Host "服务端已就绪"
-Write-Host "  API：  http://127.0.0.1:3000"
+Write-Host "  API：  http://127.0.0.1:13000"
 Write-Host "  健康： $health"
 Write-Host "App 里把 API 地址填成上面这个即可。"
 Write-Host "停掉：docker compose down"

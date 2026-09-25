@@ -3,7 +3,8 @@
 # 本机（源码构建后）：
 #   docker build -t flowdo-server:latest ./server
 #   docker compose up -d
-#   API 默认只绑 127.0.0.1:3000，数据库 127.0.0.1:5432，外网进不来。
+#   API 默认只绑 127.0.0.1:13000（容器内仍是 3000，避开 Grafana 等占用）。
+#   数据库不映射到宿主机，仅容器内 db:5432。
 #   要给同一局域网的手机连：FLOWDO_API_BIND=0.0.0.0
 #
 # 公网 HTTPS：
@@ -20,8 +21,6 @@ services:
       POSTGRES_USER: flowdo
       POSTGRES_PASSWORD: flowdo
       POSTGRES_DB: flowdo
-    ports:
-      - "127.0.0.1:5432:5432"
     volumes:
       - flowdo_data:/var/lib/postgresql/data
     healthcheck:
@@ -35,7 +34,7 @@ services:
     pull_policy: if_not_present
     restart: unless-stopped
     ports:
-      - "${FLOWDO_API_BIND:-127.0.0.1}:${API_PORT:-3000}:3000"
+      - "${FLOWDO_API_BIND:-127.0.0.1}:${API_PORT:-13000}:3000"
     environment:
       DATABASE_URL: postgresql://flowdo:flowdo@db:5432/flowdo
       JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
