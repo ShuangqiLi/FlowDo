@@ -1,0 +1,36 @@
+services:
+  db:
+    image: postgres:16-alpine
+    pull_policy: if_not_present
+    environment:
+      POSTGRES_USER: taskmgr
+      POSTGRES_PASSWORD: taskmgr
+      POSTGRES_DB: taskmgr
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U taskmgr"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  api:
+    build: ./server
+    pull_policy: if_not_present
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://taskmgr:taskmgr@db:5432/taskmgr
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      JWT_ACCESS_EXPIRES: 30m
+      JWT_REFRESH_EXPIRES: 7d
+      PORT: 3000
+      CORS_ORIGIN: "*"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:

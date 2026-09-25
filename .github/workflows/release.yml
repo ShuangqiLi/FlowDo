@@ -1,0 +1,47 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  github-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Notes from CHANGELOG
+        run: |
+          python3 << 'PY'
+          from pathlib import Path
+          import os
+
+          tag = os.environ["GITHUB_REF_NAME"]
+          version = tag[1:] if tag.startswith("v") else tag
+          text = Path("CHANGELOG.md").read_text(encoding="utf-8")
+          out = []
+          capture = False
+          for line in text.splitlines():
+              if line.startswith("## ["):
+                  if capture:
+                      break
+                  if line.startswith(f"## [{version}]"):
+                      capture = True
+                      continue
+              elif capture:
+                  if line.startswith("[") and "]: " in line:
+                      break
+                  out.append(line)
+          notes = "\n".join(out).strip() or f"FlowDo {tag}"
+          Path("release-notes.md").write_text(notes + "\n", encoding="utf-8")
+          PY
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --title "$GITHUB_REF_NAME" \
+            --notes-file release-notes.md

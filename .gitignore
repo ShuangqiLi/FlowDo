@@ -1,0 +1,28 @@
+.DS_Store
+.env
+.env.*
+!.env.example
+node_modules/
+dist/
+build/
+coverage/
+*.log
+
+# Flutter
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+**/doc/api/
+**/ios/Flutter/.last_build_id
+*.iml
+.idea/
+.vscode/
+
+# Android local SDK path
+**/local.properties
+
+# Nested git
+**/.gitkeep_empty

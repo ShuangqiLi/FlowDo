@@ -1,0 +1,10 @@
+{
+  "name": "随随办办 FlowDo",
+  "short_name": "FlowDo",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2F6F4E",
+  "description": "随随办办——无压力任务管理。Go with the flow, get it done.",
+  "orientation": "portrait-primary"
+}

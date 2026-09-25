@@ -1,0 +1,31 @@
+services:
+  db:
+    ports: !reset []
+
+  api:
+    ports: !reset []
+    environment:
+      JWT_SECRET: ${JWT_SECRET:?请设置 JWT_SECRET}
+      CORS_ORIGIN: ${CORS_ORIGIN:-*}
+
+  caddy:
+    image: caddy:2-alpine
+    pull_policy: if_not_present
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DOMAIN: ${DOMAIN:?请设置 DOMAIN，例如 api.example.com}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      api:
+        condition: service_started
+
+volumes:
+  caddy_data:
+  caddy_config:
