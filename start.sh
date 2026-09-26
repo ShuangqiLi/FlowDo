@@ -118,7 +118,22 @@ if docker volume inspect flowdo_flowdo_data >/dev/null 2>&1; then
   fi
 fi
 
-docker compose up -d || fail "docker compose up 失败。"
+# 接口容器挂着 Docker 套接字。同一次 up 里接着启动网页时，群晖的引擎
+# 经常把后一个 start 请求掐掉（Post .../start: EOF），网页容器就停在 Starting。
+# 所以先起数据库和接口，网页单独再起；失败等引擎回来重试一次。
+if ! docker compose up -d db api; then
+  echo "数据库或接口没能一次起来，等几秒再试 ..."
+  sleep 5
+  docker compose up -d db api \
+    || fail "docker compose up 失败。若仍是 docker.sock 连接被掐断（EOF），到套件中心重启 Container Manager 后再执行本脚本。"
+fi
+if ! docker compose up -d web; then
+  echo "网页容器没能一次起来，等几秒再试 ..."
+  sleep 5
+  docker rm -f flowdo-web-1 >/dev/null 2>&1 || true
+  docker compose up -d web \
+    || fail "docker compose up 失败。若仍是 docker.sock 连接被掐断（EOF），到套件中心重启 Container Manager 后再执行本脚本。"
+fi
 
 # 等容器 healthy；API 起来前要先把数据库结构同步一遍，等它就绪再报"已启动"，免得刷开网页是 502。
 wait_healthy() {

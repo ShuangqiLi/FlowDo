@@ -50,6 +50,8 @@ services:
       start_period: 5s
     # 关于页的一键更新要用本机 Docker 换镜像，并往部署目录写新的编排文件。
     # 挂上套接字之后，这个容器就能操作本机 Docker，只适合可信内网。
+    # 群晖上，同一次 up 里挂上套接字再启动别的容器，引擎有时会把 start 掐掉（EOF）。
+    # 启动脚本会先起数据库和接口，再单独起网页。
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./:/deploy

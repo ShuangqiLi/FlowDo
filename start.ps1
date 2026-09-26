@@ -128,8 +128,23 @@ if ($hasOld -and $hasNew) {
     Write-Host '旧卷还留着，确认数据无误后可删：docker volume rm flowdo_flowdo_data'
 }
 
-docker compose up -d
-if ($LASTEXITCODE -ne 0) { Fail 'docker compose up 失败。' }
+# 接口容器挂着 Docker 套接字。同一次 up 里接着启动网页时，群晖的引擎
+# 经常把后一个 start 请求掐掉（EOF）。先起数据库和接口，网页单独再起。
+function Invoke-ComposeUp([string[]]$Services) {
+    docker compose up -d @Services
+    if ($LASTEXITCODE -eq 0) { return }
+    Write-Host "$($Services -join '、') 没能一次起来，等几秒再试 ..."
+    Start-Sleep -Seconds 5
+    if ($Services -contains 'web') {
+        docker rm -f flowdo-web-1 2>$null | Out-Null
+    }
+    docker compose up -d @Services
+    if ($LASTEXITCODE -ne 0) {
+        Fail 'docker compose up 失败。若仍是 docker.sock 连接被掐断（EOF），到套件中心重启 Container Manager 后再执行本脚本。'
+    }
+}
+Invoke-ComposeUp db, api
+Invoke-ComposeUp web
 
 # 等容器 healthy；API 起来前要先把数据库结构同步一遍，等它就绪再报"已启动"，免得刷开网页是 502。
 function Wait-Healthy([string]$Service, [int]$Limit) {
