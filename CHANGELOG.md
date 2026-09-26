@@ -14,6 +14,46 @@
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-09-26
+
+### Added
+
+- 设置里新增「语音输入」开关，跟随账号；打开时进入首页就申请一次麦克风，之后长按加号不用再确认
+- 设置里显示浏览器当前给不给麦克风（已允许 / 被拒绝 / 还没问过 / http 地址不开放 / 浏览器不支持），
+  还没问过时可以直接点按钮申请
+- 部署包里每个镜像旁多了 `*.id`，启动脚本会跳过本机已有的镜像
+- `DEPLOY.md`：部署、升级、语音输入、停止与数据的完整说明，发版包里的 `README.md` 就是它
+
+### Changed
+
+- **登录改用用户名**，不再要求邮箱格式；`npm run user:create -- user 'password'` 只要用户名和密码，
+  不再限制密码长度。老账号用原来的邮箱当用户名照常登录，数据库结构不变
+- 发版包改名 `FlowDo-vX.Y.Z.zip`，里面只有 `docker-compose.yml`、两个镜像（带 `.id`）、
+  `start.sh` / `start.ps1` 和 `README.md`，不再塞 `web-build/`
+- `scripts/deploy.*` 和 `release/docker/start.*` 合并成仓库根目录的 `start.sh` / `start.ps1`：
+  旁边有镜像包就加载镜像，是源码目录就先构建镜像；启动后等 API 和网页端都通过健康检查，
+  没起来就打印容器状态和日志并以非零退出
+- 底栏改成平铺：任务池 / 聚焦 / 完成三等分，不再是半椭圆台面；聚焦坐中间，一颗更大的圆按钮，
+  选中时整颗填色；两侧页签选中时只在图标背后亮一枚胶囊，文字不再被框起来
+- 服务端镜像只带运行时依赖，并去掉 Prisma 重复的查询引擎和其他数据库的 wasm 引擎，
+  压缩后从 187MB 减到约 99MB；容器启动直接用 node 跑 Prisma CLI，不再经过 npx，也不联网查版本
+- 网页端镜像分阶段整理产物：删掉 dart2js 构建用不到的 skwasm / wimp 等 wasm 渲染器和调试符号，
+  `assets/`、`canvaskit/` 只保留预压的 `.gz`（nginx `gzip_static always` + `gunzip`），
+  压缩后从 73MB 减到约 40MB
+- 发版流水线拆成服务端镜像、网页端镜像两个并行 job，Docker 层用 GitHub Actions 缓存，
+  镜像用 pigz 多线程压缩，zip 里不再二次压缩 tar.gz
+- 数据库健康检查 2 秒一次，API 容器自带健康检查
+
+### Fixed
+
+- 语音输入失败时不再只显示 `not-allowed` 这种错误码：区分 http 地址不开放麦克风、用户拒绝、
+  没有麦克风、识别服务连不上、浏览器不支持等情况，并写明怎么解决；出错后输入框自动切成打字
+- 网页端 `assets/`、`canvaskit/` 不再让浏览器缓存一周：升级后图标字体是新裁剪的，老缓存会让部分图标不显示
+
+### Removed
+
+- `scripts/` 与 `release/` 目录，功能并入根目录 `start.sh` / `start.ps1` 和 `DEPLOY.md`
+
 ## [0.3.0] - 2026-09-26
 
 ### Removed
@@ -148,7 +188,8 @@
 - 通过 GitHub Releases 发版（推送 `v*.*.*` 标签）
 - 账号级设置（聚焦上限、归档天数、是否显示归档页）
 
-[Unreleased]: https://github.com/ShuangqiLi/FlowDo/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/ShuangqiLi/FlowDo/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/ShuangqiLi/FlowDo/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/ShuangqiLi/FlowDo/compare/v0.2.2...v0.3.0
 [0.2.2]: https://github.com/ShuangqiLi/FlowDo/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/ShuangqiLi/FlowDo/compare/v0.2.0...v0.2.1
