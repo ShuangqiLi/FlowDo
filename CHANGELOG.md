@@ -14,6 +14,12 @@
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-09-27
+
+### Fixed
+
+- 启动脚本先起数据库和接口，再单独起网页，失败会再试一次。群晖上接口挂了 Docker 套接字之后，同一次 `up` 里接着起网页会被引擎掐断（`/start: EOF`），网页容器停在 Starting
+
 ## [0.6.0] - 2026-09-27
 
 ### Added
@@ -204,7 +210,8 @@
 - 通过 GitHub Releases 发版（推送 `v*.*.*` 标签）
 - 账号级设置（聚焦上限、归档天数、是否显示归档页）
 
-[Unreleased]: https://github.com/ShuangqiLi/FlowDo/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/ShuangqiLi/FlowDo/compare/v0.6.1...HEAD
+[0.6.1]: https://github.com/ShuangqiLi/FlowDo/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/ShuangqiLi/FlowDo/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/ShuangqiLi/FlowDo/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/ShuangqiLi/FlowDo/compare/v0.3.0...v0.4.0
