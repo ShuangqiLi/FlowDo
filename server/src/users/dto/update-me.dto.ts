@@ -28,4 +28,8 @@ export class UpdateMeDto {
     message: '还没有这个主题哦',
   })
   themeKey?: string;
+
+  @IsOptional()
+  @IsBoolean({ message: '语音输入请用开或关' })
+  voiceInputEnabled?: boolean;
 }

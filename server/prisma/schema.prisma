@@ -22,13 +22,15 @@ enum TaskPriority {
 
 model User {
   id               String   @id @default(uuid())
-  email            String   @unique
+  // 登录名。列名沿用早期的 email，这样老库 db push 不动数据，老账号照旧用原来的邮箱登录。
+  username         String   @unique @map("email")
   passwordHash     String
   archiveAfterDays Int      @default(7)
   focusLimit       Int      @default(3)
   deleteArchivedAfterDays Int @default(30)
   showArchiveTab   Boolean  @default(true)
   themeKey         String   @default("mint")
+  voiceInputEnabled Boolean @default(true)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
   tasks            Task[]

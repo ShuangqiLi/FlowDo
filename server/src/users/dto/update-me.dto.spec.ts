@@ -17,6 +17,21 @@ describe('UpdateMeDto themeKey', () => {
     await expect(validate(dto)).resolves.toHaveLength(0);
   });
 
+  it.each([true, false])('accepts voiceInputEnabled=%s', async (enabled) => {
+    const dto = new UpdateMeDto();
+    dto.voiceInputEnabled = enabled;
+    await expect(validate(dto)).resolves.toHaveLength(0);
+  });
+
+  it('rejects a non-boolean voiceInputEnabled', async () => {
+    const dto = new UpdateMeDto();
+    (dto as { voiceInputEnabled: unknown }).voiceInputEnabled = 'yes';
+    const errors = await validate(dto);
+    expect(errors.some((error) => error.property === 'voiceInputEnabled')).toBe(
+      true,
+    );
+  });
+
   it('rejects a negative purge delay', async () => {
     const dto = new UpdateMeDto();
     dto.deleteArchivedAfterDays = -1;

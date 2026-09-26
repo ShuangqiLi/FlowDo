@@ -5,7 +5,7 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 
 export type AccessTokenPayload = {
   sub: string;
-  email: string;
+  username: string;
   type: 'access';
 };
 
@@ -23,6 +23,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     if (payload.type !== 'access') {
       throw new UnauthorizedException('登录过期了，重新登一下吧');
     }
-    return { userId: payload.sub, email: payload.email };
+    return { userId: payload.sub, username: payload.username };
   }
 }

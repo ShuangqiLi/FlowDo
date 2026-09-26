@@ -1,10 +1,12 @@
-import { IsEmail, IsString } from 'class-validator';
+import { IsNotEmpty, IsString } from 'class-validator';
 
 export class LoginDto {
-  @IsEmail({}, { message: '这看起来不像邮箱地址哦' })
-  email!: string;
+  @IsString({ message: '用户名还没填呢' })
+  @IsNotEmpty({ message: '用户名还没填呢' })
+  username!: string;
 
   @IsString({ message: '密码还没填呢' })
+  @IsNotEmpty({ message: '密码还没填呢' })
   password!: string;
 }
 

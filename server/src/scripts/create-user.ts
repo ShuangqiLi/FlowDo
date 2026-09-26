@@ -4,32 +4,35 @@ import * as bcrypt from 'bcryptjs';
 const prisma = new PrismaClient();
 
 function usage(): never {
-  console.error("用法：npm run user:create -- <邮箱> '<至少 8 位的密码>'");
+  console.error("用法：npm run user:create -- <用户名> '<密码>'");
+  console.error("例如：npm run user:create -- user 'password'");
   process.exit(2);
 }
 
+// 账号只能在部署机上建，不对外开放注册，所以这里不设复杂规则：
+// 用户名不为空且不含空白，密码不为空即可。
 async function main() {
-  const [, , rawEmail, password] = process.argv;
-  if (!rawEmail || !password) {
+  const [, , rawUsername, password] = process.argv;
+  if (!rawUsername || !password) {
     usage();
   }
 
-  const email = rawEmail.toLowerCase().trim();
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    throw new Error('邮箱格式不对');
+  const username = rawUsername.trim();
+  if (!username) {
+    throw new Error('用户名不能为空');
   }
-  if (password.length < 8) {
-    throw new Error('密码至少要 8 位');
+  if (/\s/.test(username)) {
+    throw new Error('用户名里不能有空格');
   }
 
-  const existing = await prisma.user.findUnique({ where: { email } });
+  const existing = await prisma.user.findUnique({ where: { username } });
   if (existing) {
-    throw new Error(`账号 ${email} 已经存在`);
+    throw new Error(`账号 ${username} 已经存在`);
   }
 
   const passwordHash = await bcrypt.hash(password, 10);
-  await prisma.user.create({ data: { email, passwordHash } });
-  console.log(`账号 ${email} 已创建`);
+  await prisma.user.create({ data: { username, passwordHash } });
+  console.log(`账号 ${username} 已创建`);
 }
 
 main()

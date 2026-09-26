@@ -15,23 +15,22 @@ export class AuthService {
   ) {}
 
   async login(dto: LoginDto) {
-    const email = dto.email.toLowerCase().trim();
-    const user = await this.prisma.user.findUnique({ where: { email } });
+    const username = dto.username.trim();
+    const user = await this.prisma.user.findUnique({ where: { username } });
     if (!user) {
-      throw new UnauthorizedException('邮箱或密码好像对不上，再试试？');
+      throw new UnauthorizedException('用户名或密码好像对不上，再试试？');
     }
     const ok = await bcrypt.compare(dto.password, user.passwordHash);
     if (!ok) {
-      throw new UnauthorizedException('邮箱或密码好像对不上，再试试？');
+      throw new UnauthorizedException('用户名或密码好像对不上，再试试？');
     }
-    return this.issueTokens(user.id, user.email);
+    return this.issueTokens(user.id, user.username);
   }
 
   async refresh(refreshToken: string) {
     try {
       const payload = await this.jwt.verifyAsync<{
         sub: string;
-        email: string;
         type: string;
       }>(refreshToken, {
         secret: this.config.getOrThrow<string>('JWT_SECRET'),
@@ -45,24 +44,24 @@ export class AuthService {
       if (!user) {
         throw new UnauthorizedException('登录过期了，重新登一下吧');
       }
-      return this.issueTokens(user.id, user.email);
+      return this.issueTokens(user.id, user.username);
     } catch {
       throw new UnauthorizedException('登录过期了，重新登一下吧');
     }
   }
 
-  private async issueTokens(userId: string, email: string) {
+  private async issueTokens(userId: string, username: string) {
     const secret = this.config.getOrThrow<string>('JWT_SECRET');
     const accessExpires = (this.config.get('JWT_ACCESS_EXPIRES') ??
       '30m') as SignOptions['expiresIn'];
     const refreshExpires = (this.config.get('JWT_REFRESH_EXPIRES') ??
       '7d') as SignOptions['expiresIn'];
     const accessToken = await this.jwt.signAsync(
-      { sub: userId, email, type: 'access' },
+      { sub: userId, username, type: 'access' },
       { secret, expiresIn: accessExpires },
     );
     const refreshToken = await this.jwt.signAsync(
-      { sub: userId, email, type: 'refresh' },
+      { sub: userId, username, type: 'refresh' },
       { secret, expiresIn: refreshExpires },
     );
     return { accessToken, refreshToken };
