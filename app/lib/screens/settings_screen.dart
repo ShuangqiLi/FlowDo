@@ -1,10 +1,14 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../api/api_client.dart';
+import '../platform/microphone.dart';
 import '../providers.dart';
 import '../theme.dart';
+import '../ui/add_task_fab.dart';
 import '../ui/flowdo_card.dart';
+import '../utils/voice_input_messages.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -17,6 +21,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   final _days = TextEditingController();
   final _focusLimit = TextEditingController();
   final _deleteDays = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    if (kIsWeb && AddTaskFab.voiceSupported) {
+      // 进设置页刷一下麦克风状态，那行提示才是现在的情况。
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          ref.read(micPermissionProvider.notifier).refresh();
+        }
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -32,6 +49,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     int? deleteArchivedAfterDays,
     bool? showArchiveTab,
     String? themeKey,
+    bool? voiceInputEnabled,
     String? successMessage,
   }) async {
     try {
@@ -41,6 +59,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             deleteArchivedAfterDays: deleteArchivedAfterDays,
             showArchiveTab: showArchiveTab,
             themeKey: themeKey,
+            voiceInputEnabled: voiceInputEnabled,
           );
       ref.invalidate(meProvider);
       if (successMessage != null && mounted) {
@@ -107,7 +126,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        user.email,
+                        user.username,
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
                     ),
@@ -166,6 +185,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   child: const Text('保存聚焦上限'),
                 ),
               ],
+            ),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          const SectionHeader('语音输入', caption: '长按加号直接说，松手就记下'),
+          FlowDoCard(
+            child: _VoiceInputSettings(
+              enabled: me.value?.voiceInputEnabled ?? true,
+              onChanged: (v) async {
+                final ok = await _saveMe(voiceInputEnabled: v);
+                if (ok && v && kIsWeb && AddTaskFab.voiceSupported) {
+                  // 刚打开就顺手把权限要下来，别等到长按的时候再弹窗。
+                  await ref.read(micPermissionProvider.notifier).request();
+                }
+              },
             ),
           ),
           const SizedBox(height: AppSpacing.lg),
@@ -251,6 +284,109 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       ),
       ),
     );
+  }
+}
+
+/// 语音输入开关 + 浏览器麦克风现状。开关跟账号走，权限是浏览器对这个地址记的。
+class _VoiceInputSettings extends ConsumerWidget {
+  const _VoiceInputSettings({
+    required this.enabled,
+    required this.onChanged,
+  });
+
+  final bool enabled;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final scheme = Theme.of(context).colorScheme;
+    final captionStyle = Theme.of(context).textTheme.bodySmall?.copyWith(
+          color: scheme.onSurfaceVariant,
+        );
+    final micState = ref.watch(micPermissionProvider);
+    final showMic = kIsWeb && AddTaskFab.voiceSupported;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SwitchListTile(
+          key: const ValueKey('voice-input-switch'),
+          contentPadding: EdgeInsets.zero,
+          title: const Text('长按加号说话'),
+          subtitle: Text(
+            enabled
+                ? '开着时进入首页会先申请一次麦克风，之后长按加号就能直接说'
+                : '关掉后不会申请麦克风，长按加号也只能打字',
+          ),
+          value: enabled,
+          onChanged: onChanged,
+        ),
+        if (!AddTaskFab.voiceSupported) ...[
+          const SizedBox(height: AppSpacing.xs),
+          Text('这个平台还不能语音输入，只在网页端可用。', style: captionStyle),
+        ],
+        if (showMic && enabled) ...[
+          const SizedBox(height: AppSpacing.xs),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                _micIcon(micState),
+                size: 18,
+                color: _micColor(micState, scheme),
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              Expanded(
+                child: Text(
+                  micState == null
+                      ? '正在看浏览器给不给麦克风…'
+                      : micStateMessage(
+                          micState,
+                          origin: MicrophoneAccess.pageOrigin,
+                        ),
+                  key: const ValueKey('mic-state-text'),
+                  style: captionStyle,
+                ),
+              ),
+            ],
+          ),
+          if (micState != null && micRequestUseful(micState)) ...[
+            const SizedBox(height: AppSpacing.sm),
+            FilledButton.tonalIcon(
+              key: const ValueKey('request-mic'),
+              onPressed: () =>
+                  ref.read(micPermissionProvider.notifier).request(),
+              icon: const Icon(Icons.mic_rounded),
+              label: const Text('现在申请麦克风权限'),
+            ),
+          ],
+        ],
+      ],
+    );
+  }
+
+  IconData _micIcon(MicPermissionState? state) {
+    return switch (state) {
+      MicPermissionState.granted => Icons.mic_rounded,
+      MicPermissionState.denied ||
+      MicPermissionState.insecureContext ||
+      MicPermissionState.unsupported ||
+      MicPermissionState.noDevice =>
+        Icons.mic_off_rounded,
+      _ => Icons.mic_none_rounded,
+    };
+  }
+
+  Color _micColor(MicPermissionState? state, ColorScheme scheme) {
+    return switch (state) {
+      MicPermissionState.granted => scheme.primary,
+      MicPermissionState.denied ||
+      MicPermissionState.insecureContext ||
+      MicPermissionState.unsupported ||
+      MicPermissionState.noDevice =>
+        scheme.error,
+      _ => scheme.onSurfaceVariant,
+    };
   }
 }
 

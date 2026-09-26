@@ -1,12 +1,12 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../models/user.dart';
 import '../providers.dart';
 import '../theme.dart';
 import '../ui/add_task_fab.dart';
 import '../ui/flowdo_page_route.dart';
+import '../ui/focus_dock.dart';
 import '../ui/swipe_away.dart';
 import 'archive_screen.dart';
 import 'briefing_screen.dart';
@@ -35,6 +35,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         return;
       }
       _maybeOpenBriefing();
+      _maybeAskMic(ref.read(meProvider).value);
     });
   }
 
@@ -56,6 +57,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
     _autoOpenedBriefing = true;
     _openBriefing();
+  }
+
+  /// 账号开着语音输入，就在进首页时把麦克风权限申请好；长按加号时不用再分神点允许。
+  void _maybeAskMic(Me? me) {
+    if (me == null || !me.voiceInputEnabled || !AddTaskFab.voiceSupported) {
+      return;
+    }
+    ref.read(micPermissionProvider.notifier).ensureAskedOnOpen();
   }
 
   void _openBriefing() {
@@ -129,6 +138,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         duration: AppMotion.standard,
         curve: AppMotion.curve,
       );
+    });
+    ref.listen<AsyncValue<Me>>(meProvider, (prev, next) {
+      _maybeAskMic(next.value);
     });
 
     return PopScope(
@@ -219,7 +231,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ],
             ),
             bottomNavigationBar: RepaintBoundary(
-              child: _FocusDock(
+              child: FocusDock(
                 selectedIndex: index,
                 onSelected: (i) {
                   _goTab(i);
@@ -234,243 +246,5 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ],
       ),
     );
-  }
-}
-
-/// 半椭圆台面底栏：三个方块围弧而立（无 3D 透视，减轻滑动时的合成开销）。
-class _FocusDock extends StatelessWidget {
-  const _FocusDock({
-    required this.selectedIndex,
-    required this.onSelected,
-  });
-
-  final int selectedIndex;
-  final ValueChanged<int> onSelected;
-
-  static const double _arcHeight = 118;
-  static const double _blockWidth = 72;
-  static const double _blockHeight = 66;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final flow = context.flowColors;
-    final bottomInset = MediaQuery.paddingOf(context).bottom;
-
-    return SizedBox(
-      height: _arcHeight + bottomInset,
-      child: Material(
-        color: Colors.transparent,
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Positioned.fill(
-              child: CustomPaint(
-                painter: _SemiEllipseDockPainter(
-                  fill: flow.card,
-                  rim: scheme.outlineVariant,
-                  bottomInset: bottomInset,
-                ),
-              ),
-            ),
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: bottomInset,
-              height: _arcHeight,
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final w = constraints.maxWidth;
-                  final h = constraints.maxHeight;
-
-                  // 和台面画笔共用同一条弧线，方块才会真的坐在台面上。
-                  final oval = _dockOval(w, h);
-
-                  Offset onArc(double t) {
-                    final angle = math.pi * (1 - t);
-                    final dx = w * 0.36 * math.cos(angle);
-                    final unit = (dx / (oval.width / 2)).clamp(-1.0, 1.0);
-                    final dy = oval.height / 2 * math.sqrt(1 - unit * unit);
-                    return Offset(oval.center.dx + dx, oval.center.dy - dy);
-                  }
-
-                  final pool = onArc(0.14);
-                  final focus = onArc(0.5);
-                  final done = onArc(0.86);
-
-                  Widget place({
-                    required Offset c,
-                    required Widget child,
-                  }) {
-                    // 整块都要留在台面里，探出去就会盖住上面的列表。
-                    final maxTop = math.max(0.0, h - _blockHeight - 4);
-                    return Positioned(
-                      left: c.dx - _blockWidth / 2,
-                      top: (c.dy + 6).clamp(0.0, maxTop),
-                      width: _blockWidth,
-                      height: _blockHeight,
-                      child: child,
-                    );
-                  }
-
-                  return Stack(
-                    clipBehavior: Clip.hardEdge,
-                    children: [
-                      place(
-                        c: pool,
-                        child: _DockBlock(
-                          selected: selectedIndex == 0,
-                          icon: Icons.inbox_rounded,
-                          label: '任务池',
-                          onTap: () => onSelected(0),
-                        ),
-                      ),
-                      place(
-                        c: done,
-                        child: _DockBlock(
-                          selected: selectedIndex == 2,
-                          icon: Icons.check_circle_rounded,
-                          label: '完成',
-                          onTap: () => onSelected(2),
-                        ),
-                      ),
-                      place(
-                        c: focus,
-                        child: _DockBlock(
-                          selected: selectedIndex == 1,
-                          icon: Icons.center_focus_strong_rounded,
-                          label: '聚焦',
-                          onTap: () => onSelected(1),
-                        ),
-                      ),
-                    ],
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _DockBlock extends StatelessWidget {
-  const _DockBlock({
-    required this.selected,
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-
-  final bool selected;
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final flow = context.flowColors;
-    final face = selected ? scheme.primaryContainer : flow.card;
-    final fg = selected ? scheme.primary : scheme.onSurfaceVariant;
-
-    return Semantics(
-      button: true,
-      selected: selected,
-      label: label,
-      child: Tooltip(
-        message: label,
-        child: GestureDetector(
-          onTap: onTap,
-          behavior: HitTestBehavior.opaque,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: face,
-              borderRadius: BorderRadius.circular(AppRadii.control),
-              border: Border.all(
-                color: selected
-                    ? scheme.primary.withValues(alpha: 0.35)
-                    : scheme.outlineVariant,
-              ),
-            ),
-            child: Center(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(8, 12, 8, 8),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(icon, color: fg, size: 20),
-                    const SizedBox(height: 4),
-                    Text(
-                      label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: fg,
-                            fontWeight: FontWeight.w700,
-                            height: 1.05,
-                            fontSize: 11,
-                          ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// 台面那条半椭圆：底栏画笔和上面的方块都按它摆位。
-Rect _dockOval(double width, double arcBottom) {
-  return Rect.fromCenter(
-    center: Offset(width / 2, arcBottom + arcBottom * 0.08),
-    width: width * 1.08,
-    height: arcBottom * 1.85,
-  );
-}
-
-/// 底部半椭圆台面（Flat：纯色填充 + 发丝描边）。
-class _SemiEllipseDockPainter extends CustomPainter {
-  const _SemiEllipseDockPainter({
-    required this.fill,
-    required this.rim,
-    required this.bottomInset,
-  });
-
-  final Color fill;
-  final Color rim;
-  final double bottomInset;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final arcBottom = size.height - bottomInset;
-    final oval = _dockOval(size.width, arcBottom);
-
-    // 正角度是顺时针（y 向下），所以 +π 才是从左端翻过顶再落到右端。
-    final path = Path()
-      ..moveTo(0, size.height)
-      ..lineTo(0, arcBottom)
-      ..arcTo(oval, math.pi, math.pi, false)
-      ..lineTo(size.width, size.height)
-      ..close();
-
-    canvas.drawPath(path, Paint()..color = fill);
-
-    final rimPaint = Paint()
-      ..color = rim
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1;
-    canvas.drawPath(Path()..addArc(oval, math.pi, math.pi), rimPaint);
-  }
-
-  @override
-  bool shouldRepaint(covariant _SemiEllipseDockPainter oldDelegate) {
-    return fill != oldDelegate.fill ||
-        rim != oldDelegate.rim ||
-        bottomInset != oldDelegate.bottomInset;
   }
 }

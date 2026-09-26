@@ -15,14 +15,14 @@ class LoginScreen extends ConsumerStatefulWidget {
 }
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
-  final _email = TextEditingController();
+  final _username = TextEditingController();
   final _password = TextEditingController();
   bool _busy = false;
   String? _error;
 
   @override
   void dispose() {
-    _email.dispose();
+    _username.dispose();
     _password.dispose();
     super.dispose();
   }
@@ -34,7 +34,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     });
     try {
       await ref.read(authStateProvider.notifier).login(
-            _email.text.trim(),
+            _username.text.trim(),
             _password.text,
           );
     } on ApiException catch (e) {
@@ -121,17 +121,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           ),
                           const SizedBox(height: AppSpacing.lg),
                           TextField(
-                            controller: _email,
-                            keyboardType: TextInputType.emailAddress,
+                            controller: _username,
+                            autofillHints: const [AutofillHints.username],
+                            textInputAction: TextInputAction.next,
                             decoration: const InputDecoration(
-                              labelText: '邮箱',
-                              prefixIcon: Icon(Icons.mail_outline),
+                              labelText: '用户名',
+                              prefixIcon: Icon(Icons.person_outline),
                             ),
                           ),
                           const SizedBox(height: 12),
                           TextField(
                             controller: _password,
                             obscureText: true,
+                            autofillHints: const [AutofillHints.password],
                             style: obscuredStyle,
                             decoration: const InputDecoration(
                               labelText: '密码',

@@ -45,7 +45,7 @@ Future<void> _pumpHome(WidgetTester tester) async {
   final prefs = await SharedPreferences.getInstance();
   final me = Me(
     id: 'user',
-    email: 'hello@flowdo.test',
+    username: 'hello',
     archiveAfterDays: 7,
     focusLimit: 3,
     deleteArchivedAfterDays: 30,

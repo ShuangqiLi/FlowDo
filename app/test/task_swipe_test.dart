@@ -68,7 +68,7 @@ Future<void> _pumpInbox(
 }) async {
   final me = Me(
     id: 'user',
-    email: 'hello@flowdo.test',
+    username: 'hello',
     archiveAfterDays: 7,
     focusLimit: 3,
     deleteArchivedAfterDays: 30,

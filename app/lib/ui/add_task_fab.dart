@@ -4,9 +4,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 
 import '../api/api_client.dart';
+import '../platform/microphone.dart';
 import '../providers.dart';
+import '../screens/settings_screen.dart';
 import '../theme.dart';
 import '../utils/speech_text.dart';
+import '../utils/voice_input_messages.dart';
+import 'flowdo_page_route.dart';
+import 'focus_dock.dart';
 
 /// 可拖动的加号：贴边吸附，位置按账号记在本地；点按文字，长按语音。
 class AddTaskFab extends ConsumerStatefulWidget {
@@ -62,6 +67,9 @@ class _AddTaskFabState extends ConsumerState<AddTaskFab>
   bool _voiceSession = false;
   bool _isListening = false;
   bool _submitting = false;
+
+  /// 语音没起来、已经切成打字了：这次松手不要把输入框关掉。
+  bool _fellBackToTyping = false;
 
   final _controller = TextEditingController();
   final _focus = FocusNode();
@@ -205,6 +213,7 @@ class _AddTaskFabState extends ConsumerState<AddTaskFab>
       _voiceSession = false;
       _isListening = false;
       _holdingVoice = false;
+      _fellBackToTyping = false;
       _controller.clear();
     });
   }
@@ -239,6 +248,9 @@ class _AddTaskFabState extends ConsumerState<AddTaskFab>
     }
   }
 
+  /// 账号层面有没有开语音；还没拿到账号信息时按开着算。
+  bool get _voiceEnabled => ref.read(voiceInputEnabledProvider);
+
   void _hintNoVoice() {
     ScaffoldMessenger.of(context)
       ..clearSnackBars()
@@ -247,19 +259,115 @@ class _AddTaskFabState extends ConsumerState<AddTaskFab>
       );
   }
 
-  void _voiceFailed(String message) {
+  void _hintVoiceOff() {
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(
+        SnackBar(
+          content: const Text('语音输入在设置里关着，松开手打字吧'),
+          action: SnackBarAction(label: '去设置', onPressed: _openSettings),
+        ),
+      );
+  }
+
+  void _openSettings() {
     if (!mounted) {
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
+    Navigator.of(context).push(
+      FlowDoPageRoute(
+        swipeFromLeftEdgeOnly: false,
+        builder: (_) => const SettingsScreen(),
+      ),
     );
+  }
+
+  /// 麦克风被拦、没网这类"说了也白说"的错误：提示怎么解决，同时把输入框切成打字。
+  void _voiceFailed(String message, {bool offerSettings = false}) {
+    if (!mounted) {
+      return;
+    }
+    _speechSession++;
+    _pulse.stop();
+    _pulse.reset();
+    setState(() {
+      _isListening = false;
+      _voiceSession = false;
+      _holdingVoice = false;
+      _fellBackToTyping = _composerOpen;
+    });
+    if (_composerOpen) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _focus.requestFocus();
+        }
+      });
+    }
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          duration: const Duration(seconds: 8),
+          action: offerSettings
+              ? SnackBarAction(label: '去设置', onPressed: _openSettings)
+              : null,
+        ),
+      );
+  }
+
+  void _onSpeechError(String rawError) {
+    final message = voiceErrorMessage(
+      rawError,
+      secureContext: MicrophoneAccess.isSecureContext,
+      origin: MicrophoneAccess.pageOrigin,
+    );
+    if (message == null) {
+      // 松手时的 aborted 之类，不用打扰。
+      if (mounted) {
+        setState(() => _isListening = false);
+      }
+      return;
+    }
+    _voiceFailed(message, offerSettings: kIsWeb);
+  }
+
+  /// 网页端在真正开麦之前先看一眼权限；已经知道不行的就别让浏览器再报一次 not-allowed。
+  bool _blockedByKnownMicState() {
+    if (!kIsWeb) {
+      return false;
+    }
+    final state = ref.read(micPermissionProvider);
+    switch (state) {
+      case MicPermissionState.denied:
+      case MicPermissionState.insecureContext:
+      case MicPermissionState.unsupported:
+      case MicPermissionState.noDevice:
+        _voiceFailed(
+          micStateMessage(state!, origin: MicrophoneAccess.pageOrigin),
+          offerSettings: true,
+        );
+        return true;
+      case MicPermissionState.granted:
+      case MicPermissionState.prompt:
+      case MicPermissionState.unknown:
+      case null:
+        return false;
+    }
   }
 
   Future<void> _startVoiceInput() async {
     if (!AddTaskFab.voiceSupported) {
       _hintNoVoice();
       await _closeComposer();
+      return;
+    }
+    if (!_voiceEnabled) {
+      _hintVoiceOff();
+      await _closeComposer();
+      return;
+    }
+    if (_blockedByKnownMicState()) {
       return;
     }
 
@@ -272,18 +380,21 @@ class _AddTaskFabState extends ConsumerState<AddTaskFab>
         },
         onError: (error) {
           if (!mounted) return;
-          setState(() => _isListening = false);
-          _voiceFailed('语音输入没听清：${error.errorMsg}');
+          _onSpeechError(error.errorMsg);
         },
       );
     } catch (_) {
       _voiceFailed('语音输入没启动起来，先打字吧');
-      await _closeComposer();
       return;
     }
     if (!available) {
-      _voiceFailed('当前设备暂不支持语音输入');
-      await _closeComposer();
+      _voiceFailed(
+        voiceErrorMessage(
+              'not supported',
+              secureContext: MicrophoneAccess.isSecureContext,
+            ) ??
+            '当前设备暂不支持语音输入',
+      );
       return;
     }
     if (!_holdingVoice && !_voiceSession) {
@@ -327,7 +438,6 @@ class _AddTaskFabState extends ConsumerState<AddTaskFab>
       );
     } catch (_) {
       _voiceFailed('语音输入没启动起来，先打字吧');
-      await _closeComposer();
     }
   }
 
@@ -365,6 +475,12 @@ class _AddTaskFabState extends ConsumerState<AddTaskFab>
       _moved = false;
       _holdingVoice = false;
     });
+
+    if (_fellBackToTyping) {
+      // 语音没起来，已经切成打字了，这次松手留着输入框让人接着打。
+      _fellBackToTyping = false;
+      return;
+    }
 
     if (wasHoldingVoice) {
       await _endVoiceInput();
@@ -404,11 +520,12 @@ class _AddTaskFabState extends ConsumerState<AddTaskFab>
     final media = MediaQuery.of(context);
     final screen = media.size;
     final padding = media.padding;
-    const navHeight = 122.0;
+    const navHeight = FocusDock.height + 4;
     final fabTopLeft = _liveFabTopLeft(screen, padding, navHeight);
     final scheme = Theme.of(context).colorScheme;
     final reduce = MediaQuery.disableAnimationsOf(context);
     final animateFab = !_moved && !reduce;
+    final voiceOn = AddTaskFab.voiceSupported && ref.watch(voiceInputEnabledProvider);
 
     return SizedBox.expand(
       child: Stack(
@@ -455,6 +572,10 @@ class _AddTaskFabState extends ConsumerState<AddTaskFab>
                   }
                   if (!AddTaskFab.voiceSupported) {
                     _hintNoVoice();
+                    return;
+                  }
+                  if (!_voiceEnabled) {
+                    _hintVoiceOff();
                     return;
                   }
                   _holdingVoice = true;
@@ -506,7 +627,7 @@ class _AddTaskFabState extends ConsumerState<AddTaskFab>
               child: Tooltip(
                 message: _composerOpen
                     ? '关掉'
-                    : AddTaskFab.voiceSupported
+                    : voiceOn
                         ? '点按输入，长按说话，拖动贴边'
                         : '点按输入，拖动贴边',
                 child: Material(

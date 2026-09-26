@@ -135,11 +135,11 @@ class ApiClient {
     }
   }
 
-  Future<void> login(String email, String password) async {
+  Future<void> login(String username, String password) async {
     final json = await _request(
       'POST',
       '/auth/login',
-      body: {'email': email, 'password': password},
+      body: {'username': username, 'password': password},
       auth: false,
     );
     await _saveTokens(json as Map<String, dynamic>);
@@ -156,6 +156,7 @@ class ApiClient {
     int? deleteArchivedAfterDays,
     bool? showArchiveTab,
     String? themeKey,
+    bool? voiceInputEnabled,
   }) async {
     final body = <String, dynamic>{};
     if (archiveAfterDays != null) {
@@ -172,6 +173,9 @@ class ApiClient {
     }
     if (themeKey != null) {
       body['themeKey'] = themeKey;
+    }
+    if (voiceInputEnabled != null) {
+      body['voiceInputEnabled'] = voiceInputEnabled;
     }
     final json = await _request('PATCH', '/me', body: body);
     return Me.fromJson(json as Map<String, dynamic>);
