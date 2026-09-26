@@ -66,8 +66,9 @@ BREAKING CHANGE: TODO cannot transition directly to DONE
 3. 提交：`chore(release): vX.Y.Z`
 4. 打标签并推送：`git tag -a vX.Y.Z -m "chore(release): vX.Y.Z"`，再 `git push origin vX.Y.Z`
 5. 推送 `v*.*.*` 标签后，`.github/workflows/release.yml` 只上传一个
-   `FlowDo-docker-*.zip`：服务端/网页端镜像、Compose、启动脚本和 `web-build/`
-   静态产物都在里面，再用该版本的 changelog 创建 GitHub Release
+   `FlowDo-vX.Y.Z.zip`：里面是 `docker-compose.yml`、服务端/网页端镜像（各带一个 `.id`）、
+   根目录的 `start.sh` / `start.ps1`，以及 `DEPLOY.md`（包里叫 `README.md`），
+   再用该版本的 changelog 创建 GitHub Release
 
 也可以在 GitHub 网页上对已推送的标签起草 Release。
 
@@ -79,9 +80,9 @@ Windows / macOS / Linux 都不再维护，请不要再往回加平台目录或�
 
 ## 开发
 
-本机一键起全套（需要 Flutter SDK）：`scripts/deploy.bat` / `./scripts/deploy.sh`，
-它会构建网页端和服务端镜像再 `docker compose up -d`。起来后网页端在
-`http://127.0.0.1:8080`，API 在 `http://127.0.0.1:13000`。
+本机一键起全套（需要 Flutter SDK）：仓库根目录的 `./start.sh` / `start.ps1`，
+和发版包里是同一个脚本，放在源码目录时会先构建网页端和服务端镜像再 `docker compose up -d`，
+然后等 API、网页端都 healthy。起来后网页端在 `http://127.0.0.1:8080`，API 在 `http://127.0.0.1:13000`。
 只调客户端：`cd app && flutter pub get && flutter run -d chrome`。
 
 ### 不用 Docker 启动服务端
@@ -129,10 +130,11 @@ docker build -f web/Dockerfile -t flowdo-web:latest .
 内网和连不上谷歌的网络会直接白屏或满屏方块。产物目录必须整个一起部署，
 少了 `assets/`（字体、图标）或 `canvaskit/` 就是同一类故障。
 
-网页端固定请求当前 origin，不提供 API 地址设置。账号也不通过网络注册，只能在部署机执行：
+网页端固定请求当前 origin，不提供 API 地址设置。账号也不通过网络注册，只能在部署机执行
+（用户名 + 密码，没有别的限制）：
 
 ```bash
-docker compose exec api npm run user:create -- user@example.com '至少8位密码'
+docker compose exec api npm run user:create -- user 'password'
 ```
 
 改完代码提 PR 前先跑一遍：

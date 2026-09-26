@@ -9,7 +9,39 @@ permissions:
   contents: write
 
 jobs:
-  build:
+  # 服务端镜像和网页端互不依赖，拆成两个 job 并行跑；服务端 npm 依赖层用 GitHub Actions 缓存，
+  # lockfile 没动时几十秒就出镜像。
+  server-image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build the API image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./server
+          load: true
+          tags: flowdo-server:latest
+          # runner 在海外，直连官方源比走国内镜像快。
+          build-args: |
+            NPM_REGISTRY=https://registry.npmjs.org
+            PRISMA_ENGINES_MIRROR=https://binaries.prisma.sh
+          cache-from: type=gha,scope=server
+          cache-to: type=gha,scope=server,mode=max
+      - name: Save the API image
+        run: |
+          mkdir -p out
+          docker image inspect -f '{{.Id}}' flowdo-server:latest > out/flowdo-server-image.id
+          docker save flowdo-server:latest | pigz -9 > out/flowdo-server-image.tar.gz
+          ls -lh out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: server-image
+          path: out/*
+          compression-level: 0
+          if-no-files-found: error
+
+  web-image:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -26,37 +58,67 @@ jobs:
       - name: Build the web client
         working-directory: app
         run: flutter build web --release --no-web-resources-cdn
-      - name: Build Docker images
+      - uses: docker/setup-buildx-action@v3
+      - name: Build the web image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: web/Dockerfile
+          load: true
+          tags: flowdo-web:latest
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,scope=web,mode=max
+      - name: Save the web image
         run: |
-          docker build -t flowdo-server:latest ./server
-          docker build -f web/Dockerfile -t flowdo-web:latest .
-      - name: Package
-        env:
-          TAG: ${{ github.ref_name }}
-        run: |
-          mkdir -p dist/package/web-build
-          cp docker-compose.yml dist/package/
-          cp release/docker/start.sh release/docker/start.ps1 release/docker/README.md dist/package/
-          cp -R app/build/web/. dist/package/web-build/
-          docker save flowdo-server:latest | gzip -9 > dist/package/flowdo-server-image.tar.gz
-          docker save flowdo-web:latest | gzip -9 > dist/package/flowdo-web-image.tar.gz
-          (cd dist/package && zip -9 -r "../FlowDo-docker-${TAG}.zip" .)
-          rm -rf dist/package
+          mkdir -p out
+          docker image inspect -f '{{.Id}}' flowdo-web:latest > out/flowdo-web-image.id
+          docker save flowdo-web:latest | pigz -9 > out/flowdo-web-image.tar.gz
+          ls -lh out
       - uses: actions/upload-artifact@v4
         with:
-          name: release-files
-          path: dist/*
+          name: web-image
+          path: out/*
+          compression-level: 0
           if-no-files-found: error
 
-  github-release:
-    needs: [build]
+  package:
+    needs: [server-image, web-image]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
-          path: dist
+          path: dist/package
           merge-multiple: true
+      # 包里只放部署要用的东西：编排、两个镜像（带 .id）、一键脚本和一份说明。
+      - name: Package
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          cp docker-compose.yml start.sh start.ps1 dist/package/
+          cp DEPLOY.md dist/package/README.md
+          chmod +x dist/package/start.sh
+          ls -lh dist/package
+          # 镜像 tar 已经是 gzip，zip 里只存不压，省下这一步的时间。
+          (cd dist/package && zip -r -n .gz "../FlowDo-${TAG}.zip" .)
+          rm -rf dist/package
+          ls -lh dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-files
+          path: dist/*
+          compression-level: 0
+          if-no-files-found: error
+
+  github-release:
+    needs: [package]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-files
+          path: dist
       - name: Notes from CHANGELOG
         run: |
           python3 << 'PY'

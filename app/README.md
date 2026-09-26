@@ -17,4 +17,4 @@ flutter build web --release --no-web-resources-cdn
 
 The client always calls API paths on the current origin. In production,
 `web/nginx.conf` proxies those paths to the API container. The login page only
-asks for email and password; accounts are created from the deployment host.
+asks for a username and password; accounts are created from the deployment host.

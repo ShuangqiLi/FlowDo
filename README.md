@@ -52,7 +52,7 @@ flowchart LR
 **回头再理清。** 点开任务卡可以补几句随手记；点一下优先级徽章，就地弹出高 / 中 / 低的小菜单。
 
 **只盯手头这几件。** 把任务从任务池放进聚焦。聚焦有上限，默认 3 件，满了想再加，
-得先搞定一件或者放回去。底部任务池 / 聚焦 / 完成三栏同等样式；空白处左右滑也能切页。
+得先搞定一件或者放回去。底栏任务池 / 聚焦 / 完成三等分，聚焦坐正中间；空白处左右滑也能切页。
 手机和电脑同一套手势（鼠标按住拖也行）：任务池右滑进聚焦、左滑删除（要再确认）；
 聚焦右滑完成、左滑回任务池；完成左滑回任务池。设置在标题栏齿轮里；归档在设置里单独打开。
 
@@ -88,30 +88,32 @@ flowchart LR
 
 ## 快速上手
 
-从 [Releases](https://github.com/ShuangqiLi/FlowDo/releases) 下载 `FlowDo-docker-*.zip`，
-解压到装了 Docker 的机器上。包里有服务端镜像、网页端镜像、完整 Web 静态产物和编排，
+从 [Releases](https://github.com/ShuangqiLi/FlowDo/releases) 下载 `FlowDo-vX.Y.Z.zip`，
+解压到装了 Docker 的机器上。包里只有编排文件、服务端和网页端两个镜像、一键启动脚本和一份说明，
 不需要 Node.js，也不需要 Flutter。
 
 ```bash
 chmod +x start.sh && ./start.sh    # Windows 用 start.ps1
 ```
 
-网页不开放注册。第一次使用时，在部署机上创建账号：
+脚本会生成 `.env`、加载镜像、拉起容器，并等 API 和网页端都通过健康检查；没起来会报错退出。
+网页不开放注册，第一次使用先在部署机上建账号，只要用户名和密码：
 
 ```bash
-docker compose exec api npm run user:create -- user@example.com '至少8位密码'
+docker compose exec api npm run user:create -- user 'password'
 ```
 
-然后手机或电脑浏览器打开 `http://<部署机 IP>:8080`，直接输入邮箱和密码登录。
-要改端口，编辑启动脚本生成的 `.env` 里的 `WEB_PORT` / `API_PORT` 后重跑脚本。
+然后手机或电脑浏览器打开 `http://<部署机 IP>:8080`，输入用户名和密码登录。
+要改端口，编辑 `.env` 里的 `WEB_PORT` / `API_PORT` 后重跑脚本。升级、语音输入、停止与数据等细节见
+[DEPLOY.md](DEPLOY.md)（发版包里的 `README.md` 就是它）。
 
 ### 从源码跑
 
 想改代码或者不想用发版包（需要本机装 Flutter SDK）：
 
 ```bash
-# 构建网页端 + 服务端镜像，启动 PostgreSQL + API + 网页端
-./scripts/deploy.sh          # Windows 双击 scripts\deploy.bat
+# 同一个脚本放在仓库根目录就会从源码构建网页端 + 服务端镜像，再启动 PostgreSQL + API + 网页端
+./start.sh                   # Windows 用 start.ps1
 
 # 只调客户端
 cd app && flutter pub get && flutter run -d chrome
@@ -124,9 +126,9 @@ cd app && flutter pub get && flutter run -d chrome
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
-| POST | `/auth/login` | 登录 |
+| POST | `/auth/login` `{username, password}` | 登录 |
 | POST | `/auth/refresh` `{refreshToken}` | 刷新令牌 |
-| GET/PATCH | `/me` | 当前用户；PATCH `{archiveAfterDays, focusLimit, deleteArchivedAfterDays, showArchiveTab, themeKey}` |
+| GET/PATCH | `/me` | 当前用户；PATCH `{archiveAfterDays, focusLimit, deleteArchivedAfterDays, showArchiveTab, themeKey, voiceInputEnabled}` |
 | GET | `/tasks?status=TODO` | 列表，按优先级 |
 | POST | `/tasks` | 新建，默认待办 + 中优先级 |
 | PATCH | `/tasks/:id` | 改标题 / 正文 / 优先级 / 状态；归档任务只读 |
