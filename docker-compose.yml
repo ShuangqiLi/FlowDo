@@ -1,12 +1,12 @@
-# 内网部署：数据库只在容器网络里，网页端和 API 端口可配置。
+# 内网部署：数据库只在容器网络里，网页端和 API 端口可配置（.env 里的 WEB_PORT / API_PORT）。
 #
-# 源码构建后：
+# 一般不用手动 up：旁边的 start.sh / start.ps1 会准备镜像（发版包里加载，源码目录里构建）、
+# 生成 .env、up -d，再等 api 和 web 都 healthy。手动的话：
 #   docker build -t flowdo-server:latest ./server
 #   (cd app && flutter build web --release --no-web-resources-cdn)
 #   docker build -f web/Dockerfile -t flowdo-web:latest .
 #   docker compose up -d
-#   浏览器打开 http://<主机 IP>:8080。
-#   网页端把 API 路径同源反代到 api:3000，客户端不用知道 API 地址。
+# 浏览器打开 http://<主机 IP>:8080。网页端把 API 路径同源反代到 api:3000，客户端不用知道 API 地址。
 name: flowdo
 
 services:
@@ -20,11 +20,13 @@ services:
       POSTGRES_DB: flowdo
     volumes:
       - flowdo_data:/var/lib/postgresql/data
+    # api 要等它 healthy 才起，探测得勤一点，少白等几秒。
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U flowdo"]
-      interval: 5s
-      timeout: 5s
-      retries: 20
+      test: ["CMD-SHELL", "pg_isready -U flowdo -d flowdo"]
+      interval: 2s
+      timeout: 3s
+      retries: 45
+      start_period: 3s
 
   api:
     image: flowdo-server:latest
@@ -38,6 +40,13 @@ services:
       JWT_ACCESS_EXPIRES: 30m
       JWT_REFRESH_EXPIRES: 7d
       PORT: 3000
+    # 镜像里已带 /health 探测；这里只是让 docker compose ps 能看到 healthy。
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/health >/dev/null || exit 1"]
+      interval: 3s
+      timeout: 3s
+      retries: 40
+      start_period: 5s
     depends_on:
       db:
         condition: service_healthy
@@ -48,6 +57,7 @@ services:
     restart: unless-stopped
     ports:
       - "${FLOWDO_WEB_BIND:-0.0.0.0}:${WEB_PORT:-8080}:80"
+    # 只要 api 容器存在（DNS 能解析）nginx 就能起；API 就绪前的请求会 502 几秒，不必等它 healthy。
     depends_on:
       api:
         condition: service_started
