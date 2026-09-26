@@ -8,6 +8,11 @@ on:
 permissions:
   contents: write
 
+# build-push-action 默认还会把构建记录（*.dockerbuild）当 artifact 传一份，package 那步下载它会失败，关掉。
+env:
+  DOCKER_BUILD_RECORD_UPLOAD: 'false'
+  DOCKER_BUILD_SUMMARY: 'false'
+
 jobs:
   # 服务端镜像和网页端互不依赖，拆成两个 job 并行跑；服务端 npm 依赖层用 GitHub Actions 缓存，
   # lockfile 没动时几十秒就出镜像。
@@ -88,6 +93,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
+          pattern: '*-image'
           path: dist/package
           merge-multiple: true
       # 包里只放部署要用的东西：编排、两个镜像（带 .id）、一键脚本和一份说明。
