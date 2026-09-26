@@ -14,6 +14,16 @@
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-09-27
+
+### Added
+
+- 部署目录的 `.user` 是账号的唯一来源。`start.sh` / `start.ps1` 在服务就绪后按它同步：没有的新建，密码不同的更新，文件里没有的从数据库删除（任务一并删除）。文件不存在时不改动数据库
+
+### Fixed
+
+- 数据库卷名固定为 `flowdo_data`。之前 Compose 项目名再加一次前缀，实际卷名是 `flowdo_flowdo_data`。启动脚本会把旧卷拷到新名字，旧卷先留着
+
 ## [0.4.0] - 2026-09-26
 
 ### Added
@@ -188,7 +198,8 @@
 - 通过 GitHub Releases 发版（推送 `v*.*.*` 标签）
 - 账号级设置（聚焦上限、归档天数、是否显示归档页）
 
-[Unreleased]: https://github.com/ShuangqiLi/FlowDo/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/ShuangqiLi/FlowDo/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/ShuangqiLi/FlowDo/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/ShuangqiLi/FlowDo/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/ShuangqiLi/FlowDo/compare/v0.2.2...v0.3.0
 [0.2.2]: https://github.com/ShuangqiLi/FlowDo/compare/v0.2.1...v0.2.2
