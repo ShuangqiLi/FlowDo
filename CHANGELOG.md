@@ -14,6 +14,8 @@
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-09-27
+
 ### Added
 
 - 设置里新增「关于」：显示当前版本，联网能查到更新时可以在网页里一键换上新版本。数据库不动；部署目录没把 Docker 交给服务端时，会提示改用启动脚本
@@ -202,7 +204,8 @@
 - 通过 GitHub Releases 发版（推送 `v*.*.*` 标签）
 - 账号级设置（聚焦上限、归档天数、是否显示归档页）
 
-[Unreleased]: https://github.com/ShuangqiLi/FlowDo/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/ShuangqiLi/FlowDo/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/ShuangqiLi/FlowDo/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/ShuangqiLi/FlowDo/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/ShuangqiLi/FlowDo/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/ShuangqiLi/FlowDo/compare/v0.2.2...v0.3.0
