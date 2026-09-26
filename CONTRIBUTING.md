@@ -130,12 +130,8 @@ docker build -f web/Dockerfile -t flowdo-web:latest .
 内网和连不上谷歌的网络会直接白屏或满屏方块。产物目录必须整个一起部署，
 少了 `assets/`（字体、图标）或 `canvaskit/` 就是同一类故障。
 
-网页端固定请求当前 origin，不提供 API 地址设置。账号也不通过网络注册，只能在部署机执行
-（用户名 + 密码，没有别的限制）：
-
-```bash
-docker compose exec api npm run user:create -- user 'password'
-```
+网页端固定请求当前 origin，不提供 API 地址设置。账号也不通过网络注册，写在部署目录的
+`.user` 里（一行一个「用户名 密码」），再跑 `./start.sh`。数据库以这个文件为准。
 
 改完代码提 PR 前先跑一遍：
 

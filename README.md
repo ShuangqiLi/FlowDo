@@ -97,13 +97,15 @@ chmod +x start.sh && ./start.sh    # Windows 用 start.ps1
 ```
 
 脚本会生成 `.env`、加载镜像、拉起容器，并等 API 和网页端都通过健康检查；没起来会报错退出。
-网页不开放注册，第一次使用先在部署机上建账号，只要用户名和密码：
+网页不开放注册。账号写在部署目录的 `.user` 里，一行一个「用户名 密码」：
 
-```bash
-docker compose exec api npm run user:create -- user 'password'
+```
+user password
+alice 另一段密码
 ```
 
-然后手机或电脑浏览器打开 `http://<部署机 IP>:8080`，输入用户名和密码登录。
+启动脚本按这个文件对齐数据库：没有的新建，密码改了就更新，从文件里去掉的账号会删除（任务一并删除）。
+没有 `.user` 时不动数据库里已有的账号。然后手机或电脑浏览器打开 `http://<部署机 IP>:8080`，输入用户名和密码登录。
 要改端口，编辑 `.env` 里的 `WEB_PORT` / `API_PORT` 后重跑脚本。升级、语音输入、停止与数据等细节见
 [DEPLOY.md](DEPLOY.md)（发版包里的 `README.md` 就是它）。
 

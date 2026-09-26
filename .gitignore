@@ -2,6 +2,8 @@
 .env
 .env.*
 !.env.example
+# 部署机账号明文。数据库里的账号以它为准，不要提交。
+.user
 node_modules/
 dist/
 build/

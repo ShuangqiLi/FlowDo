@@ -64,3 +64,5 @@ services:
 
 volumes:
   flowdo_data:
+    # 写死卷名。否则项目名 flowdo 会再加一次前缀，变成 flowdo_flowdo_data。
+    name: flowdo_data
