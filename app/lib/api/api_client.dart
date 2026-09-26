@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../models/about.dart';
 import '../models/briefing.dart';
 import '../models/task.dart';
 import '../models/user.dart';
@@ -229,6 +230,17 @@ class ApiClient {
   Future<Briefing> todayBriefing() async {
     final json = await _request('GET', '/briefing/today');
     return Briefing.fromJson(json as Map<String, dynamic>);
+  }
+
+  Future<AboutInfo> about() async {
+    final json = await _request('GET', '/system/about');
+    return AboutInfo.fromJson(json as Map<String, dynamic>);
+  }
+
+  /// 开始把网页和接口换成 GitHub 上的新版本。返回要换到的版本号。
+  Future<String> startUpdate() async {
+    final json = await _request('POST', '/system/update') as Map<String, dynamic>;
+    return json['target'] as String;
   }
 
   Future<({int archived, int deleted})> runArchive() async {

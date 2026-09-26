@@ -40,6 +40,7 @@ services:
       JWT_ACCESS_EXPIRES: 30m
       JWT_REFRESH_EXPIRES: 7d
       PORT: 3000
+      FLOWDO_DEPLOY_DIR: /deploy
     # 镜像里已带 /health 探测；这里只是让 docker compose ps 能看到 healthy。
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/health >/dev/null || exit 1"]
@@ -47,6 +48,11 @@ services:
       timeout: 3s
       retries: 40
       start_period: 5s
+    # 关于页的一键更新要用本机 Docker 换镜像，并往部署目录写新的编排文件。
+    # 挂上套接字之后，这个容器就能操作本机 Docker，只适合可信内网。
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./:/deploy
     depends_on:
       db:
         condition: service_healthy

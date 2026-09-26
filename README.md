@@ -137,6 +137,8 @@ cd app && flutter pub get && flutter run -d chrome
 | DELETE | `/tasks/:id` | 待办（不做了）或归档任务可删 |
 | GET | `/briefing/today` | 今日看看 |
 | POST | `/archive/run` | 立即执行归档与过期清理 |
+| GET | `/system/about` | 当前版本，以及 GitHub 上有没有更新 |
+| POST | `/system/update` | 下载新版本并换上网页和接口镜像 |
 
 除 `/auth/*` 和 `/health` 外都需要 `Authorization: Bearer <accessToken>`。
 

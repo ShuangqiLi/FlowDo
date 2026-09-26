@@ -8,7 +8,9 @@ import '../providers.dart';
 import '../theme.dart';
 import '../ui/add_task_fab.dart';
 import '../ui/flowdo_card.dart';
+import '../ui/flowdo_page_route.dart';
 import '../utils/voice_input_messages.dart';
+import 'about_screen.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -272,6 +274,36 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   },
                   child: const Text('现在就收拾一下'),
                 ),
+              ],
+            ),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          const SectionHeader('关于'),
+          FlowDoCard(
+            onTap: () {
+              Navigator.of(context).push(
+                FlowDoPageRoute(builder: (_) => const AboutScreen()),
+              );
+            },
+            child: Row(
+              children: [
+                Icon(Icons.info_outline_rounded, color: scheme.primary),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('关于随随办办', style: Theme.of(context).textTheme.titleMedium),
+                      Text(
+                        '版本和更新',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                            ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(Icons.chevron_right_rounded, color: scheme.onSurfaceVariant),
               ],
             ),
           ),

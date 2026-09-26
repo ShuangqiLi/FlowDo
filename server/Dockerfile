@@ -50,6 +50,8 @@ RUN --mount=type=cache,target=/root/.npm npm ci --omit=dev \
        \( -name '*.mysql.*' -o -name '*.sqlite.*' -o -name '*.sqlserver.*' -o -name '*.cockroachdb.*' \) -delete
 
 FROM ${NODE_IMAGE} AS runtime
+# 一键更新要在容器里解开 GitHub 上下来的发版包。
+RUN apk add --no-cache unzip
 WORKDIR /app
 ENV NODE_ENV=production \
     CHECKPOINT_DISABLE=1 \

@@ -4,6 +4,7 @@
 !.env.example
 # 部署机账号明文。数据库里的账号以它为准，不要提交。
 .user
+.flowdo-update-status.json
 node_modules/
 dist/
 build/
