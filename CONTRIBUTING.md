@@ -130,7 +130,7 @@ docker build -f web/Dockerfile -t flowdo-web:latest .
 内网和连不上谷歌的网络会直接白屏或满屏方块。产物目录必须整个一起部署，
 少了 `assets/`（字体、图标）或 `canvaskit/` 就是同一类故障。
 
-网页端固定请求当前 origin，不提供 API 地址设置。没有注册，也没有多账号。
+网页端固定请求当前 origin，不提供 API 地址设置。没有注册，登录只填密码。
 跑 `./start.sh` 后，全新数据库的初始密码是 `FlowDo#321Init`（`.env` 里 `FLOWDO_INITIAL_PASSWORD` 可改），第一次登录会要求先换掉。
 
 改完代码提 PR 前先跑一遍：

@@ -99,25 +99,6 @@ else
   docker build -t flowdo-server:latest ./server || fail "服务端镜像构建失败。"
 fi
 
-# 旧版卷名被项目名加了前缀。新卷还不存在时，停掉数据库再整卷拷过去；旧卷先留着。
-if docker volume inspect flowdo_flowdo_data >/dev/null 2>&1; then
-  if docker volume inspect flowdo_data >/dev/null 2>&1; then
-    echo "数据卷 flowdo_data 和旧的 flowdo_flowdo_data 都在，不自动覆盖。"
-    echo "确认新卷没问题后可删旧卷：docker volume rm flowdo_flowdo_data"
-  else
-    echo "把数据卷 flowdo_flowdo_data 迁到 flowdo_data ..."
-    docker compose stop db >/dev/null 2>&1 || true
-    docker volume create flowdo_data >/dev/null
-    # postgres 镜像的入口脚本会接管命令，所以指定 --entrypoint。
-    docker run --rm --entrypoint cp \
-      -v flowdo_flowdo_data:/from \
-      -v flowdo_data:/to \
-      postgres:16-alpine -a /from/. /to/ \
-      || fail "迁移数据卷失败。"
-    echo "旧卷还留着，确认数据无误后可删：docker volume rm flowdo_flowdo_data"
-  fi
-fi
-
 # 接口容器挂着 Docker 套接字。同一次 up 里接着启动网页时，群晖的引擎
 # 经常把后一个 start 请求掐掉（Post .../start: EOF），网页容器就停在 Starting。
 # 所以先起数据库和接口，网页单独再起；失败等引擎回来重试一次。

@@ -6,9 +6,6 @@
 set -eu
 cd /app
 
-echo "[flowdo] 把旧账号收成任务空间..."
-node dist/bootstrap/migrate-legacy-users.js
-
 echo "[flowdo] 同步数据库结构..."
 node node_modules/prisma/build/index.js db push --skip-generate --accept-data-loss
 

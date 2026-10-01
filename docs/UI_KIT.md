@@ -5,7 +5,7 @@
 
 ## 主题
 
-四套账号级主题定义在 `app/lib/theme/app_palette.dart` / `app_theme.dart`：
+四套实例级主题定义在 `app/lib/theme/app_palette.dart` / `app_theme.dart`：
 
 - `mint`：闲云（默认）
 - `hazeBlue`：远山

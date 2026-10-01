@@ -91,7 +91,7 @@ class HomeTabController extends Notifier<int> {
   void setIndex(int index) => state = index.clamp(0, 2);
 }
 
-/// 账号开了语音输入才算"能说"。还没拿到账号信息时先当作开着。
+/// 设置里开了语音输入才算"能说"。还没拿到设置时先当作开着。
 final voiceInputEnabledProvider = Provider<bool>((ref) {
   return ref.watch(meProvider).value?.voiceInputEnabled ?? true;
 });

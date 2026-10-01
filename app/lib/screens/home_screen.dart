@@ -60,7 +60,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     _openBriefing();
   }
 
-  /// 账号开着语音输入，就在进首页时把麦克风权限申请好；长按加号时不用再分神点允许。
+  /// 设置里开着语音输入，就在进首页时把麦克风权限申请好；长按加号时不用再分神点允许。
   void _maybeAskMic(Me? me) {
     if (me == null || !me.voiceInputEnabled || !AddTaskFab.voiceSupported) {
       return;

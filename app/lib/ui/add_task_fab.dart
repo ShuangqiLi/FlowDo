@@ -13,7 +13,7 @@ import '../utils/voice_input_messages.dart';
 import 'flowdo_page_route.dart';
 import 'focus_dock.dart';
 
-/// 可拖动的加号：贴边吸附，位置按账号记在本地；点按文字，长按语音。
+/// 可拖动的加号：贴边吸附，位置记在本地；点按文字，长按语音。
 class AddTaskFab extends ConsumerStatefulWidget {
   const AddTaskFab({
     super.key,
@@ -244,7 +244,7 @@ class _AddTaskFabState extends ConsumerState<AddTaskFab>
     }
   }
 
-  /// 账号层面有没有开语音；还没拿到账号信息时按开着算。
+  /// 设置里有没有开语音；还没拿到设置时按开着算。
   bool get _voiceEnabled => ref.read(voiceInputEnabledProvider);
 
   void _hintNoVoice() {

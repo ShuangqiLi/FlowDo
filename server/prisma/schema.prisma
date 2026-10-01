@@ -38,7 +38,7 @@ enum ReminderKind {
   ANNIVERSARY
 }
 
-/// 一台部署只有一行。多账号已去掉，数据用任务空间隔开。
+/// 一台部署只有一行：登录密码和全局设置。数据用任务空间隔开。
 model Instance {
   id                      String   @id
   passwordHash            String

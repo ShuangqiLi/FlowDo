@@ -109,25 +109,6 @@ if ($mode -eq 'package') {
     if ($LASTEXITCODE -ne 0) { Fail '服务端镜像构建失败。' }
 }
 
-# 旧版卷名被项目名加了前缀。新卷还不存在时，停掉数据库再整卷拷过去；旧卷先留着。
-docker volume inspect flowdo_flowdo_data 2>$null | Out-Null
-$hasOld = ($LASTEXITCODE -eq 0)
-docker volume inspect flowdo_data 2>$null | Out-Null
-$hasNew = ($LASTEXITCODE -eq 0)
-if ($hasOld -and $hasNew) {
-    Write-Host '数据卷 flowdo_data 和旧的 flowdo_flowdo_data 都在，不自动覆盖。'
-    Write-Host '确认新卷没问题后可删旧卷：docker volume rm flowdo_flowdo_data'
-} elseif ($hasOld) {
-    Write-Host '把数据卷 flowdo_flowdo_data 迁到 flowdo_data ...'
-    docker compose stop db 2>$null | Out-Null
-    docker volume create flowdo_data | Out-Null
-    if ($LASTEXITCODE -ne 0) { Fail '创建数据卷 flowdo_data 失败。' }
-    # postgres 镜像的入口脚本会接管命令，所以指定 --entrypoint。
-    docker run --rm --entrypoint cp -v flowdo_flowdo_data:/from -v flowdo_data:/to postgres:16-alpine -a /from/. /to/
-    if ($LASTEXITCODE -ne 0) { Fail '迁移数据卷失败。' }
-    Write-Host '旧卷还留着，确认数据无误后可删：docker volume rm flowdo_flowdo_data'
-}
-
 # 接口容器挂着 Docker 套接字。同一次 up 里接着启动网页时，群晖的引擎
 # 经常把后一个 start 请求掐掉（EOF）。先起数据库和接口，网页单独再起。
 function Invoke-ComposeUp([string[]]$Services) {

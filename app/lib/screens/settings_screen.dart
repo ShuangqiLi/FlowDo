@@ -342,7 +342,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 }
 
-/// 语音输入开关 + 浏览器麦克风现状。开关跟账号走，权限是浏览器对这个地址记的。
+/// 语音输入开关 + 浏览器麦克风现状。开关存在服务端设置里，权限是浏览器对这个地址记的。
 class _VoiceInputSettings extends ConsumerWidget {
   const _VoiceInputSettings({
     required this.enabled,
