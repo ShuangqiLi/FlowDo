@@ -8,6 +8,7 @@ import '../providers.dart';
 import '../theme.dart';
 import '../ui/add_task_fab.dart';
 import '../ui/flowdo_card.dart';
+import '../ui/password_field.dart';
 import '../ui/flowdo_page_route.dart';
 import '../utils/voice_input_messages.dart';
 import 'about_screen.dart';
@@ -120,24 +121,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 if (_deleteDays.text.isEmpty) {
                   _deleteDays.text = '${user.deleteArchivedAfterDays}';
                 }
-                final obscured = AppText.obscuredStyle(
-                  Theme.of(context).textTheme.bodyLarge,
-                );
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    TextField(
+                    PasswordField(
                       controller: _currentPassword,
-                      obscureText: true,
-                      style: obscured,
-                      decoration: const InputDecoration(labelText: '现在的密码'),
+                      label: '现在的密码',
                     ),
                     const SizedBox(height: 12),
-                    TextField(
+                    PasswordField(
                       controller: _newPassword,
-                      obscureText: true,
-                      style: obscured,
-                      decoration: const InputDecoration(labelText: '新密码'),
+                      label: '新密码',
+                      autofillHint: AutofillHints.newPassword,
                     ),
                     const SizedBox(height: 12),
                     FilledButton.tonal(

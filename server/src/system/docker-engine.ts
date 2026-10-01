@@ -30,7 +30,50 @@ type DockerInspect = {
   Mounts?: { Source: string; Destination: string }[];
 };
 
-export function docker<T>(
+/// 我们用到的接口在 1.41 就都有了，这里只是上限：引擎更新也按这个版本说话。
+const preferredApiVersion = '1.44';
+const fallbackApiVersion = '1.41';
+
+let negotiated: Promise<string> | null = null;
+
+/**
+ * 跟本机引擎商量 API 版本：取它支持的最高版本和 [preferredApiVersion] 里较小的那个。
+ * 写死版本时，老一点的引擎（比如群晖自带的 Docker）会直接拒绝：
+ * "client version 1.44 is too new. Maximum supported API version is 1.43"。
+ */
+export function apiVersion(): Promise<string> {
+  negotiated ??= rawRequest<{ ApiVersion?: string }>('GET', '/version')
+    .then((info) => pickApiVersion(info?.ApiVersion))
+    .catch(() => {
+      negotiated = null;
+      return fallbackApiVersion;
+    });
+  return negotiated;
+}
+
+export function pickApiVersion(daemon: string | undefined): string {
+  if (!daemon || !/^\d+\.\d+$/.test(daemon)) {
+    return fallbackApiVersion;
+  }
+  return compareApi(daemon, preferredApiVersion) < 0 ? daemon : preferredApiVersion;
+}
+
+function compareApi(a: string, b: string): number {
+  const [aMajor, aMinor] = a.split('.').map(Number);
+  const [bMajor, bMinor] = b.split('.').map(Number);
+  return aMajor - bMajor || aMinor - bMinor;
+}
+
+/** [path] 不带版本前缀，比如 `/containers/json`。 */
+export async function docker<T>(
+  method: string,
+  path: string,
+  body?: unknown,
+): Promise<T> {
+  return rawRequest<T>(method, `/v${await apiVersion()}${path}`, body);
+}
+
+function rawRequest<T>(
   method: string,
   path: string,
   body?: unknown,
@@ -100,13 +143,14 @@ function dockerError(
 }
 
 /** 把发版包里的镜像 tar（gzip 也行）装进本机 Docker。 */
-export function loadImage(filePath: string): Promise<void> {
+export async function loadImage(filePath: string): Promise<void> {
   const size = statSync(filePath).size;
+  const version = await apiVersion();
   return new Promise((resolve, reject) => {
     const req = httpRequest(
       {
         socketPath: dockerSock,
-        path: '/v1.44/images/load',
+        path: `/v${version}/images/load`,
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-tar',
@@ -135,7 +179,7 @@ export function loadImage(filePath: string): Promise<void> {
 export async function inspectSelf(): Promise<DockerInspect> {
   return docker<DockerInspect>(
     'GET',
-    `/v1.44/containers/${hostname()}/json`,
+    `/containers/${hostname()}/json`,
   );
 }
 
@@ -157,7 +201,7 @@ export async function recreateService(
   );
   const list = await docker<{ Id: string; Names: string[] }[]>(
     'GET',
-    `/v1.44/containers/json?all=1&filters=${filters}`,
+    `/containers/json?all=1&filters=${filters}`,
   );
   const found = list.find((item) => !item.Names.some((name) => name.endsWith('-old')));
   if (!found) {
@@ -166,13 +210,13 @@ export async function recreateService(
 
   const info = await docker<DockerInspect>(
     'GET',
-    `/v1.44/containers/${found.Id}/json`,
+    `/containers/${found.Id}/json`,
   );
   const name = info.Name.replace(/^\//, '');
-  await docker('POST', `/v1.44/containers/${found.Id}/stop?t=20`);
+  await docker('POST', `/containers/${found.Id}/stop?t=20`);
   await docker(
     'POST',
-    `/v1.44/containers/${found.Id}/rename?name=${encodeURIComponent(`${name}-old`)}`,
+    `/containers/${found.Id}/rename?name=${encodeURIComponent(`${name}-old`)}`,
   );
 
   try {
@@ -194,7 +238,7 @@ export async function recreateService(
 
     const created = await docker<{ Id: string }>(
       'POST',
-      `/v1.44/containers/create?name=${encodeURIComponent(name)}`,
+      `/containers/create?name=${encodeURIComponent(name)}`,
       {
         Hostname: info.Config.Hostname,
         User: info.Config.User,
@@ -210,14 +254,14 @@ export async function recreateService(
         NetworkingConfig: { EndpointsConfig: endpoints },
       },
     );
-    await docker('POST', `/v1.44/containers/${created.Id}/start`);
-    await docker('DELETE', `/v1.44/containers/${found.Id}?force=1`);
+    await docker('POST', `/containers/${created.Id}/start`);
+    await docker('DELETE', `/containers/${found.Id}?force=1`);
   } catch (error) {
     await docker(
       'POST',
-      `/v1.44/containers/${found.Id}/rename?name=${encodeURIComponent(name)}`,
+      `/containers/${found.Id}/rename?name=${encodeURIComponent(name)}`,
     ).catch(() => undefined);
-    await docker('POST', `/v1.44/containers/${found.Id}/start`).catch(() => undefined);
+    await docker('POST', `/containers/${found.Id}/start`).catch(() => undefined);
     throw error;
   }
 }

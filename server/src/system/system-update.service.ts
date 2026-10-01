@@ -262,7 +262,7 @@ async function download(url: string, dest: string): Promise<void> {
 
 /** 换接口容器会把自己停掉，所以交给一个独立容器来做，响应先送出去。 */
 async function startApiRestarter(target: string): Promise<void> {
-  await docker('DELETE', '/v1.44/containers/flowdo-apply-update?force=1').catch(() => undefined);
+  await docker('DELETE', '/containers/flowdo-apply-update?force=1').catch(() => undefined);
   const self = await inspectSelf();
   const sock = self.Mounts?.find((mount) => mount.Destination === '/var/run/docker.sock');
   const deploy = self.Mounts?.find((mount) => mount.Destination === '/deploy');
@@ -274,7 +274,7 @@ async function startApiRestarter(target: string): Promise<void> {
   }
   const created = await docker<{ Id: string }>(
     'POST',
-    '/v1.44/containers/create?name=flowdo-apply-update',
+    '/containers/create?name=flowdo-apply-update',
     {
       Image: 'flowdo-server:latest',
       Entrypoint: ['node', 'dist/system/apply-update.js'],
@@ -284,5 +284,5 @@ async function startApiRestarter(target: string): Promise<void> {
       HostConfig: { AutoRemove: true, Binds: binds },
     },
   );
-  await docker('POST', `/v1.44/containers/${created.Id}/start`);
+  await docker('POST', `/containers/${created.Id}/start`);
 }

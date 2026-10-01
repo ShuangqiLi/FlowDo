@@ -6,6 +6,7 @@ import '../providers.dart';
 import '../theme.dart';
 import '../ui/flowdo_card.dart';
 import '../ui/flowdo_logo.dart';
+import '../ui/password_field.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -46,9 +47,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final obscuredStyle = AppText.obscuredStyle(
-      Theme.of(context).textTheme.bodyLarge,
-    );
 
     return Scaffold(
       backgroundColor: context.flowColors.canvas,
@@ -115,15 +113,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             textAlign: TextAlign.center,
                           ),
                           const SizedBox(height: AppSpacing.lg),
-                          TextField(
+                          PasswordField(
                             controller: _password,
-                            obscureText: true,
-                            autofillHints: const [AutofillHints.password],
-                            style: obscuredStyle,
-                            decoration: const InputDecoration(
-                              labelText: '密码',
-                              prefixIcon: Icon(Icons.lock_outline),
-                            ),
+                            label: '密码',
+                            anchorUsername: true,
                             onSubmitted: (_) => _submit(),
                           ),
                           if (_error != null) ...[

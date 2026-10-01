@@ -6,6 +6,7 @@ import '../providers.dart';
 import '../theme.dart';
 import '../ui/flowdo_card.dart';
 import '../ui/flowdo_logo.dart';
+import '../ui/password_field.dart';
 
 /// 第一次用默认密码登录后，必须先换掉密码才能进首页。
 class ChangePasswordScreen extends ConsumerStatefulWidget {
@@ -63,7 +64,6 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final obscured = AppText.obscuredStyle(Theme.of(context).textTheme.bodyLarge);
 
     return Scaffold(
       backgroundColor: context.flowColors.canvas,
@@ -98,36 +98,21 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: AppSpacing.lg),
-                    TextField(
+                    PasswordField(
                       controller: _current,
-                      obscureText: true,
-                      style: obscured,
-                      autofillHints: const [AutofillHints.password],
-                      decoration: const InputDecoration(
-                        labelText: '初始密码',
-                        prefixIcon: Icon(Icons.lock_outline),
-                      ),
+                      label: '初始密码',
                     ),
                     const SizedBox(height: 12),
-                    TextField(
+                    PasswordField(
                       controller: _next,
-                      obscureText: true,
-                      style: obscured,
-                      autofillHints: const [AutofillHints.newPassword],
-                      decoration: const InputDecoration(
-                        labelText: '新密码',
-                        prefixIcon: Icon(Icons.key_outlined),
-                      ),
+                      label: '新密码',
+                      autofillHint: AutofillHints.newPassword,
                     ),
                     const SizedBox(height: 12),
-                    TextField(
+                    PasswordField(
                       controller: _again,
-                      obscureText: true,
-                      style: obscured,
-                      decoration: const InputDecoration(
-                        labelText: '再输一次',
-                        prefixIcon: Icon(Icons.key_outlined),
-                      ),
+                      label: '再输一次',
+                      autofillHint: AutofillHints.newPassword,
                       onSubmitted: (_) => _submit(),
                     ),
                     if (_error != null) ...[
