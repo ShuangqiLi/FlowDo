@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flowdo/api/api_client.dart';
 import 'package:flowdo/models/briefing.dart';
 import 'package:flowdo/models/task.dart';
+import 'package:flowdo/models/space.dart';
 import 'package:flowdo/models/user.dart';
 import 'package:flowdo/providers.dart';
 import 'package:flowdo/screens/home_screen.dart';
@@ -76,7 +77,7 @@ Future<_FakeApi> _pumpHome(
   final api = _FakeApi(prefs);
   final me = Me(
     id: 'user',
-    username: 'hello',
+    activeSpaceId: 'space',
     archiveAfterDays: 7,
     focusLimit: 3,
     deleteArchivedAfterDays: 30,
@@ -91,6 +92,9 @@ Future<_FakeApi> _pumpHome(
         prefsProvider.overrideWithValue(prefs),
         apiProvider.overrideWithValue(api),
         meProvider.overrideWith((_) async => me),
+        spacesProvider.overrideWith(
+          (_) async => [Space(id: 'space', name: '默认')],
+        ),
       ],
       child: MaterialApp(theme: buildAppTheme(), home: const HomeScreen()),
     ),
@@ -132,7 +136,7 @@ void main() {
     await tester.pumpAndSettle();
 
     final prefs = await SharedPreferences.getInstance();
-    expect(prefs.getString('fabPos:user'), startsWith('left:'));
+    expect(prefs.getString('fabPos'), startsWith('left:'));
     expect(
       tester.getCenter(fab).dx,
       lessThan(tester.getSize(find.byType(MaterialApp)).width / 2),
@@ -181,7 +185,7 @@ void main() {
     }
   });
 
-  testWidgets('dock is flat, evenly split, with focus in the middle and largest',
+  testWidgets('dock is a floating capsule, evenly split, focus in the middle',
       (tester) async {
     await _pumpHome(tester);
     final bodyBottom = tester.getRect(find.byType(PageView)).bottom;
@@ -205,11 +209,10 @@ void main() {
     expect(rects['任务池']!.right, lessThanOrEqualTo(rects['聚焦']!.left + 1));
     expect(rects['聚焦']!.right, lessThanOrEqualTo(rects['完成']!.left + 1));
 
-    // 聚焦的图标比两边大。
     final focusIcon = tester.widget<Icon>(
       find.descendant(
         of: find.byTooltip('聚焦'),
-        matching: find.byIcon(Icons.center_focus_strong_rounded),
+        matching: find.byIcon(Icons.center_focus_strong_outlined),
       ),
     );
     final poolIcon = tester.widget<Icon>(
@@ -218,22 +221,19 @@ void main() {
         matching: find.byType(Icon),
       ),
     );
-    expect(focusIcon.size!, greaterThan(poolIcon.size!));
+    expect(focusIcon.size, poolIcon.size);
 
-    // 选中态只落在图标上：任何装饰盒都不能盖到文字（旧版是图标加文字一起套边框）。
     await tester.tap(find.byTooltip('任务池'));
     await tester.pumpAndSettle();
     final poolLabel = tester.getRect(
       find.descendant(of: find.byTooltip('任务池'), matching: find.text('任务池')),
     );
     final boxes = find
-        .descendant(of: find.byTooltip('任务池'), matching: find.byType(DecoratedBox))
+        .descendant(of: find.byTooltip('任务池'), matching: find.byType(AnimatedContainer))
         .evaluate();
     expect(boxes, isNotEmpty);
-    for (final box in boxes) {
-      final rect = tester.getRect(find.byWidget(box.widget));
-      expect(rect.overlaps(poolLabel), isFalse, reason: 'indicator must not frame the label');
-    }
+    final selected = tester.getRect(find.byWidget(boxes.first.widget));
+    expect(selected.overlaps(poolLabel), isTrue);
   });
 
   testWidgets('settings and archive open from top-left app bar', (tester) async {
@@ -275,17 +275,17 @@ void main() {
       find.descendant(of: find.byType(AppBar), matching: find.text('设置')),
       findsOneWidget,
     );
-    expect(find.text('账号'), findsOneWidget);
+    expect(find.text('密码'), findsOneWidget);
     expect(find.text('打开归档柜'), findsNothing);
 
-    final gesture = await tester.startGesture(tester.getCenter(find.text('账号')));
+    final gesture = await tester.startGesture(tester.getCenter(find.text('密码')));
     for (var i = 0; i < 20; i++) {
       await gesture.moveBy(const Offset(40, 0));
       await tester.pump();
     }
     await gesture.up();
     await tester.pumpAndSettle();
-    expect(find.text('账号'), findsNothing);
+    expect(find.text('密码'), findsNothing);
     expect(find.byKey(const ValueKey('open-settings')), findsOneWidget);
   });
 }

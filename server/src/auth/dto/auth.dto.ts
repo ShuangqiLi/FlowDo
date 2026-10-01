@@ -1,10 +1,6 @@
-import { IsNotEmpty, IsString } from 'class-validator';
+import { IsNotEmpty, IsString, MinLength } from 'class-validator';
 
 export class LoginDto {
-  @IsString({ message: '用户名还没填呢' })
-  @IsNotEmpty({ message: '用户名还没填呢' })
-  username!: string;
-
   @IsString({ message: '密码还没填呢' })
   @IsNotEmpty({ message: '密码还没填呢' })
   password!: string;
@@ -13,4 +9,14 @@ export class LoginDto {
 export class RefreshDto {
   @IsString({ message: '登录过期了，重新登一下吧' })
   refreshToken!: string;
+}
+
+export class ChangePasswordDto {
+  @IsString({ message: '现在的密码还没填呢' })
+  @IsNotEmpty({ message: '现在的密码还没填呢' })
+  currentPassword!: string;
+
+  @IsString({ message: '新密码还没填呢' })
+  @MinLength(1, { message: '新密码还没填呢' })
+  newPassword!: string;
 }

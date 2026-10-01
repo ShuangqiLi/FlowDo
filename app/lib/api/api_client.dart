@@ -5,6 +5,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/about.dart';
 import '../models/briefing.dart';
+import '../models/reminder.dart';
+import '../models/space.dart';
 import '../models/task.dart';
 import '../models/user.dart';
 
@@ -136,14 +138,28 @@ class ApiClient {
     }
   }
 
-  Future<void> login(String username, String password) async {
+  Future<void> login(String password) async {
     final json = await _request(
       'POST',
       '/auth/login',
-      body: {'username': username, 'password': password},
+      body: {'password': password},
       auth: false,
     );
     await _saveTokens(json as Map<String, dynamic>);
+  }
+
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    await _request(
+      'POST',
+      '/auth/change-password',
+      body: {
+        'currentPassword': currentPassword,
+        'newPassword': newPassword,
+      },
+    );
   }
 
   Future<Me> getMe() async {
@@ -158,6 +174,7 @@ class ApiClient {
     bool? showArchiveTab,
     String? themeKey,
     bool? voiceInputEnabled,
+    String? activeSpaceId,
   }) async {
     final body = <String, dynamic>{};
     if (archiveAfterDays != null) {
@@ -177,6 +194,9 @@ class ApiClient {
     }
     if (voiceInputEnabled != null) {
       body['voiceInputEnabled'] = voiceInputEnabled;
+    }
+    if (activeSpaceId != null) {
+      body['activeSpaceId'] = activeSpaceId;
     }
     final json = await _request('PATCH', '/me', body: body);
     return Me.fromJson(json as Map<String, dynamic>);
@@ -230,6 +250,49 @@ class ApiClient {
   Future<Briefing> todayBriefing() async {
     final json = await _request('GET', '/briefing/today');
     return Briefing.fromJson(json as Map<String, dynamic>);
+  }
+
+  Future<MonthReview> monthBriefing(int year, int month) async {
+    final json = await _request(
+      'GET',
+      '/briefing/month',
+      query: {'year': '$year', 'month': '$month'},
+    );
+    return MonthReview.fromJson(json as Map<String, dynamic>);
+  }
+
+  Future<List<Space>> listSpaces() async {
+    final json = await _request('GET', '/spaces');
+    return (json as List<dynamic>)
+        .map((e) => Space.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<Space> createSpace(String name) async {
+    final json = await _request('POST', '/spaces', body: {'name': name});
+    return Space.fromJson(json as Map<String, dynamic>);
+  }
+
+  Future<Space> renameSpace(String id, String name) async {
+    final json = await _request('PATCH', '/spaces/$id', body: {'name': name});
+    return Space.fromJson(json as Map<String, dynamic>);
+  }
+
+  Future<void> deleteSpace(String id) async {
+    await _request('DELETE', '/spaces/$id');
+  }
+
+  Future<Reminder> createReminder(Map<String, dynamic> body) async {
+    final json = await _request('POST', '/reminders', body: body);
+    return Reminder.fromJson(json as Map<String, dynamic>);
+  }
+
+  Future<void> acknowledgeReminder(String id) async {
+    await _request('POST', '/reminders/$id/ack');
+  }
+
+  Future<void> deleteReminder(String id) async {
+    await _request('DELETE', '/reminders/$id');
   }
 
   Future<AboutInfo> about() async {

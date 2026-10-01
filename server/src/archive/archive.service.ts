@@ -1,7 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { TaskStatus } from '../tasks/task.enums';
+import { INSTANCE_ID } from '../instance/constants';
 import { PrismaService } from '../prisma/prisma.service';
+import { TaskStatus } from '../tasks/task.enums';
 
 @Injectable()
 export class ArchiveService {
@@ -22,53 +23,46 @@ export class ArchiveService {
   }
 
   async runArchive(): Promise<number> {
-    const users = await this.prisma.user.findMany({
-      select: { id: true, archiveAfterDays: true },
+    const instance = await this.prisma.instance.findUnique({
+      where: { id: INSTANCE_ID },
+      select: { archiveAfterDays: true },
     });
-    let archived = 0;
-    const now = Date.now();
-    for (const user of users) {
-      const cutoff = new Date(
-        now - user.archiveAfterDays * 24 * 60 * 60 * 1000,
-      );
-      const result = await this.prisma.task.updateMany({
-        where: {
-          userId: user.id,
-          status: TaskStatus.DONE,
-          completedAt: { lte: cutoff },
-        },
-        data: { status: TaskStatus.ARCHIVED, archivedAt: new Date() },
-      });
-      archived += result.count;
+    if (!instance) {
+      return 0;
     }
-    return archived;
+    const cutoff = new Date(
+      Date.now() - instance.archiveAfterDays * 24 * 60 * 60 * 1000,
+    );
+    const result = await this.prisma.task.updateMany({
+      where: {
+        status: TaskStatus.DONE,
+        completedAt: { lte: cutoff },
+      },
+      data: { status: TaskStatus.ARCHIVED, archivedAt: new Date() },
+    });
+    return result.count;
   }
 
   async runPurge(): Promise<number> {
-    const users = await this.prisma.user.findMany({
-      select: { id: true, deleteArchivedAfterDays: true },
+    const instance = await this.prisma.instance.findUnique({
+      where: { id: INSTANCE_ID },
+      select: { deleteArchivedAfterDays: true },
     });
-    let deleted = 0;
-    const now = Date.now();
-    for (const user of users) {
-      if (user.deleteArchivedAfterDays <= 0) {
-        continue;
-      }
-      const cutoff = new Date(
-        now - user.deleteArchivedAfterDays * 24 * 60 * 60 * 1000,
-      );
-      const result = await this.prisma.task.deleteMany({
-        where: {
-          userId: user.id,
-          status: TaskStatus.ARCHIVED,
-          OR: [
-            { archivedAt: { lte: cutoff } },
-            { archivedAt: null, updatedAt: { lte: cutoff } },
-          ],
-        },
-      });
-      deleted += result.count;
+    if (!instance || instance.deleteArchivedAfterDays <= 0) {
+      return 0;
     }
-    return deleted;
+    const cutoff = new Date(
+      Date.now() - instance.deleteArchivedAfterDays * 24 * 60 * 60 * 1000,
+    );
+    const result = await this.prisma.task.deleteMany({
+      where: {
+        status: TaskStatus.ARCHIVED,
+        OR: [
+          { archivedAt: { lte: cutoff } },
+          { archivedAt: null, updatedAt: { lte: cutoff } },
+        ],
+      },
+    });
+    return result.count;
   }
 }

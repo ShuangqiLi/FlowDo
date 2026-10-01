@@ -64,7 +64,7 @@ flowchart LR
 （默认 30 天）自动清掉。想留着就把清理天数填 `0`，归档里会显示「永久保留」，
 定时任务不会碰它。
 
-其他：账号登录的多用户隔离（JWT），闲云 / 远山 / 归途 / 微光四套主题跟着账号走，
+其他：一台部署一个登录密码（JWT），任务用任务空间隔开。闲云 / 远山 / 归途 / 微光四套主题跟着这台实例走，
 界面组件整理成了可复用的 [FlowDo UI Kit](docs/UI_KIT.md)。
 
 ## 技术架构
@@ -97,15 +97,9 @@ chmod +x start.sh && ./start.sh    # Windows 用 start.ps1
 ```
 
 脚本会生成 `.env`、加载镜像、拉起容器，并等 API 和网页端都通过健康检查；没起来会报错退出。
-网页不开放注册。账号写在部署目录的 `.user` 里，一行一个「用户名 密码」：
-
-```
-user password
-alice 另一段密码
-```
-
-启动脚本按这个文件对齐数据库：没有的新建，密码改了就更新，从文件里去掉的账号会删除（任务一并删除）。
-没有 `.user` 时不动数据库里已有的账号。然后手机或电脑浏览器打开 `http://<部署机 IP>:8080`，输入用户名和密码登录。
+网页不开放注册，也没有多账号。第一次启动会建好这一台实例，初始密码是 `FlowDo#321Init`。
+手机或电脑浏览器打开 `http://<部署机 IP>:8080`，只填密码登录，第一次会要求先换成自己的密码。
+任务按任务空间分开，左上角可以切换、新建和重命名。
 要改端口，编辑 `.env` 里的 `WEB_PORT` / `API_PORT` 后重跑脚本。升级、语音输入、停止与数据等细节见
 [DEPLOY.md](DEPLOY.md)（发版包里的 `README.md` 就是它）。
 
@@ -128,14 +122,18 @@ cd app && flutter pub get && flutter run -d chrome
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
-| POST | `/auth/login` `{username, password}` | 登录 |
+| POST | `/auth/login` `{password}` | 登录 |
 | POST | `/auth/refresh` `{refreshToken}` | 刷新令牌 |
-| GET/PATCH | `/me` | 当前用户；PATCH `{archiveAfterDays, focusLimit, deleteArchivedAfterDays, showArchiveTab, themeKey, voiceInputEnabled}` |
+| POST | `/auth/change-password` `{currentPassword, newPassword}` | 修改密码 |
+| GET/PATCH | `/me` | 实例设置；PATCH 含 `activeSpaceId`、归档天数、聚焦上限、主题、语音 |
+| GET/POST | `/spaces` | 任务空间；PATCH/DELETE `/spaces/:id` |
+| GET/POST | `/reminders` | 提醒；POST `/reminders/:id/ack` 知道了 |
 | GET | `/tasks?status=TODO` | 列表，按优先级 |
 | POST | `/tasks` | 新建，默认待办 + 中优先级 |
 | PATCH | `/tasks/:id` | 改标题 / 正文 / 优先级 / 状态；归档任务只读 |
 | DELETE | `/tasks/:id` | 待办（不做了）或归档任务可删 |
 | GET | `/briefing/today` | 今日看看 |
+| GET | `/briefing/month?year=&month=` | 某月回顾、农历和提醒 |
 | POST | `/archive/run` | 立即执行归档与过期清理 |
 | GET | `/system/about` | 当前版本，以及 GitHub 上有没有更新 |
 | POST | `/system/update` | 下载新版本并换上网页和接口镜像 |

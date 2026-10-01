@@ -2,10 +2,10 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
+import { INSTANCE_ID } from '../instance/constants';
 
 export type AccessTokenPayload = {
   sub: string;
-  username: string;
   type: 'access';
 };
 
@@ -20,9 +20,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   validate(payload: AccessTokenPayload) {
-    if (payload.type !== 'access') {
+    if (payload.type !== 'access' || payload.sub !== INSTANCE_ID) {
       throw new UnauthorizedException('登录过期了，重新登一下吧');
     }
-    return { userId: payload.sub, username: payload.username };
+    return { instanceId: payload.sub };
   }
 }

@@ -15,14 +15,12 @@ class LoginScreen extends ConsumerStatefulWidget {
 }
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
-  final _username = TextEditingController();
   final _password = TextEditingController();
   bool _busy = false;
   String? _error;
 
   @override
   void dispose() {
-    _username.dispose();
     _password.dispose();
     super.dispose();
   }
@@ -33,10 +31,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       _error = null;
     });
     try {
-      await ref.read(authStateProvider.notifier).login(
-            _username.text.trim(),
-            _password.text,
-          );
+      await ref.read(authStateProvider.notifier).login(_password.text);
     } on ApiException catch (e) {
       setState(() => _error = e.message);
     } catch (_) {
@@ -120,16 +115,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             textAlign: TextAlign.center,
                           ),
                           const SizedBox(height: AppSpacing.lg),
-                          TextField(
-                            controller: _username,
-                            autofillHints: const [AutofillHints.username],
-                            textInputAction: TextInputAction.next,
-                            decoration: const InputDecoration(
-                              labelText: '用户名',
-                              prefixIcon: Icon(Icons.person_outline),
-                            ),
-                          ),
-                          const SizedBox(height: 12),
                           TextField(
                             controller: _password,
                             obscureText: true,

@@ -1,36 +1,39 @@
 class Me {
   Me({
     required this.id,
-    required this.username,
+    this.activeSpaceId,
     required this.archiveAfterDays,
     required this.focusLimit,
     required this.deleteArchivedAfterDays,
     required this.showArchiveTab,
     required this.themeKey,
     this.voiceInputEnabled = true,
+    this.mustChangePassword = false,
   });
 
   final String id;
-  final String username;
+  final String? activeSpaceId;
+
+  /// 还在用初始密码，进首页前得先换掉。
+  final bool mustChangePassword;
   final int archiveAfterDays;
   final int focusLimit;
   final int deleteArchivedAfterDays;
   final bool showArchiveTab;
   final String themeKey;
-
-  /// 长按加号是否用说的；关掉后首页也不再申请麦克风。跟着账号。
   final bool voiceInputEnabled;
 
   factory Me.fromJson(Map<String, dynamic> json) {
     return Me(
       id: json['id'] as String,
-      username: json['username'] as String,
+      activeSpaceId: json['activeSpaceId'] as String?,
       archiveAfterDays: json['archiveAfterDays'] as int,
       focusLimit: (json['focusLimit'] as int?) ?? 3,
       deleteArchivedAfterDays: (json['deleteArchivedAfterDays'] as int?) ?? 30,
       showArchiveTab: (json['showArchiveTab'] as bool?) ?? true,
       themeKey: (json['themeKey'] as String?) ?? 'mint',
       voiceInputEnabled: (json['voiceInputEnabled'] as bool?) ?? true,
+      mustChangePassword: (json['mustChangePassword'] as bool?) ?? false,
     );
   }
 }

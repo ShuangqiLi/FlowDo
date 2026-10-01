@@ -1,4 +1,12 @@
-import { IsBoolean, IsIn, IsInt, IsOptional, Max, Min } from 'class-validator';
+import {
+  IsBoolean,
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsUUID,
+  Max,
+  Min,
+} from 'class-validator';
 
 export class UpdateMeDto {
   @IsOptional()
@@ -32,4 +40,8 @@ export class UpdateMeDto {
   @IsOptional()
   @IsBoolean({ message: '语音输入请用开或关' })
   voiceInputEnabled?: boolean;
+
+  @IsOptional()
+  @IsUUID('4', { message: '这个任务空间编号不太对' })
+  activeSpaceId?: string;
 }

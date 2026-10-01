@@ -6,8 +6,11 @@
 set -eu
 cd /app
 
+echo "[flowdo] 把旧账号收成任务空间..."
+node dist/bootstrap/migrate-legacy-users.js
+
 echo "[flowdo] 同步数据库结构..."
-node node_modules/prisma/build/index.js db push --skip-generate
+node node_modules/prisma/build/index.js db push --skip-generate --accept-data-loss
 
 echo "[flowdo] 启动 API..."
 # exec 让 node 成为 1 号进程，docker stop 的信号能直接送到，停得更快。

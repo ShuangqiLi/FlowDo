@@ -102,7 +102,6 @@ void main() {
           meProvider.overrideWith(
             (_) async => Me(
               id: 'user',
-              username: 'hello',
               archiveAfterDays: 7,
               focusLimit: 3,
               deleteArchivedAfterDays: 30,

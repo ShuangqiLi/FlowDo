@@ -1,10 +1,11 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import type { SignOptions } from 'jsonwebtoken';
+import { INSTANCE_ID } from '../instance/constants';
 import { PrismaService } from '../prisma/prisma.service';
-import { LoginDto } from './dto/auth.dto';
+import { ChangePasswordDto, LoginDto } from './dto/auth.dto';
 
 @Injectable()
 export class AuthService {
@@ -15,16 +16,20 @@ export class AuthService {
   ) {}
 
   async login(dto: LoginDto) {
-    const username = dto.username.trim();
-    const user = await this.prisma.user.findUnique({ where: { username } });
-    if (!user) {
-      throw new UnauthorizedException('用户名或密码好像对不上，再试试？');
+    const instance = await this.prisma.instance.findUnique({
+      where: { id: INSTANCE_ID },
+    });
+    if (!instance) {
+      throw new UnauthorizedException('密码好像对不上，再试试？');
     }
-    const ok = await bcrypt.compare(dto.password, user.passwordHash);
+    const ok = await bcrypt.compare(dto.password, instance.passwordHash);
     if (!ok) {
-      throw new UnauthorizedException('用户名或密码好像对不上，再试试？');
+      throw new UnauthorizedException('密码好像对不上，再试试？');
     }
-    return this.issueTokens(user.id, user.username);
+    return {
+      ...(await this.issueTokens()),
+      mustChangePassword: instance.mustChangePassword,
+    };
   }
 
   async refresh(refreshToken: string) {
@@ -35,33 +40,60 @@ export class AuthService {
       }>(refreshToken, {
         secret: this.config.getOrThrow<string>('JWT_SECRET'),
       });
-      if (payload.type !== 'refresh') {
+      if (payload.type !== 'refresh' || payload.sub !== INSTANCE_ID) {
         throw new UnauthorizedException('登录过期了，重新登一下吧');
       }
-      const user = await this.prisma.user.findUnique({
-        where: { id: payload.sub },
+      const instance = await this.prisma.instance.findUnique({
+        where: { id: INSTANCE_ID },
       });
-      if (!user) {
+      if (!instance) {
         throw new UnauthorizedException('登录过期了，重新登一下吧');
       }
-      return this.issueTokens(user.id, user.username);
-    } catch {
+      return this.issueTokens();
+    } catch (error) {
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
       throw new UnauthorizedException('登录过期了，重新登一下吧');
     }
   }
 
-  private async issueTokens(userId: string, username: string) {
+  async changePassword(dto: ChangePasswordDto) {
+    const instance = await this.prisma.instance.findUnique({
+      where: { id: INSTANCE_ID },
+    });
+    if (!instance) {
+      throw new UnauthorizedException('登录过期了，重新登一下吧');
+    }
+    const ok = await bcrypt.compare(dto.currentPassword, instance.passwordHash);
+    if (!ok) {
+      throw new BadRequestException('现在的密码好像对不上');
+    }
+    if (dto.currentPassword === dto.newPassword) {
+      throw new BadRequestException('新密码和现在的一样，换一个吧');
+    }
+    await this.prisma.instance.update({
+      where: { id: INSTANCE_ID },
+      data: {
+        passwordHash: await bcrypt.hash(dto.newPassword, 10),
+        mustChangePassword: false,
+      },
+    });
+    return { ok: true };
+  }
+
+  private async issueTokens() {
     const secret = this.config.getOrThrow<string>('JWT_SECRET');
     const accessExpires = (this.config.get('JWT_ACCESS_EXPIRES') ??
       '30m') as SignOptions['expiresIn'];
     const refreshExpires = (this.config.get('JWT_REFRESH_EXPIRES') ??
       '7d') as SignOptions['expiresIn'];
     const accessToken = await this.jwt.signAsync(
-      { sub: userId, username, type: 'access' },
+      { sub: INSTANCE_ID, type: 'access' },
       { secret, expiresIn: accessExpires },
     );
     const refreshToken = await this.jwt.signAsync(
-      { sub: userId, username, type: 'refresh' },
+      { sub: INSTANCE_ID, type: 'refresh' },
       { secret, expiresIn: refreshExpires },
     );
     return { accessToken, refreshToken };

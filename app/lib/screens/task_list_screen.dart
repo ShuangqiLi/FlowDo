@@ -31,6 +31,40 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
 
   /// 被退回的任务要换一个新的手势层，避免还停在滑出屏幕的位置。
   final _swipeGeneration = <String, int>{};
+  final _scroll = ScrollController();
+  final _itemKeys = <String, GlobalKey>{};
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  void _scrollToPending(List<Task> tasks) {
+    final id = ref.read(pendingScrollTaskIdProvider);
+    if (widget.status != 'TODO' || id == null) {
+      return;
+    }
+    if (!tasks.any((task) => task.id == id)) {
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      final target = _itemKeys[id]?.currentContext;
+      if (target == null) {
+        return;
+      }
+      Scrollable.ensureVisible(
+        target,
+        alignment: 0.3,
+        duration: AppMotion.quick,
+        curve: AppMotion.curve,
+      );
+      ref.read(pendingScrollTaskIdProvider.notifier).clear();
+    });
+  }
 
   @override
   bool get wantKeepAlive => true;
@@ -178,6 +212,7 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
           final tasks = _dismissing.isEmpty
               ? all
               : all.where((t) => !_dismissing.contains(t.id)).toList();
+          _scrollToPending(tasks);
           if (tasks.isEmpty) {
             return RefreshIndicator(
               onRefresh: _refresh,
@@ -197,13 +232,16 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
           return RefreshIndicator(
             onRefresh: _refresh,
             child: ListView.separated(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 88),
+              controller: _scroll,
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
               itemCount: tasks.length,
               separatorBuilder: (_, __) =>
                   const SizedBox(height: AppSpacing.sm),
               itemBuilder: (context, i) {
                 final task = tasks[i];
-                return TaskInteractable(
+                return KeyedSubtree(
+                  key: _itemKeys.putIfAbsent(task.id, GlobalKey.new),
+                  child: TaskInteractable(
                   key: ValueKey(
                     '${task.id}-${_swipeGeneration[task.id] ?? 0}',
                   ),
@@ -211,6 +249,7 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
                   onSwipeTo: (status) => _dismissTo(task, status),
                   onDelete: () => _delete(task),
                   child: _card(task, archiveDays, deleteDays),
+                ),
                 );
               },
             ),

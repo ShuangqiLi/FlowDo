@@ -1,8 +1,16 @@
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import { PrismaClient } from '@prisma/client';
 import { AppModule } from './app.module';
+import { ensureInstance } from './instance/ensure-instance';
 
 async function bootstrap() {
+  const prisma = new PrismaClient();
+  try {
+    await ensureInstance(prisma);
+  } finally {
+    await prisma.$disconnect();
+  }
   const app = await NestFactory.create(AppModule);
   app.useGlobalPipes(
     new ValidationPipe({

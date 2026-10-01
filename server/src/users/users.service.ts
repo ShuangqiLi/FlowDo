@@ -1,10 +1,12 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { INSTANCE_ID } from '../instance/constants';
 import { UpdateMeDto } from './dto/update-me.dto';
 
 const meSelect = {
   id: true,
-  username: true,
+  mustChangePassword: true,
+  activeSpaceId: true,
   archiveAfterDays: true,
   focusLimit: true,
   deleteArchivedAfterDays: true,
@@ -18,20 +20,28 @@ const meSelect = {
 export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getMe(userId: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
+  async getMe() {
+    const instance = await this.prisma.instance.findUnique({
+      where: { id: INSTANCE_ID },
       select: meSelect,
     });
-    if (!user) {
-      throw new NotFoundException('账号找不到了');
+    if (!instance) {
+      throw new NotFoundException('这台 FlowDo 还没准备好');
     }
-    return user;
+    return instance;
   }
 
-  async updateMe(userId: string, dto: UpdateMeDto) {
-    return this.prisma.user.update({
-      where: { id: userId },
+  async updateMe(dto: UpdateMeDto) {
+    if (dto.activeSpaceId) {
+      const space = await this.prisma.space.findUnique({
+        where: { id: dto.activeSpaceId },
+      });
+      if (!space) {
+        throw new BadRequestException('这个任务空间找不到了');
+      }
+    }
+    return this.prisma.instance.update({
+      where: { id: INSTANCE_ID },
       data: {
         ...(dto.archiveAfterDays !== undefined
           ? { archiveAfterDays: dto.archiveAfterDays }
@@ -46,6 +56,9 @@ export class UsersService {
         ...(dto.themeKey !== undefined ? { themeKey: dto.themeKey } : {}),
         ...(dto.voiceInputEnabled !== undefined
           ? { voiceInputEnabled: dto.voiceInputEnabled }
+          : {}),
+        ...(dto.activeSpaceId !== undefined
+          ? { activeSpaceId: dto.activeSpaceId }
           : {}),
       },
       select: meSelect,

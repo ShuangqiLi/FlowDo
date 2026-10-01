@@ -1,24 +1,19 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flowdo/main.dart';
-import 'package:flowdo/ui/flowdo_logo.dart';
-import 'package:flowdo/ui/splash_screen.dart';
+import 'package:flowdo/screens/login_screen.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('boot shows splash then login', (tester) async {
+  testWidgets('boot goes straight to login once prefs are ready', (tester) async {
     SharedPreferences.setMockInitialValues({});
-    await tester.pumpWidget(const FlowDoBoot());
-    expect(find.byType(SplashScreen), findsOneWidget);
-    expect(find.byType(FlowDoLogo), findsOneWidget);
-    expect(find.text('随随办办'), findsOneWidget);
-    expect(find.text('FlowDo'), findsOneWidget);
-
-    await tester.pump(const Duration(milliseconds: 700));
+    final prefs = await SharedPreferences.getInstance();
+    await tester.pumpWidget(FlowDoBoot(prefs: prefs));
     await tester.pumpAndSettle();
 
-    expect(find.byType(SplashScreen), findsNothing);
+    expect(find.byType(LoginScreen), findsOneWidget);
     expect(find.text('登录'), findsWidgets);
+    expect(find.text('用户名'), findsNothing);
   });
 }

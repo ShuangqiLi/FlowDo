@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'api/api_client.dart';
 import 'models/briefing.dart';
+import 'models/space.dart';
 import 'models/task.dart';
 import 'models/user.dart';
 import 'platform/microphone.dart';
@@ -25,8 +26,8 @@ class AuthController extends Notifier<bool> {
   @override
   bool build() => ref.watch(apiProvider).isLoggedIn;
 
-  Future<void> login(String username, String password) async {
-    await ref.read(apiProvider).login(username, password);
+  Future<void> login(String password) async {
+    await ref.read(apiProvider).login(password);
     state = true;
   }
 
@@ -48,8 +49,30 @@ final tasksProvider = FutureProvider.family<List<Task>, String>((ref, status) as
 
 final briefingProvider = FutureProvider<Briefing>((ref) async {
   ref.watch(authStateProvider);
+  ref.watch(meProvider);
   return ref.watch(apiProvider).todayBriefing();
 });
+
+final spacesProvider = FutureProvider<List<Space>>((ref) async {
+  ref.watch(authStateProvider);
+  ref.watch(meProvider);
+  return ref.watch(apiProvider).listSpaces();
+});
+
+/// 新建任务后，任务池列表滚到这一条。
+final pendingScrollTaskIdProvider =
+    NotifierProvider<PendingScrollTaskController, String?>(
+  PendingScrollTaskController.new,
+);
+
+class PendingScrollTaskController extends Notifier<String?> {
+  @override
+  String? build() => null;
+
+  void request(String id) => state = id;
+
+  void clear() => state = null;
+}
 
 final appThemeProvider = Provider<AppThemeKey>((ref) {
   if (!ref.watch(authStateProvider)) return AppThemeKey.mint;

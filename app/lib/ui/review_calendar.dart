@@ -88,7 +88,7 @@ class MonthReviewCalendar extends StatelessWidget {
   }) {
     final day = index - leading + 1;
     if (day < 1 || day > daysInMonth) {
-      return const SizedBox(height: 40);
+      return const SizedBox(height: 52);
     }
     final key =
         '$year-${month.toString().padLeft(2, '0')}-${day.toString().padLeft(2, '0')}';
@@ -96,6 +96,8 @@ class MonthReviewCalendar extends StatelessWidget {
     return Builder(
       builder: (cellContext) => _DayCell(
         dayNumber: '$day',
+        lunarLabel: review.lunarLabel,
+        hasReminder: review.reminders.isNotEmpty,
         count: review.count,
         maxCount: maxCount,
         isToday: key == todayKey,
@@ -143,10 +145,14 @@ class _DayCell extends StatelessWidget {
     required this.maxCount,
     required this.isToday,
     required this.scheme,
+    this.lunarLabel,
+    this.hasReminder = false,
     this.onTap,
   });
 
   final String dayNumber;
+  final String? lunarLabel;
+  final bool hasReminder;
   final int count;
   final int maxCount;
   final bool isToday;
@@ -177,7 +183,7 @@ class _DayCell extends StatelessWidget {
             child: AnimatedContainer(
               duration: AppMotion.quick,
               curve: AppMotion.curve,
-              height: 40,
+              height: 52,
               width: double.infinity,
               alignment: Alignment.center,
               decoration: BoxDecoration(
@@ -196,16 +202,29 @@ class _DayCell extends StatelessWidget {
                           color: onFill,
                           fontWeight:
                               isToday ? FontWeight.w700 : FontWeight.w500,
+                          height: 1.05,
                         ),
                   ),
-                  if (count > 0)
+                  if (lunarLabel != null)
                     Text(
-                      '$count',
+                      lunarLabel!,
+                      maxLines: 1,
+                      overflow: TextOverflow.clip,
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: onFill.withValues(alpha: 0.9),
-                            fontSize: 10,
-                            height: 1,
+                            color: onFill.withValues(alpha: 0.85),
+                            fontSize: 9,
+                            height: 1.05,
                           ),
+                    ),
+                  if (hasReminder)
+                    Container(
+                      width: 4,
+                      height: 4,
+                      margin: const EdgeInsets.only(top: 1),
+                      decoration: BoxDecoration(
+                        color: scheme.tertiary,
+                        shape: BoxShape.circle,
+                      ),
                     ),
                 ],
               ),
@@ -289,6 +308,7 @@ Future<void> showReviewDayPopover(
   BuildContext anchorContext, {
   required ReviewDay day,
   required ValueChanged<Task> onOpenTask,
+  VoidCallback? onAddReminder,
 }) async {
   final anchor = anchorContext.findRenderObject() as RenderBox?;
   final overlay =
@@ -307,7 +327,7 @@ Future<void> showReviewDayPopover(
   final title = prettyReviewDayTitle(day.date);
   final tasks = day.tasks;
 
-  final selected = await showMenu<Task?>(
+  final selected = await showMenu<Object?>(
     context: anchorContext,
     position: RelativeRect.fromLTRB(
       topLeft.dx.clamp(8.0, overlay.size.width - 240),
@@ -329,7 +349,7 @@ Future<void> showReviewDayPopover(
       curve: AppMotion.curve,
     ),
     items: [
-      PopupMenuItem<Task?>(
+      PopupMenuItem<Object?>(
         enabled: false,
         height: 56,
         padding: const EdgeInsets.fromLTRB(
@@ -344,7 +364,10 @@ Future<void> showReviewDayPopover(
             Text(title, style: theme.textTheme.titleSmall),
             const SizedBox(height: 2),
             Text(
-              tasks.isEmpty ? '这一天还没有搞定的事' : '搞定了 ${tasks.length} 件',
+              [
+                if (tasks.isEmpty) '这一天还没有搞定的事' else '搞定了 ${tasks.length} 件',
+                if (day.reminders.isNotEmpty) '提醒 ${day.reminders.length} 条',
+              ].join(' · '),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: scheme.onSurfaceVariant,
               ),
@@ -353,7 +376,7 @@ Future<void> showReviewDayPopover(
         ),
       ),
       if (tasks.isEmpty)
-        PopupMenuItem<Task?>(
+        PopupMenuItem<Object?>(
           enabled: false,
           height: 44,
           child: Text(
@@ -365,7 +388,7 @@ Future<void> showReviewDayPopover(
         )
       else
         for (final task in tasks.take(8))
-          PopupMenuItem<Task?>(
+          PopupMenuItem<Object?>(
             value: task,
             height: 48,
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
@@ -393,7 +416,7 @@ Future<void> showReviewDayPopover(
             ),
           ),
       if (tasks.length > 8)
-        PopupMenuItem<Task?>(
+        PopupMenuItem<Object?>(
           enabled: false,
           height: 36,
           child: Text(
@@ -403,11 +426,29 @@ Future<void> showReviewDayPopover(
             ),
           ),
         ),
+      for (final reminder in day.reminders.take(6))
+        PopupMenuItem<Object?>(
+          enabled: false,
+          height: 44,
+          child: Text(
+            reminder.kind == 'ANNIVERSARY' ? '纪念日 · ${reminder.title}' : reminder.title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      if (onAddReminder != null)
+        PopupMenuItem<Object?>(
+          value: 'add-reminder',
+          height: 44,
+          child: const Text('加一条提醒'),
+        ),
     ],
   );
 
-  if (selected != null) {
+  if (selected is Task) {
     onOpenTask(selected);
+  } else if (selected == 'add-reminder') {
+    onAddReminder?.call();
   }
 }
 
@@ -422,4 +463,133 @@ String prettyReviewDayTitle(String iso) {
   final date = DateTime(year, month, day);
   const weekdays = ['星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日'];
   return '$year年$month月$day日 ${weekdays[date.weekday - 1]}';
+}
+
+/// 横向滑动翻月。当前月用已经拿到的回顾，滑走再向服务端要那一个月。
+class SwipeMonthCalendar extends StatefulWidget {
+  const SwipeMonthCalendar({
+    super.key,
+    required this.initial,
+    required this.loadMonth,
+    this.todayKey,
+    this.onDayTap,
+  });
+
+  final MonthReview initial;
+  final Future<MonthReview> Function(int year, int month) loadMonth;
+  final String? todayKey;
+  final ReviewDayTap? onDayTap;
+
+  @override
+  State<SwipeMonthCalendar> createState() => _SwipeMonthCalendarState();
+}
+
+class _SwipeMonthCalendarState extends State<SwipeMonthCalendar> {
+  static const _origin = 1200;
+  late final PageController _pages = PageController(initialPage: _origin);
+  final _cache = <int, MonthReview>{};
+  int _page = _origin;
+
+  @override
+  void initState() {
+    super.initState();
+    _cache[_origin] = widget.initial;
+  }
+
+  @override
+  void didUpdateWidget(SwipeMonthCalendar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initial.year != widget.initial.year ||
+        oldWidget.initial.month != widget.initial.month) {
+      _cache[_origin] = widget.initial;
+    }
+  }
+
+  @override
+  void dispose() {
+    _pages.dispose();
+    super.dispose();
+  }
+
+  DateTime _monthAt(int page) {
+    return DateTime(widget.initial.year, widget.initial.month + (page - _origin), 1);
+  }
+
+  Future<void> _ensure(int page) async {
+    if (_cache.containsKey(page)) {
+      return;
+    }
+    final date = _monthAt(page);
+    try {
+      final review = await widget.loadMonth(date.year, date.month);
+      if (!mounted) {
+        return;
+      }
+      setState(() => _cache[page] = review);
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {});
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final shown = _monthAt(_page);
+    return Column(
+      children: [
+        Row(
+          children: [
+            IconButton(
+              tooltip: '上个月',
+              onPressed: () => _pages.previousPage(
+                duration: AppMotion.quick,
+                curve: AppMotion.curve,
+              ),
+              icon: const Icon(Icons.chevron_left_rounded),
+            ),
+            Expanded(
+              child: Text(
+                '${shown.year}年${shown.month}月',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+            ),
+            IconButton(
+              tooltip: '下个月',
+              onPressed: () => _pages.nextPage(
+                duration: AppMotion.quick,
+                curve: AppMotion.curve,
+              ),
+              icon: const Icon(Icons.chevron_right_rounded),
+            ),
+          ],
+        ),
+        SizedBox(
+          height: 360,
+          child: PageView.builder(
+            controller: _pages,
+            onPageChanged: (page) {
+              setState(() => _page = page);
+              _ensure(page);
+            },
+            itemBuilder: (context, page) {
+              final review = _cache[page];
+              if (review == null) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              return MonthReviewCalendar(
+                year: review.year,
+                month: review.month,
+                days: review.days,
+                todayKey: widget.todayKey,
+                onDayTap: widget.onDayTap,
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
 }

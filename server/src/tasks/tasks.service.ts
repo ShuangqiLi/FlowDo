@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { InstanceService } from '../instance/instance.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateTaskDto, UpdateTaskDto } from './dto/task.dto';
 import { TaskPriority, TaskStatus } from './task.enums';
@@ -17,10 +18,14 @@ const PRIORITY_ORDER: Record<TaskPriority, number> = {
 
 @Injectable()
 export class TasksService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly instance: InstanceService,
+  ) {}
 
-  async list(userId: string, status?: TaskStatus) {
-    const where: Prisma.TaskWhereInput = { userId };
+  async list(status?: TaskStatus) {
+    const spaceId = await this.instance.spaceId();
+    const where: Prisma.TaskWhereInput = { spaceId };
     if (status) {
       where.status = status;
     }
@@ -37,10 +42,11 @@ export class TasksService {
     });
   }
 
-  async create(userId: string, dto: CreateTaskDto) {
+  async create(dto: CreateTaskDto) {
+    const spaceId = await this.instance.spaceId();
     return this.prisma.task.create({
       data: {
-        userId,
+        spaceId,
         title: dto.title.trim(),
         body: dto.body?.trim() ? dto.body.trim() : null,
         priority: dto.priority ?? TaskPriority.MEDIUM,
@@ -49,8 +55,9 @@ export class TasksService {
     });
   }
 
-  async update(userId: string, id: string, dto: UpdateTaskDto) {
-    const task = await this.prisma.task.findFirst({ where: { id, userId } });
+  async update(id: string, dto: UpdateTaskDto) {
+    const spaceId = await this.instance.spaceId();
+    const task = await this.prisma.task.findFirst({ where: { id, spaceId } });
     if (!task) {
       throw new NotFoundException('这条任务找不到了');
     }
@@ -73,13 +80,10 @@ export class TasksService {
         throw new BadRequestException('这条任务现在不能改成那个状态');
       }
       if (dto.status === TaskStatus.FOCUS) {
-        const user = await this.prisma.user.findUnique({
-          where: { id: userId },
-          select: { focusLimit: true },
-        });
-        const limit = user?.focusLimit ?? 3;
+        const settings = await this.instance.get();
+        const limit = settings.focusLimit ?? 3;
         const focused = await this.prisma.task.count({
-          where: { userId, status: TaskStatus.FOCUS },
+          where: { spaceId, status: TaskStatus.FOCUS },
         });
         if (focused >= limit) {
           throw new BadRequestException(
@@ -105,8 +109,9 @@ export class TasksService {
     return this.prisma.task.update({ where: { id }, data });
   }
 
-  async remove(userId: string, id: string) {
-    const task = await this.prisma.task.findFirst({ where: { id, userId } });
+  async remove(id: string) {
+    const spaceId = await this.instance.spaceId();
+    const task = await this.prisma.task.findFirst({ where: { id, spaceId } });
     if (!task) {
       throw new NotFoundException('这条任务找不到了');
     }

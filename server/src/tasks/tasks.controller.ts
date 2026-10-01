@@ -12,11 +12,9 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { TaskStatus } from './task.enums';
-import { CurrentUser } from '../auth/current-user.decorator';
-import type { AuthUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CreateTaskDto, UpdateTaskDto } from './dto/task.dto';
+import { TaskStatus } from './task.enums';
 import { TasksService } from './tasks.service';
 
 @Controller('tasks')
@@ -26,7 +24,6 @@ export class TasksController {
 
   @Get()
   list(
-    @CurrentUser() user: AuthUser,
     @Query(
       'status',
       new ParseEnumPipe(TaskStatus, {
@@ -37,17 +34,16 @@ export class TasksController {
     )
     status?: TaskStatus,
   ) {
-    return this.tasks.list(user.userId, status);
+    return this.tasks.list(status);
   }
 
   @Post()
-  create(@CurrentUser() user: AuthUser, @Body() dto: CreateTaskDto) {
-    return this.tasks.create(user.userId, dto);
+  create(@Body() dto: CreateTaskDto) {
+    return this.tasks.create(dto);
   }
 
   @Patch(':id')
   update(
-    @CurrentUser() user: AuthUser,
     @Param(
       'id',
       new ParseUUIDPipe({
@@ -58,12 +54,11 @@ export class TasksController {
     id: string,
     @Body() dto: UpdateTaskDto,
   ) {
-    return this.tasks.update(user.userId, id, dto);
+    return this.tasks.update(id, dto);
   }
 
   @Delete(':id')
   remove(
-    @CurrentUser() user: AuthUser,
     @Param(
       'id',
       new ParseUUIDPipe({
@@ -73,6 +68,6 @@ export class TasksController {
     )
     id: string,
   ) {
-    return this.tasks.remove(user.userId, id);
+    return this.tasks.remove(id);
   }
 }

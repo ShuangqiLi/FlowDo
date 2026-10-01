@@ -23,6 +23,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   final _days = TextEditingController();
   final _focusLimit = TextEditingController();
   final _deleteDays = TextEditingController();
+  final _currentPassword = TextEditingController();
+  final _newPassword = TextEditingController();
 
   @override
   void initState() {
@@ -42,6 +44,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     _days.dispose();
     _focusLimit.dispose();
     _deleteDays.dispose();
+    _currentPassword.dispose();
+    _newPassword.dispose();
     super.dispose();
   }
 
@@ -101,7 +105,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       child: ListView(
         padding: const EdgeInsets.all(AppSpacing.md),
         children: [
-          const SectionHeader('账号'),
+          const SectionHeader('密码', caption: '这台 FlowDo 的登录密码'),
           FlowDoCard(
             child: me.when(
               loading: () => const LinearProgressIndicator(),
@@ -116,21 +120,45 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 if (_deleteDays.text.isEmpty) {
                   _deleteDays.text = '${user.deleteArchivedAfterDays}';
                 }
-                return Row(
+                final obscured = AppText.obscuredStyle(
+                  Theme.of(context).textTheme.bodyLarge,
+                );
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    CircleAvatar(
-                      backgroundColor: scheme.primaryContainer,
-                      child: Icon(
-                        Icons.person_outline,
-                        color: scheme.onPrimaryContainer,
-                      ),
+                    TextField(
+                      controller: _currentPassword,
+                      obscureText: true,
+                      style: obscured,
+                      decoration: const InputDecoration(labelText: '现在的密码'),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        user.username,
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _newPassword,
+                      obscureText: true,
+                      style: obscured,
+                      decoration: const InputDecoration(labelText: '新密码'),
+                    ),
+                    const SizedBox(height: 12),
+                    FilledButton.tonal(
+                      onPressed: () async {
+                        try {
+                          await ref.read(apiProvider).changePassword(
+                                currentPassword: _currentPassword.text,
+                                newPassword: _newPassword.text,
+                              );
+                          _currentPassword.clear();
+                          _newPassword.clear();
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('密码改好了')),
+                            );
+                          }
+                        } on ApiException catch (e) {
+                          _showSaveError(e.message);
+                        }
+                      },
+                      child: const Text('修改密码'),
                     ),
                   ],
                 );

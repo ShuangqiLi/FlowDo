@@ -41,6 +41,8 @@ services:
       JWT_REFRESH_EXPIRES: 7d
       PORT: 3000
       FLOWDO_DEPLOY_DIR: /deploy
+      # 全新数据库的初始密码，第一次登录会被要求改掉。想换别的就在 .env 里设 FLOWDO_INITIAL_PASSWORD。
+      FLOWDO_INITIAL_PASSWORD: ${FLOWDO_INITIAL_PASSWORD:-FlowDo#321Init}
     # 镜像里已带 /health 探测；这里只是让 docker compose ps 能看到 healthy。
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/health >/dev/null || exit 1"]

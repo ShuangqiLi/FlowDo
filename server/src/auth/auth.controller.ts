@@ -1,6 +1,7 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, Post, UseGuards } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { LoginDto, RefreshDto } from './dto/auth.dto';
+import { ChangePasswordDto, LoginDto, RefreshDto } from './dto/auth.dto';
+import { JwtAuthGuard } from './jwt-auth.guard';
 
 @Controller('auth')
 export class AuthController {
@@ -14,5 +15,11 @@ export class AuthController {
   @Post('refresh')
   refresh(@Body() dto: RefreshDto) {
     return this.auth.refresh(dto.refreshToken);
+  }
+
+  @Post('change-password')
+  @UseGuards(JwtAuthGuard)
+  changePassword(@Body() dto: ChangePasswordDto) {
+    return this.auth.changePassword(dto);
   }
 }

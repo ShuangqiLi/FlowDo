@@ -1,6 +1,15 @@
-import { Injectable } from '@nestjs/common';
-import { TaskPriority, TaskStatus } from '../tasks/task.enums';
+import { BadRequestException, Injectable } from '@nestjs/common';
+import { Reminder } from '@prisma/client';
+import { InstanceService } from '../instance/instance.service';
 import { PrismaService } from '../prisma/prisma.service';
+import {
+  lunarDayLabel,
+  occurrenceKeysInMonth,
+  startOfDay,
+  toDateKey,
+} from '../reminders/lunar-date';
+import { presentReminder, toRule } from '../reminders/reminders.service';
+import { TaskPriority, TaskStatus } from '../tasks/task.enums';
 
 const PRIORITY_ORDER: Record<TaskPriority, number> = {
   HIGH: 0,
@@ -36,108 +45,62 @@ export function pickSuggestedFocus<T extends RankedTask>(
 
 @Injectable()
 export class BriefingService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly instance: InstanceService,
+  ) {}
 
-  async today(userId: string) {
+  async today() {
     const now = new Date();
-    const startOfToday = new Date(now);
-    startOfToday.setHours(0, 0, 0, 0);
-    const startOfYesterday = new Date(startOfToday);
-    startOfYesterday.setDate(startOfYesterday.getDate() - 1);
-    const startOfMonth = new Date(startOfToday.getFullYear(), startOfToday.getMonth(), 1);
-    const endOfMonth = new Date(
+    const startOfToday = startOfDay(now);
+    const month = await this.month(
       startOfToday.getFullYear(),
       startOfToday.getMonth() + 1,
-      0,
-      23,
-      59,
-      59,
-      999,
     );
+    const spaceId = await this.instance.spaceId();
+    const settings = await this.instance.get();
+    const startOfYesterday = addDays(startOfToday, -1);
 
-    const [
-      todo,
-      focus,
-      done,
-      archived,
-      completedToday,
-      completedYesterday,
-      completedHistory,
-      inboxHigh,
-      me,
-    ] = await Promise.all([
-        this.prisma.task.count({
-          where: { userId, status: TaskStatus.TODO },
-        }),
+    const [todo, focus, done, archived, completedToday, completedYesterday, inboxHigh, reminders] =
+      await Promise.all([
+        this.prisma.task.count({ where: { spaceId, status: TaskStatus.TODO } }),
+        this.prisma.task.findMany({ where: { spaceId, status: TaskStatus.FOCUS } }),
+        this.prisma.task.count({ where: { spaceId, status: TaskStatus.DONE } }),
+        this.prisma.task.count({ where: { spaceId, status: TaskStatus.ARCHIVED } }),
         this.prisma.task.findMany({
-          where: { userId, status: TaskStatus.FOCUS },
-        }),
-        this.prisma.task.count({
-          where: { userId, status: TaskStatus.DONE },
-        }),
-        this.prisma.task.count({
-          where: { userId, status: TaskStatus.ARCHIVED },
-        }),
-        this.prisma.task.findMany({
-          where: {
-            userId,
-            completedAt: { gte: startOfToday },
-          },
+          where: { spaceId, completedAt: { gte: startOfToday } },
           orderBy: { completedAt: 'desc' },
         }),
         this.prisma.task.findMany({
           where: {
-            userId,
+            spaceId,
             completedAt: { gte: startOfYesterday, lt: startOfToday },
           },
           orderBy: { completedAt: 'desc' },
         }),
         this.prisma.task.findMany({
           where: {
-            userId,
-            completedAt: { gte: startOfMonth, lte: endOfMonth },
-          },
-          orderBy: { completedAt: 'desc' },
-        }),
-        this.prisma.task.findMany({
-          where: {
-            userId,
+            spaceId,
             status: TaskStatus.TODO,
             priority: TaskPriority.HIGH,
           },
         }),
-        this.prisma.user.findUnique({
-          where: { id: userId },
-          select: { focusLimit: true },
-        }),
+        this.prisma.reminder.findMany({ where: { spaceId } }),
       ]);
 
     const focusedTasks = [...focus].sort(comparePriorityThenRecent);
     const suggestedFocus = pickSuggestedFocus(
       focusedTasks,
       inboxHigh,
-      me?.focusLimit ?? DEFAULT_SUGGEST_LIMIT,
+      settings.focusLimit ?? DEFAULT_SUGGEST_LIMIT,
     );
-
-    const dayCounts = new Map<string, number>();
-    const dayTasks = new Map<string, typeof completedHistory>();
-    for (const row of completedHistory) {
-      if (!row.completedAt) {
-        continue;
-      }
-      const key = toDateKey(row.completedAt);
-      dayCounts.set(key, (dayCounts.get(key) ?? 0) + 1);
-      const list = dayTasks.get(key) ?? [];
-      list.push(row);
-      dayTasks.set(key, list);
-    }
-
-    const monthDaysInMonth = endOfMonth.getDate();
-    const monthDays = buildDayRange(startOfMonth, monthDaysInMonth, dayCounts, dayTasks);
-    const monthCompleted = monthDays.reduce((sum, d) => sum + d.count, 0);
+    const todayKey = toDateKey(startOfToday);
+    const todayReminders = reminders
+      .filter((row) => toDateKey(startOfDay(row.nextDate)) <= todayKey)
+      .map(presentReminder);
 
     return {
-      date: toDateKey(startOfToday),
+      date: todayKey,
       counts: {
         todo,
         focus: focusedTasks.length,
@@ -149,22 +112,80 @@ export class BriefingService {
       completedToday,
       completedYesterday,
       pendingArchive: done,
-      monthReview: {
-        year: startOfToday.getFullYear(),
-        month: startOfToday.getMonth() + 1,
-        completedCount: monthCompleted,
-        activeDays: monthDays.filter((d) => d.count > 0).length,
-        days: monthDays,
-      },
+      todayReminders,
+      monthReview: month,
+    };
+  }
+
+  async month(year: number, month: number) {
+    if (!Number.isInteger(year) || !Number.isInteger(month) || month < 1 || month > 12) {
+      throw new BadRequestException('这个月份不太对');
+    }
+    const spaceId = await this.instance.spaceId();
+    const start = new Date(year, month - 1, 1);
+    const end = new Date(year, month, 0, 23, 59, 59, 999);
+    const [completed, reminders] = await Promise.all([
+      this.prisma.task.findMany({
+        where: { spaceId, completedAt: { gte: start, lte: end } },
+        orderBy: { completedAt: 'desc' },
+      }),
+      this.prisma.reminder.findMany({ where: { spaceId } }),
+    ]);
+
+    const dayCounts = new Map<string, number>();
+    const dayTasks = new Map<string, typeof completed>();
+    for (const row of completed) {
+      if (!row.completedAt) {
+        continue;
+      }
+      const key = toDateKey(row.completedAt);
+      dayCounts.set(key, (dayCounts.get(key) ?? 0) + 1);
+      const list = dayTasks.get(key) ?? [];
+      list.push(row);
+      dayTasks.set(key, list);
+    }
+
+    const reminderMarks = marksForMonth(reminders, year, month);
+    const length = end.getDate();
+    const days = Array.from({ length }, (_, i) => {
+      const day = addDays(start, i);
+      const key = toDateKey(day);
+      return {
+        date: key,
+        count: dayCounts.get(key) ?? 0,
+        tasks: dayTasks.get(key) ?? [],
+        lunarLabel: lunarDayLabel(day),
+        reminders: reminderMarks.get(key) ?? [],
+      };
+    });
+
+    return {
+      year,
+      month,
+      completedCount: days.reduce((sum, day) => sum + day.count, 0),
+      activeDays: days.filter((day) => day.count > 0).length,
+      days,
     };
   }
 }
 
-function toDateKey(date: Date): string {
-  const y = date.getFullYear();
-  const m = `${date.getMonth() + 1}`.padStart(2, '0');
-  const d = `${date.getDate()}`.padStart(2, '0');
-  return `${y}-${m}-${d}`;
+function marksForMonth(reminders: Reminder[], year: number, month: number) {
+  const marks = new Map<string, Array<{ id: string; title: string; kind: string; calendar: string }>>();
+  for (const row of reminders) {
+    const keys = occurrenceKeysInMonth(toRule(row), year, month);
+    const mark = {
+      id: row.id,
+      title: row.title,
+      kind: row.kind,
+      calendar: row.calendar,
+    };
+    for (const key of keys) {
+      const list = marks.get(key) ?? [];
+      list.push(mark);
+      marks.set(key, list);
+    }
+  }
+  return marks;
 }
 
 function addDays(date: Date, days: number): Date {
@@ -172,21 +193,3 @@ function addDays(date: Date, days: number): Date {
   next.setDate(next.getDate() + days);
   return next;
 }
-
-function buildDayRange(
-  start: Date,
-  length: number,
-  counts: Map<string, number>,
-  tasksByDay: Map<string, unknown[]>,
-): Array<{ date: string; count: number; tasks: unknown[] }> {
-  return Array.from({ length }, (_, i) => {
-    const day = addDays(start, i);
-    const key = toDateKey(day);
-    return {
-      date: key,
-      count: counts.get(key) ?? 0,
-      tasks: tasksByDay.get(key) ?? [],
-    };
-  });
-}
-

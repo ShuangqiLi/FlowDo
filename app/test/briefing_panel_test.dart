@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flowdo/models/briefing.dart';
 import 'package:flowdo/models/task.dart';
+import 'package:flowdo/models/space.dart';
 import 'package:flowdo/models/user.dart';
 import 'package:flowdo/providers.dart';
 import 'package:flowdo/screens/briefing_screen.dart';
@@ -45,7 +46,7 @@ Future<void> _pumpHome(WidgetTester tester) async {
   final prefs = await SharedPreferences.getInstance();
   final me = Me(
     id: 'user',
-    username: 'hello',
+    activeSpaceId: 'space',
     archiveAfterDays: 7,
     focusLimit: 3,
     deleteArchivedAfterDays: 30,
@@ -58,6 +59,9 @@ Future<void> _pumpHome(WidgetTester tester) async {
       overrides: [
         prefsProvider.overrideWithValue(prefs),
         meProvider.overrideWith((_) async => me),
+        spacesProvider.overrideWith(
+          (_) async => [Space(id: 'space', name: '默认')],
+        ),
         briefingProvider.overrideWith((_) async => _briefing()),
         tasksProvider.overrideWith((_, __) async => <Task>[]),
       ],
@@ -88,7 +92,8 @@ Future<void> _openBriefing(WidgetTester tester) async {
 }
 
 Future<void> _swipeAway(WidgetTester tester) async {
-  final gesture = await tester.startGesture(tester.getCenter(find.text('可以先做这些').first));
+  final origin = tester.getCenter(find.text('可以先做这些').first);
+  final gesture = await tester.startGesture(Offset(12, origin.dy));
   for (var i = 0; i < 20; i++) {
     await gesture.moveBy(const Offset(40, 0));
     await tester.pump();

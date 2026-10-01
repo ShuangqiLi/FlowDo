@@ -14,7 +14,6 @@ void main() {
     final prefs = await SharedPreferences.getInstance();
     final me = Me(
       id: 'user',
-      username: 'hello',
       archiveAfterDays: 7,
       focusLimit: 3,
       deleteArchivedAfterDays: 30,
@@ -40,7 +39,7 @@ void main() {
     expect(find.text('远山'), findsOneWidget);
     expect(find.text('归途'), findsOneWidget);
     expect(find.text('微光'), findsOneWidget);
-    expect(find.text('hello'), findsOneWidget);
+    expect(find.text('修改密码'), findsOneWidget);
   });
 
   testWidgets('voice input switch follows the account and saves through the API',
@@ -50,7 +49,6 @@ void main() {
     final api = _RecordingMeApi(prefs);
     final me = Me(
       id: 'user',
-      username: 'hello',
       archiveAfterDays: 7,
       focusLimit: 3,
       deleteArchivedAfterDays: 30,
@@ -94,7 +92,6 @@ void main() {
     final prefs = await SharedPreferences.getInstance();
     final me = Me(
       id: 'user',
-      username: 'hello',
       archiveAfterDays: 7,
       focusLimit: 3,
       deleteArchivedAfterDays: 30,
@@ -137,11 +134,11 @@ class _RecordingMeApi extends ApiClient {
     bool? showArchiveTab,
     String? themeKey,
     bool? voiceInputEnabled,
+    String? activeSpaceId,
   }) async {
     lastVoiceInputEnabled = voiceInputEnabled;
     return Me(
       id: 'user',
-      username: 'hello',
       archiveAfterDays: 7,
       focusLimit: 3,
       deleteArchivedAfterDays: 30,
@@ -163,6 +160,7 @@ class _FailingMeApi extends ApiClient {
     bool? showArchiveTab,
     String? themeKey,
     bool? voiceInputEnabled,
+    String? activeSpaceId,
   }) async {
     throw ApiException('主题没换上，服务端还不认这个字段。');
   }

@@ -3,60 +3,27 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'providers.dart';
+import 'screens/change_password_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
 import 'theme.dart';
-import 'ui/splash_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // 先画开屏，再去加载本地配置，避免白屏空等。
-  runApp(const FlowDoBoot());
+  // 网页上 index.html 自带开屏，Flutter 这边不再画第二个：
+  // 先把本地配置读好，第一帧直接是登录页或首页，HTML 开屏淡出就到位。
+  final prefs = await SharedPreferences.getInstance();
+  runApp(FlowDoBoot(prefs: prefs));
 }
 
-/// 启动壳：prefs 未就绪时显示开屏，就绪后切入正式 App。
-class FlowDoBoot extends StatefulWidget {
-  const FlowDoBoot({super.key});
+/// 启动壳：把已就绪的本地配置交给 ProviderScope。
+class FlowDoBoot extends StatelessWidget {
+  const FlowDoBoot({super.key, required this.prefs});
 
-  @override
-  State<FlowDoBoot> createState() => _FlowDoBootState();
-}
-
-class _FlowDoBootState extends State<FlowDoBoot> {
-  SharedPreferences? _prefs;
-
-  @override
-  void initState() {
-    super.initState();
-    _prepare();
-  }
-
-  Future<void> _prepare() async {
-    final started = DateTime.now();
-    final prefs = await SharedPreferences.getInstance();
-    // 太快闪一下也别扭，至少让 logo 露个脸。
-    const minShow = Duration(milliseconds: 600);
-    final wait = minShow - DateTime.now().difference(started);
-    if (wait > Duration.zero) {
-      await Future<void>.delayed(wait);
-    }
-    if (!mounted) {
-      return;
-    }
-    setState(() => _prefs = prefs);
-  }
+  final SharedPreferences prefs;
 
   @override
   Widget build(BuildContext context) {
-    final prefs = _prefs;
-    if (prefs == null) {
-      return MaterialApp(
-        title: '随随办办 FlowDo',
-        debugShowCheckedModeBanner: false,
-        theme: buildAppTheme(AppThemeKey.mint),
-        home: const SplashScreen(),
-      );
-    }
     return ProviderScope(
       overrides: [prefsProvider.overrideWithValue(prefs)],
       child: const FlowDoApp(),
@@ -78,7 +45,41 @@ class FlowDoApp extends ConsumerWidget {
       themeAnimationDuration: AppMotion.standard,
       themeAnimationCurve: AppMotion.curve,
       scrollBehavior: const FlowDoScrollBehavior(),
-      home: loggedIn ? const HomeScreen() : const LoginScreen(),
+      home: _RootSwitcher(loggedIn: loggedIn),
+    );
+  }
+}
+
+/// 登录 / 强制改密 / 首页之间淡入淡出，不要硬切。
+class _RootSwitcher extends ConsumerWidget {
+  const _RootSwitcher({required this.loggedIn});
+
+  final bool loggedIn;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    Widget child;
+    if (!loggedIn) {
+      child = const LoginScreen(key: ValueKey('login'));
+    } else {
+      final me = ref.watch(meProvider);
+      final mustChange = me.value?.mustChangePassword ?? false;
+      if (me.isLoading && !me.hasValue) {
+        child = ColoredBox(
+          key: const ValueKey('loading'),
+          color: context.flowColors.canvas,
+        );
+      } else if (mustChange) {
+        child = const ChangePasswordScreen(key: ValueKey('change-password'));
+      } else {
+        child = const HomeScreen(key: ValueKey('home'));
+      }
+    }
+    return AnimatedSwitcher(
+      duration: AppMotion.standard,
+      switchInCurve: AppMotion.curve,
+      switchOutCurve: AppMotion.curve,
+      child: child,
     );
   }
 }

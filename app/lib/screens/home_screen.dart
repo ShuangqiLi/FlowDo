@@ -7,6 +7,7 @@ import '../theme.dart';
 import '../ui/add_task_fab.dart';
 import '../ui/flowdo_page_route.dart';
 import '../ui/focus_dock.dart';
+import '../ui/space_switcher.dart';
 import '../ui/swipe_away.dart';
 import 'archive_screen.dart';
 import 'briefing_screen.dart';
@@ -133,11 +134,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       if (current == page) {
         return;
       }
-      _pages.animateToPage(
-        page,
-        duration: AppMotion.standard,
-        curve: AppMotion.curve,
-      );
+      _pages.jumpToPage(page);
     });
     ref.listen<AsyncValue<Me>>(meProvider, (prev, next) {
       _maybeAskMic(next.value);
@@ -154,30 +151,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         children: [
           Scaffold(
             appBar: AppBar(
-              title: _showBriefing ? const Text('今日看看') : null,
+              title: _showBriefing ? const Text('今日看看') : const SpaceSwitcher(),
+              titleSpacing: 16,
               automaticallyImplyLeading: false,
-              leadingWidth: showArchive && !_showBriefing ? 104 : 56,
-              leading: _showBriefing
-                  ? null
-                  : Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          key: const ValueKey('open-settings'),
-                          tooltip: '设置',
-                          icon: const Icon(Icons.settings_rounded),
-                          onPressed: _openSettings,
-                        ),
-                        if (showArchive)
-                          IconButton(
-                            key: const ValueKey('open-archive'),
-                            tooltip: '归档',
-                            icon: const Icon(Icons.archive_rounded),
-                            onPressed: _openArchive,
-                          ),
-                      ],
-                    ),
               actions: [
+                if (!_showBriefing && showArchive)
+                  IconButton(
+                    key: const ValueKey('open-archive'),
+                    tooltip: '归档',
+                    icon: const Icon(Icons.archive_rounded),
+                    onPressed: _openArchive,
+                  ),
+                if (!_showBriefing)
+                  IconButton(
+                    key: const ValueKey('open-settings'),
+                    tooltip: '设置',
+                    icon: const Icon(Icons.settings_rounded),
+                    onPressed: _openSettings,
+                  ),
                 IconButton(
                   tooltip: _showBriefing ? '关掉今日看看' : '今日看看',
                   icon: Icon(
@@ -221,6 +212,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   child: _showBriefing
                       ? SwipeAway(
                           key: const ValueKey('briefing-panel'),
+                          fromLeftEdgeOnly: true,
                           onAway: _closeBriefing,
                           child: const BriefingScreen(),
                         )

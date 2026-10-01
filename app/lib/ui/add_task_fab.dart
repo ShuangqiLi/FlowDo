@@ -24,7 +24,7 @@ class AddTaskFab extends ConsumerStatefulWidget {
 
   static const double size = 56;
   static const double margin = 16;
-  static const String prefsPrefix = 'fabPos:';
+  static const String prefsKey = 'fabPos';
 
   /// 正式发布的只有网页端；本地调试跑桌面时，Windows / Linux 的识别插件
   /// 会把整个进程带崩，这些平台只留打字。
@@ -76,7 +76,7 @@ class _AddTaskFabState extends ConsumerState<AddTaskFab>
   final _speech = SpeechToText();
   String _speechPrefix = '';
   int _speechSession = 0;
-  String? _loadedForUser;
+  bool _positionLoaded = false;
 
   late final AnimationController _pulse = AnimationController(
     vsync: this,
@@ -92,14 +92,12 @@ class _AddTaskFabState extends ConsumerState<AddTaskFab>
     super.dispose();
   }
 
-  String _prefsKey(String userId) => '${AddTaskFab.prefsPrefix}$userId';
-
-  void _loadPosition(String userId) {
-    if (_loadedForUser == userId) {
+  void _loadPosition() {
+    if (_positionLoaded) {
       return;
     }
-    _loadedForUser = userId;
-    final raw = ref.read(prefsProvider).getString(_prefsKey(userId));
+    _positionLoaded = true;
+    final raw = ref.read(prefsProvider).getString(AddTaskFab.prefsKey);
     if (raw == null || raw.isEmpty) {
       return;
     }
@@ -117,9 +115,9 @@ class _AddTaskFabState extends ConsumerState<AddTaskFab>
     });
   }
 
-  Future<void> _savePosition(String userId) async {
+  Future<void> _savePosition() async {
     await ref.read(prefsProvider).setString(
-          _prefsKey(userId),
+          AddTaskFab.prefsKey,
           '${_onLeft ? 'left' : 'right'}:${_y.toStringAsFixed(4)}',
         );
   }
@@ -177,10 +175,7 @@ class _AddTaskFabState extends ConsumerState<AddTaskFab>
       _origin = null;
       _moved = false;
     });
-    final userId = ref.read(meProvider).value?.id;
-    if (userId != null) {
-      _savePosition(userId);
-    }
+    _savePosition();
   }
 
   void _openComposer({required bool voice}) {
@@ -228,10 +223,11 @@ class _AddTaskFabState extends ConsumerState<AddTaskFab>
     _speechSession++;
     _speechPrefix = '';
     try {
-      await ref.read(apiProvider).createTask(
+      final created = await ref.read(apiProvider).createTask(
             title: title,
             priority: 'MEDIUM',
           );
+      ref.read(pendingScrollTaskIdProvider.notifier).request(created.id);
       ref.invalidate(tasksProvider('TODO'));
       ref.invalidate(briefingProvider);
       ref.read(homeTabProvider.notifier).setIndex(0);
@@ -508,11 +504,10 @@ class _AddTaskFabState extends ConsumerState<AddTaskFab>
       return const SizedBox.shrink();
     }
 
-    final userId = ref.watch(meProvider).value?.id;
-    if (userId != null && _loadedForUser != userId) {
+    if (!_positionLoaded) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
-          _loadPosition(userId);
+          _loadPosition();
         }
       });
     }
