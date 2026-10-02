@@ -36,8 +36,13 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('闲云'), findsOneWidget);
     expect(find.text('远山'), findsOneWidget);
+    expect(find.text('闲云'), findsNothing);
+
+    await tester.tap(find.text('远山'));
+    await tester.pumpAndSettle();
+    expect(find.text('闲云'), findsOneWidget);
+    expect(find.text('远山'), findsWidgets);
     expect(find.text('归途'), findsOneWidget);
     expect(find.text('微光'), findsOneWidget);
     await tester.scrollUntilVisible(
@@ -120,6 +125,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    await tester.tap(find.text('远山'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('闲云'));
     await tester.pumpAndSettle();
 

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -10,6 +12,7 @@ import '../ui/empty_state.dart';
 import '../ui/flowdo_card.dart';
 import '../ui/flowdo_dialog.dart';
 import '../ui/flowdo_page_route.dart';
+import '../ui/focus_admission.dart';
 import '../ui/focus_dock.dart';
 import '../ui/task_card.dart';
 import '../ui/task_interactable.dart';
@@ -34,6 +37,7 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
   final _swipeGeneration = <String, int>{};
   final _scroll = ScrollController();
   final _itemKeys = <String, GlobalKey>{};
+  final _focusAdmission = FocusAdmission();
 
   @override
   void dispose() {
@@ -118,25 +122,69 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
     ref.read(lazySyncProvider.notifier).schedule();
   }
 
+  Future<List<String>> _focusedIds() async {
+    final current = ref.read(tasksProvider('FOCUS'));
+    if (current.hasValue) {
+      return current.value!.map((task) => task.id).toList();
+    }
+    // 首页四个列表常驻时走内存；单测或尚未加载时再拉一次聚焦表。
+    try {
+      final tasks = await ref.read(tasksProvider('FOCUS').future);
+      return tasks.map((task) => task.id).toList();
+    } catch (_) {
+      return const [];
+    }
+  }
+
   Future<void> _setStatus(Task task, String status) async {
+    var heldFocus = false;
     if (status == 'FOCUS') {
       final limit = ref.read(meProvider).value?.focusLimit ?? 3;
-      final focused = ref.read(tasksProvider('FOCUS')).value?.length ?? 0;
-      if (focused >= limit) {
+      heldFocus = await _focusAdmission.tryAdmit(
+        taskId: task.id,
+        limit: limit,
+        focusedIds: _focusedIds,
+      );
+      if (!heldFocus) {
         _goFocusWithHint(
           '手头这 $limit 件先盯紧啦。搞定或先放回任务池，再接新的。',
         );
         return;
       }
     }
+
+    final now = DateTime.now();
+    final optimistic = task.copyWith(
+      status: status,
+      completedAt: status == 'DONE' ? (task.completedAt ?? now) : task.completedAt,
+      clearCompletedAt: status != 'DONE' && task.status == 'DONE',
+      archivedAt: status == 'ARCHIVED' ? (task.archivedAt ?? now) : task.archivedAt,
+      clearArchivedAt: status != 'ARCHIVED' && task.status == 'ARCHIVED',
+      updatedAt: now,
+    );
+    _applyStatusLocally(optimistic, widget.status);
+    if (status == 'DONE' && mounted) {
+      showFlowDoCelebration(context);
+    }
+
     try {
       final updated =
           await ref.read(apiProvider).updateTask(task.id, status: status);
-      if (status == 'DONE' && mounted) {
-        showFlowDoCelebration(context);
+      final dest = tasksProvider(updated.status);
+      if (ref.exists(dest) && ref.read(dest).hasValue) {
+        ref.read(dest.notifier).upsert(updated);
       }
-      _applyStatusLocally(updated, widget.status);
     } on ApiException catch (e) {
+      ref.read(tasksProvider(status).notifier).removeById(task.id);
+      if (ref.exists(tasksProvider(widget.status))) {
+        ref.read(tasksProvider(widget.status).notifier).upsert(task);
+      }
+      if (mounted) {
+        setState(() {
+          _dismissing.remove(task.id);
+          _swipeGeneration[task.id] = (_swipeGeneration[task.id] ?? 0) + 1;
+        });
+      }
       if (status == 'FOCUS') {
         _goFocusWithHint(e.message);
         return;
@@ -147,6 +195,10 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(e.message)),
       );
+    } finally {
+      if (heldFocus) {
+        _focusAdmission.release(task.id);
+      }
     }
   }
 
@@ -160,10 +212,25 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
     if (chosen == null || chosen == current) {
       return;
     }
-    final updated =
-        await ref.read(apiProvider).updateTask(id, priority: chosen);
-    ref.read(tasksProvider(widget.status).notifier).upsert(updated);
+    final optimistic = task.copyWith(
+      priority: chosen,
+      updatedAt: DateTime.now(),
+    );
+    ref.read(tasksProvider(widget.status).notifier).upsert(optimistic);
     ref.read(lazySyncProvider.notifier).schedule();
+    try {
+      final updated =
+          await ref.read(apiProvider).updateTask(id, priority: chosen);
+      ref.read(tasksProvider(widget.status).notifier).upsert(updated);
+    } on ApiException catch (e) {
+      ref.read(tasksProvider(widget.status).notifier).upsert(task);
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message)),
+      );
+    }
   }
 
   Future<void> _delete(Task task) async {
@@ -181,15 +248,24 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
       return;
     }
     setState(() => _dismissing.add(task.id));
-    try {
-      await ref.read(apiProvider).deleteTask(task.id);
-      ref.read(tasksProvider(widget.status).notifier).removeById(task.id);
-      ref.read(lazySyncProvider.notifier).schedule();
-    } finally {
-      if (mounted) {
-        setState(() => _dismissing.remove(task.id));
+    ref.read(tasksProvider(widget.status).notifier).removeById(task.id);
+    ref.read(lazySyncProvider.notifier).schedule();
+    unawaited(() async {
+      try {
+        await ref.read(apiProvider).deleteTask(task.id);
+      } on ApiException catch (e) {
+        ref.read(tasksProvider(widget.status).notifier).upsert(task);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(e.message)),
+          );
+        }
+      } finally {
+        if (mounted) {
+          setState(() => _dismissing.remove(task.id));
+        }
       }
-    }
+    }());
   }
 
   Widget _card(Task task, int archiveDays, int deleteDays) {

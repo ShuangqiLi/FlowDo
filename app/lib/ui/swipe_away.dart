@@ -1,6 +1,8 @@
 import 'dart:math' as math;
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 import '../theme.dart';
 
@@ -42,7 +44,7 @@ class _SwipeAwayState extends State<SwipeAway> {
   }
 
   void _onDragStart(DragStartDetails details) {
-    if (_hitEditable(details.globalPosition)) {
+    if (_pointerOnEditable(details.globalPosition)) {
       setState(() {
         _dragging = false;
         _armed = false;
@@ -57,7 +59,21 @@ class _SwipeAwayState extends State<SwipeAway> {
     });
   }
 
+  /// 按下时就落在输入框上：这次手势不参加竞争，选字和长按才能拿到。
+  bool _allowsSwipe(Offset global) => !_pointerOnEditable(global);
+
   /// 起点落在输入框就别抢手势，好让选字和框内滑动。
+  bool _pointerOnEditable(Offset global) {
+    final result = HitTestResult();
+    RendererBinding.instance.hitTestInView(result, global, View.of(context).viewId);
+    for (final entry in result.path) {
+      if (entry.target is RenderEditable) {
+        return true;
+      }
+    }
+    return _hitEditable(global);
+  }
+
   bool _hitEditable(Offset global) {
     bool found = false;
     void visitor(Element element) {
@@ -120,12 +136,8 @@ class _SwipeAwayState extends State<SwipeAway> {
     );
 
     if (!widget.fromLeftEdgeOnly) {
-      return GestureDetector(
+      return _swipeRecognizer(
         behavior: HitTestBehavior.opaque,
-        onHorizontalDragStart: _onDragStart,
-        onHorizontalDragUpdate: _onDragUpdate,
-        onHorizontalDragEnd: _onDragEnd,
-        onHorizontalDragCancel: _reset,
         child: slid,
       );
     }
@@ -142,17 +154,50 @@ class _SwipeAwayState extends State<SwipeAway> {
           top: 0,
           bottom: 0,
           width: hotWidth.clamp(widget.edgeWidth, width),
-          child: GestureDetector(
+          child: _swipeRecognizer(
             behavior: HitTestBehavior.translucent,
-            onHorizontalDragStart: _onDragStart,
-            onHorizontalDragUpdate: _onDragUpdate,
-            onHorizontalDragEnd: _onDragEnd,
-            onHorizontalDragCancel: _reset,
             child: const SizedBox.expand(),
           ),
         ),
       ],
     );
+  }
+
+  Widget _swipeRecognizer({
+    required HitTestBehavior behavior,
+    required Widget child,
+  }) {
+    return RawGestureDetector(
+      behavior: behavior,
+      gestures: {
+        _BlankAreaDrag: GestureRecognizerFactoryWithHandlers<_BlankAreaDrag>(
+          () => _BlankAreaDrag(allows: _allowsSwipe),
+          (instance) {
+            instance
+              ..onStart = _onDragStart
+              ..onUpdate = _onDragUpdate
+              ..onEnd = _onDragEnd
+              ..onCancel = _reset;
+          },
+        ),
+      },
+      child: child,
+    );
+  }
+}
+
+/// 落在输入框上的按下不加入滑动竞技，避免抢走选字。
+class _BlankAreaDrag extends HorizontalDragGestureRecognizer {
+  _BlankAreaDrag({required this.allows});
+
+  final bool Function(Offset global) allows;
+
+  @override
+  void addAllowedPointer(PointerDownEvent event) {
+    if (!allows(event.position)) {
+      return;
+    }
+    super.addAllowedPointer(event);
   }
 }
 

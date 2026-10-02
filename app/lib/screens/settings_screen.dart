@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../api/api_client.dart';
@@ -27,7 +30,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   final _days = TextEditingController();
   final _focusLimit = TextEditingController();
   final _deleteDays = TextEditingController();
+  final _focusLimitFocus = FocusNode();
+  final _daysFocus = FocusNode();
+  final _deleteDaysFocus = FocusNode();
+
   var _filled = false;
+  var _saving = false;
+  var _showSaved = false;
+  Timer? _savedHide;
+  Timer? _focusDebounce;
+  Timer? _archiveDebounce;
 
   @override
   void initState() {
@@ -39,28 +51,124 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         }
       });
     }
+    _focusLimit.addListener(_scheduleFocusSave);
+    _days.addListener(_scheduleArchiveSave);
+    _deleteDays.addListener(_scheduleArchiveSave);
+    _focusLimitFocus.addListener(() {
+      if (!_focusLimitFocus.hasFocus) {
+        _flushFocusSave();
+      }
+    });
+    _daysFocus.addListener(() {
+      if (!_daysFocus.hasFocus) {
+        _flushArchiveSave();
+      }
+    });
+    _deleteDaysFocus.addListener(() {
+      if (!_deleteDaysFocus.hasFocus) {
+        _flushArchiveSave();
+      }
+    });
   }
 
   void _fillFromMe() {
-    if (_filled) {
-      return;
-    }
     final user = ref.read(meProvider).value;
     if (user == null) {
       return;
     }
-    _filled = true;
-    _days.text = '${user.archiveAfterDays}';
-    _focusLimit.text = '${user.focusLimit}';
-    _deleteDays.text = '${user.deleteArchivedAfterDays}';
+    if (!_filled) {
+      _filled = true;
+      _days.text = '${user.archiveAfterDays}';
+      _focusLimit.text = '${user.focusLimit}';
+      _deleteDays.text = '${user.deleteArchivedAfterDays}';
+      return;
+    }
+    if (!_focusLimitFocus.hasFocus) {
+      final next = '${user.focusLimit}';
+      if (_focusLimit.text != next) {
+        _focusLimit.text = next;
+      }
+    }
+    if (!_daysFocus.hasFocus) {
+      final next = '${user.archiveAfterDays}';
+      if (_days.text != next) {
+        _days.text = next;
+      }
+    }
+    if (!_deleteDaysFocus.hasFocus) {
+      final next = '${user.deleteArchivedAfterDays}';
+      if (_deleteDays.text != next) {
+        _deleteDays.text = next;
+      }
+    }
   }
 
   @override
   void dispose() {
+    _savedHide?.cancel();
+    _focusDebounce?.cancel();
+    _archiveDebounce?.cancel();
+    _focusLimit.removeListener(_scheduleFocusSave);
+    _days.removeListener(_scheduleArchiveSave);
+    _deleteDays.removeListener(_scheduleArchiveSave);
     _days.dispose();
     _focusLimit.dispose();
     _deleteDays.dispose();
+    _focusLimitFocus.dispose();
+    _daysFocus.dispose();
+    _deleteDaysFocus.dispose();
     super.dispose();
+  }
+
+  void _scheduleFocusSave() {
+    if (!_filled) {
+      return;
+    }
+    _focusDebounce?.cancel();
+    _focusDebounce = Timer(const Duration(milliseconds: 450), _flushFocusSave);
+  }
+
+  void _scheduleArchiveSave() {
+    if (!_filled) {
+      return;
+    }
+    _archiveDebounce?.cancel();
+    _archiveDebounce =
+        Timer(const Duration(milliseconds: 450), _flushArchiveSave);
+  }
+
+  Future<void> _flushFocusSave() async {
+    _focusDebounce?.cancel();
+    final me = ref.read(meProvider).value;
+    final limit = int.tryParse(_focusLimit.text.trim());
+    if (me == null || limit == null || limit < 1 || limit > 99) {
+      return;
+    }
+    if (limit == me.focusLimit) {
+      return;
+    }
+    await _saveMe(focusLimit: limit);
+  }
+
+  Future<void> _flushArchiveSave() async {
+    _archiveDebounce?.cancel();
+    final me = ref.read(meProvider).value;
+    final days = int.tryParse(_days.text.trim());
+    final deleteDays = int.tryParse(_deleteDays.text.trim());
+    if (me == null || days == null || deleteDays == null) {
+      return;
+    }
+    if (days < 0 || deleteDays < 0 || days > 3650 || deleteDays > 3650) {
+      return;
+    }
+    if (days == me.archiveAfterDays &&
+        deleteDays == me.deleteArchivedAfterDays) {
+      return;
+    }
+    await _saveMe(
+      archiveAfterDays: days,
+      deleteArchivedAfterDays: deleteDays,
+    );
   }
 
   Future<bool> _saveMe({
@@ -70,8 +178,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     bool? showArchiveTab,
     String? themeKey,
     bool? voiceInputEnabled,
-    String? successMessage,
   }) async {
+    if (_saving) {
+      // 串行一点，避免连点开关撞车；数值防抖后通常不会叠。
+    }
+    setState(() {
+      _saving = true;
+      _showSaved = false;
+    });
     try {
       await ref.read(meProvider.notifier).save(
             archiveAfterDays: archiveAfterDays,
@@ -81,16 +195,30 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             themeKey: themeKey,
             voiceInputEnabled: voiceInputEnabled,
           );
-      if (successMessage != null && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(successMessage)),
-        );
+      if (!mounted) {
+        return true;
       }
+      setState(() {
+        _saving = false;
+        _showSaved = true;
+      });
+      _savedHide?.cancel();
+      _savedHide = Timer(const Duration(milliseconds: 1400), () {
+        if (mounted) {
+          setState(() => _showSaved = false);
+        }
+      });
       return true;
     } on ApiException catch (e) {
+      if (mounted) {
+        setState(() => _saving = false);
+      }
       _showSaveError(e.message);
       return false;
     } catch (_) {
+      if (mounted) {
+        setState(() => _saving = false);
+      }
       _showSaveError('没记下，等会儿再试一次。');
       return false;
     }
@@ -127,184 +255,197 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         onRefresh: () => ref.read(lazySyncProvider.notifier).pull(),
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(AppSpacing.md),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.md,
+            AppSpacing.sm,
+            AppSpacing.md,
+            AppSpacing.xxl,
+          ),
           children: [
-          const SectionHeader('当前空间外观', caption: '只影响现在这个任务空间'),
-          FlowDoCard(
-            child: Wrap(
-              spacing: AppSpacing.sm,
-              runSpacing: AppSpacing.sm,
-              children: [
-                for (final theme in AppThemeKey.values)
-                  _ThemeChoice(
-                    theme: theme,
-                    selected: me.value?.themeKey == theme.key,
-                    onTap:
-                        me.value?.themeKey == theme.key ? null : () => _saveMe(themeKey: theme.key),
-                  ),
-              ],
+            _SaveStatusBar(saving: _saving, showSaved: _showSaved),
+            const SectionHeader('外观', caption: '只影响现在这个任务空间'),
+            FlowDoCard(
+              padding: const EdgeInsets.all(AppSpacing.sm),
+              child: _ThemeMenu(
+                selected: AppThemeKey.fromKey(me.value?.themeKey),
+                onSelected: (theme) => _saveMe(themeKey: theme.key),
+              ),
             ),
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          const SectionHeader('聚焦', caption: '当前任务空间'),
-          FlowDoCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  '一次抓太多容易手忙脚乱。到上限后，先搞定或先放回任务池再继续。',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                      ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _focusLimit,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: '同时最多盯几件',
-                    prefixIcon: Icon(Icons.center_focus_strong_outlined),
+            const SizedBox(height: AppSpacing.lg),
+            const SectionHeader('聚焦', caption: '当前任务空间 · 改完自动保存'),
+            FlowDoCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    '一次抓太多容易手忙脚乱。到上限后，先搞定或先放回任务池再继续。',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                          height: 1.45,
+                        ),
                   ),
-                ),
-                const SizedBox(height: 12),
-                FilledButton.tonal(
-                  onPressed: () async {
-                    final limit = int.tryParse(_focusLimit.text.trim()) ?? 3;
-                    await _saveMe(
-                      focusLimit: limit,
-                      successMessage: '聚焦上限已更新',
-                    );
-                  },
-                  child: const Text('保存聚焦上限'),
-                ),
-              ],
+                  const SizedBox(height: AppSpacing.md),
+                  TextField(
+                    controller: _focusLimit,
+                    focusNode: _focusLimitFocus,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                      LengthLimitingTextInputFormatter(2),
+                    ],
+                    textInputAction: TextInputAction.done,
+                    onEditingComplete: _flushFocusSave,
+                    decoration: const InputDecoration(
+                      labelText: '同时最多盯几件',
+                      prefixIcon: Icon(Icons.center_focus_strong_outlined),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          const SectionHeader('归档', caption: '当前任务空间'),
-          FlowDoCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  '归档后只看不改，想清掉就删。到期也会自动打扫干净。清理天数填 0，归档就永久留着。',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                      ),
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('在底栏显示归档'),
-                  subtitle: const Text('开着时底栏会出现归档；关掉后仍可自动归档'),
-                  value: me.value?.showArchiveTab ?? true,
-                  onChanged: (v) => _saveMe(showArchiveTab: v),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _days,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: '完成后几天收进归档',
-                    prefixIcon: Icon(Icons.schedule),
+            const SizedBox(height: AppSpacing.lg),
+            const SectionHeader('归档', caption: '当前任务空间 · 改完自动保存'),
+            FlowDoCard(
+              padding: EdgeInsets.zero,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  SwitchListTile(
+                    contentPadding: const EdgeInsets.fromLTRB(
+                      AppSpacing.md,
+                      AppSpacing.xs,
+                      AppSpacing.sm,
+                      AppSpacing.xs,
+                    ),
+                    title: const Text('在底栏显示归档'),
+                    subtitle: const Text('关掉后仍会按天数自动归档'),
+                    value: me.value?.showArchiveTab ?? true,
+                    onChanged: (v) => _saveMe(showArchiveTab: v),
                   ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _deleteDays,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: '归档后几天自动清掉',
-                    helperText: '填 0 表示永久保留',
-                    prefixIcon: Icon(Icons.delete_sweep_outlined),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                FilledButton.tonal(
-                  onPressed: () async {
-                    final days = int.tryParse(_days.text.trim()) ?? 7;
-                    final deleteDays = int.tryParse(_deleteDays.text.trim()) ?? 30;
-                    await _saveMe(
-                      archiveAfterDays: days,
-                      deleteArchivedAfterDays: deleteDays,
-                      successMessage: '归档习惯已记下',
-                    );
-                  },
-                  child: const Text('保存归档设置'),
-                ),
-                const SizedBox(height: 8),
-                OutlinedButton(
-                  onPressed: () async {
-                    final result = await ref.read(apiProvider).runArchive();
-                    await ref.read(lazySyncProvider.notifier).pull();
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            '收进归档 ${result.archived} 条，清掉过期 ${result.deleted} 条',
+                  Divider(height: 1, color: scheme.outlineVariant),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.md,
+                      AppSpacing.md,
+                      AppSpacing.md,
+                      AppSpacing.md,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          '归档后只看不改。清理天数填 0，归档就永久留着。',
+                          style:
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: scheme.onSurfaceVariant,
+                                    height: 1.45,
+                                  ),
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        TextField(
+                          controller: _days,
+                          focusNode: _daysFocus,
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                            LengthLimitingTextInputFormatter(4),
+                          ],
+                          textInputAction: TextInputAction.next,
+                          onEditingComplete: () {
+                            _flushArchiveSave();
+                            _deleteDaysFocus.requestFocus();
+                          },
+                          decoration: const InputDecoration(
+                            labelText: '完成后几天收进归档',
+                            prefixIcon: Icon(Icons.schedule_rounded),
                           ),
                         ),
+                        const SizedBox(height: AppSpacing.md),
+                        TextField(
+                          controller: _deleteDays,
+                          focusNode: _deleteDaysFocus,
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                            LengthLimitingTextInputFormatter(4),
+                          ],
+                          textInputAction: TextInputAction.done,
+                          onEditingComplete: _flushArchiveSave,
+                          decoration: const InputDecoration(
+                            labelText: '归档后几天自动清掉',
+                            helperText: '填 0 表示永久保留',
+                            prefixIcon: Icon(Icons.delete_sweep_outlined),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            const SectionHeader('语音输入', caption: '全局 · 长按加号直接说，松手就记下'),
+            FlowDoCard(
+              child: _VoiceInputSettings(
+                enabled: me.value?.voiceInputEnabled ?? true,
+                onChanged: (v) async {
+                  final ok = await _saveMe(voiceInputEnabled: v);
+                  if (ok && v && kIsWeb && AddTaskFab.voiceSupported) {
+                    await ref.read(micPermissionProvider.notifier).request();
+                  }
+                },
+              ),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            const SectionHeader('账户', caption: '全局'),
+            FlowDoCard(
+              padding: EdgeInsets.zero,
+              child: Column(
+                children: [
+                  _SettingsNavRow(
+                    icon: Icons.info_outline_rounded,
+                    label: '版本和更新',
+                    onTap: () {
+                      Navigator.of(context).push(
+                        FlowDoPageRoute(builder: (_) => const AboutScreen()),
                       );
-                    }
-                  },
-                  child: const Text('现在就收拾一下'),
-                ),
-              ],
+                    },
+                  ),
+                  Divider(height: 1, color: scheme.outlineVariant),
+                  _SettingsNavRow(
+                    icon: Icons.lock_outline_rounded,
+                    label: '修改密码',
+                    onTap: () {
+                      Navigator.of(context).push(
+                        FlowDoPageRoute(
+                          builder: (_) =>
+                              const ChangePasswordScreen(fromSettings: true),
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          const SectionHeader('语音输入', caption: '全局 · 长按加号直接说，松手就记下'),
-          FlowDoCard(
-            child: _VoiceInputSettings(
-              enabled: me.value?.voiceInputEnabled ?? true,
-              onChanged: (v) async {
-                final ok = await _saveMe(voiceInputEnabled: v);
-                if (ok && v && kIsWeb && AddTaskFab.voiceSupported) {
-                  await ref.read(micPermissionProvider.notifier).request();
-                }
-              },
-            ),
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          const SectionHeader('关于', caption: '全局'),
-          FlowDoCard(
-            onTap: () {
-              Navigator.of(context).push(
-                FlowDoPageRoute(builder: (_) => const AboutScreen()),
-              );
-            },
-            child: Row(
-              children: [
-                Icon(Icons.info_outline_rounded, color: scheme.primary),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: Text(
-                    '版本和更新',
-                    style: Theme.of(context).textTheme.titleMedium,
+            const SizedBox(height: AppSpacing.lg),
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: scheme.error,
+                  foregroundColor: scheme.onError,
+                  disabledBackgroundColor:
+                      scheme.error.withValues(alpha: 0.38),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppRadii.control),
                   ),
                 ),
-                Icon(Icons.chevron_right_rounded, color: scheme.onSurfaceVariant),
-              ],
+                onPressed: () => ref.read(authStateProvider.notifier).logout(),
+                child: const Text('退出登录'),
+              ),
             ),
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          FilledButton.tonal(
-            onPressed: () {
-              Navigator.of(context).push(
-                FlowDoPageRoute(
-                  builder: (_) => const ChangePasswordScreen(fromSettings: true),
-                ),
-              );
-            },
-            child: const Text('修改密码'),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          FilledButton.tonal(
-            onPressed: () => ref.read(authStateProvider.notifier).logout(),
-            child: const Text('退出登录'),
-          ),
-          const SizedBox(height: AppSpacing.xl),
-        ],
+          ],
         ),
       ),
     );
@@ -319,6 +460,103 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('设置')),
       body: body,
+    );
+  }
+}
+
+class _SaveStatusBar extends StatelessWidget {
+  const _SaveStatusBar({
+    required this.saving,
+    required this.showSaved,
+  });
+
+  final bool saving;
+  final bool showSaved;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final label = saving
+        ? '正在保存…'
+        : showSaved
+            ? '已保存'
+            : null;
+    return AnimatedSize(
+      duration: AppMotion.quick,
+      curve: AppMotion.curve,
+      alignment: Alignment.topCenter,
+      child: label == null
+          ? const SizedBox.shrink()
+          : Padding(
+              padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+              child: Row(
+                children: [
+                  Icon(
+                    saving ? Icons.sync_rounded : Icons.check_circle_rounded,
+                    size: 16,
+                    color: saving ? scheme.onSurfaceVariant : scheme.primary,
+                  ),
+                  const SizedBox(width: AppSpacing.xs),
+                  Text(
+                    label,
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                          color: saving
+                              ? scheme.onSurfaceVariant
+                              : scheme.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                  ),
+                ],
+              ),
+            ),
+    );
+  }
+}
+
+class _SettingsNavRow extends StatelessWidget {
+  const _SettingsNavRow({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 52),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.md,
+              vertical: AppSpacing.sm,
+            ),
+            child: Row(
+              children: [
+                Icon(icon, color: scheme.primary),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: scheme.onSurfaceVariant,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -426,63 +664,143 @@ class _VoiceInputSettings extends ConsumerWidget {
   }
 }
 
-class _ThemeChoice extends StatelessWidget {
-  const _ThemeChoice({
-    required this.theme,
+class _ThemeMenu extends StatelessWidget {
+  const _ThemeMenu({
     required this.selected,
-    required this.onTap,
+    required this.onSelected,
   });
 
-  final AppThemeKey theme;
-  final bool selected;
-  final VoidCallback? onTap;
+  final AppThemeKey selected;
+  final ValueChanged<AppThemeKey> onSelected;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Semantics(
-      selected: selected,
-      button: true,
-      label: '${theme.label}主题',
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(AppRadii.control),
-        child: AnimatedContainer(
-          duration: AppMotion.standard,
-          width: 132,
-          padding: const EdgeInsets.all(AppSpacing.sm),
-          decoration: BoxDecoration(
-            color: selected
-                ? scheme.primaryContainer.withValues(alpha: 0.7)
-                : context.flowColors.softFill,
-            borderRadius: BorderRadius.circular(AppRadii.control),
-            border: Border.all(
-              color: selected ? scheme.primary : scheme.outlineVariant,
-              width: selected ? 1.7 : 1,
-            ),
+    return MenuAnchor(
+      alignmentOffset: const Offset(0, 8),
+      style: MenuStyle(
+        backgroundColor: WidgetStatePropertyAll(scheme.surface),
+        elevation: const WidgetStatePropertyAll(6),
+        padding: const WidgetStatePropertyAll(
+          EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+        ),
+        shape: WidgetStatePropertyAll(
+          RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadii.card),
           ),
-          child: Row(
-            children: [
-              Container(
-                width: 28,
-                height: 28,
-                decoration: BoxDecoration(
-                  color: theme.preview,
-                  borderRadius: BorderRadius.circular(AppRadii.small),
-                ),
+        ),
+      ),
+      menuChildren: [
+        for (final theme in AppThemeKey.values)
+          MenuItemButton(
+            onPressed: () {
+              if (theme != selected) {
+                onSelected(theme);
+              }
+            },
+            style: const ButtonStyle(
+              overlayColor: WidgetStatePropertyAll(Colors.transparent),
+              padding: WidgetStatePropertyAll(
+                EdgeInsets.symmetric(vertical: 4),
               ),
-              const SizedBox(width: AppSpacing.xs),
-              Expanded(
-                child: Text(
-                  theme.label,
-                  style: Theme.of(context).textTheme.labelLarge,
-                ),
+            ),
+            child: _ThemeSwatch(theme: theme, selected: theme == selected),
+          ),
+      ],
+      builder: (context, controller, child) {
+        return _ThemeSwatch(
+          theme: selected,
+          showsChevron: true,
+          open: controller.isOpen,
+          onTap: () {
+            if (controller.isOpen) {
+              controller.close();
+            } else {
+              controller.open();
+            }
+          },
+        );
+      },
+    );
+  }
+}
+
+class _ThemeSwatch extends StatelessWidget {
+  const _ThemeSwatch({
+    required this.theme,
+    this.selected = false,
+    this.showsChevron = false,
+    this.open = false,
+    this.onTap,
+  });
+
+  final AppThemeKey theme;
+  final bool selected;
+  final bool showsChevron;
+  final bool open;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final ink = _inkOnPreview(theme.preview);
+    final radius = BorderRadius.circular(AppRadii.control);
+    return Semantics(
+      button: onTap != null,
+      selected: selected || (showsChevron && !open),
+      label: '${theme.label}主题',
+      child: Material(
+        color: theme.preview,
+        borderRadius: radius,
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: SizedBox(
+            width: double.infinity,
+            height: 56,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      theme.label,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            color: ink,
+                            fontWeight: FontWeight.w600,
+                          ),
+                    ),
+                  ),
+                  if (selected && !showsChevron)
+                    Icon(Icons.check_rounded, color: ink),
+                  if (showsChevron)
+                    Icon(
+                      open
+                          ? Icons.expand_less_rounded
+                          : Icons.expand_more_rounded,
+                      color: ink,
+                    ),
+                ],
               ),
-              if (selected) Icon(Icons.check_rounded, size: 18, color: scheme.primary),
-            ],
+            ),
           ),
         ),
       ),
     );
   }
+}
+
+/// 色块上的字跟底色比，谁更清楚用谁。
+Color _inkOnPreview(Color background) {
+  const dark = Color(0xFF2C241C);
+  final onLight = _contrast(background, Colors.white);
+  final onDark = _contrast(background, dark);
+  return onLight >= onDark ? Colors.white : dark;
+}
+
+double _contrast(Color a, Color b) {
+  final l1 = a.computeLuminance();
+  final l2 = b.computeLuminance();
+  final lighter = l1 > l2 ? l1 : l2;
+  final darker = l1 > l2 ? l2 : l1;
+  return (lighter + 0.05) / (darker + 0.05);
 }

@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -137,7 +139,25 @@ class _AddTaskFabState extends ConsumerState<AddTaskFab>
 
   double mathMax(double a, double b) => a > b ? a : b;
 
-  Offset _liveFabTopLeft(Size screen, EdgeInsets padding, double navHeight) {
+  Offset _liveFabTopLeft(
+    Size screen,
+    EdgeInsets padding,
+    double navHeight, {
+    double keyboard = 0,
+  }) {
+    final placed = _placedFabTopLeft(screen, padding, navHeight);
+    if (!_composerOpen || _moved || keyboard <= 0) {
+      return placed;
+    }
+    // 键盘盖住加号和输入条时，临时抬到键盘上方，不改记住的位置。
+    const band = 76.0;
+    const gap = 12.0;
+    final minTop = padding.top + 4;
+    final maxTop = screen.height - keyboard - gap - band;
+    return Offset(placed.dx, placed.dy.clamp(minTop, mathMax(minTop, maxTop)));
+  }
+
+  Offset _placedFabTopLeft(Size screen, EdgeInsets padding, double navHeight) {
     if (_finger != null && _origin != null && _moved) {
       final dx = (_finger!.dx - _origin!.dx);
       final dy = (_finger!.dy - _origin!.dy);
@@ -516,7 +536,13 @@ class _AddTaskFabState extends ConsumerState<AddTaskFab>
     final screen = media.size;
     final padding = media.padding;
     const navHeight = FocusDock.height + 4;
-    final fabTopLeft = _liveFabTopLeft(screen, padding, navHeight);
+    final keyboard = _composerOpen ? media.viewInsets.bottom : 0.0;
+    final fabTopLeft = _liveFabTopLeft(
+      screen,
+      padding,
+      navHeight,
+      keyboard: keyboard,
+    );
     final scheme = Theme.of(context).colorScheme;
     final reduce = MediaQuery.disableAnimationsOf(context);
     final animateFab = !_moved && !reduce;
@@ -693,12 +719,15 @@ class _ComposerBubble extends StatelessWidget {
       }
     }
 
-    // 优先贴在 FAB 垂直中线；不够就夹进安全区。
+    // 优先贴在 FAB 垂直中线；键盘弹出时整条留在键盘上面。
+    final keyboard = MediaQuery.viewInsetsOf(context).bottom;
     var top = fabTopLeft.dy + (AddTaskFab.size - 56) / 2;
-    top = top.clamp(
-      padding.top + kToolbarHeight + 8,
-      screen.height - padding.bottom - 100,
-    );
+    final minTop = padding.top + kToolbarHeight + 8;
+    var maxTop = screen.height - padding.bottom - 100;
+    if (keyboard > 0) {
+      maxTop = screen.height - keyboard - 12 - 76;
+    }
+    top = top.clamp(minTop, math.max(minTop, maxTop));
 
     final glow = listening && !reduceMotion
         ? Tween<double>(begin: 0.55, end: 1.0).animate(

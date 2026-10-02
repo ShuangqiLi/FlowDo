@@ -116,6 +116,7 @@ void main() {
       findsOneWidget,
     );
     expect(_panelVisible(), isTrue);
+    expect(find.text('正在聚焦'), findsNothing);
 
     await _swipeAway(tester);
     await tester.pump();

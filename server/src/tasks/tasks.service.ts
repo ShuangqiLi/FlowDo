@@ -84,16 +84,6 @@ export class TasksService {
       if (!target) {
         throw new BadRequestException('这个任务空间找不到了');
       }
-      if (task.status === TaskStatus.FOCUS) {
-        const focused = await this.prisma.task.count({
-          where: { spaceId: target.id, status: TaskStatus.FOCUS },
-        });
-        if (focused >= target.focusLimit) {
-          throw new BadRequestException(
-            `那边聚焦已经满了（${target.focusLimit} 件），先腾出位子再搬过去。`,
-          );
-        }
-      }
       data.space = { connect: { id: target.id } };
       nextSpaceId = target.id;
     }
@@ -101,20 +91,6 @@ export class TasksService {
     if (dto.status !== undefined && dto.status !== task.status) {
       if (!canTransition(task.status, dto.status)) {
         throw new BadRequestException('这条任务现在不能改成那个状态');
-      }
-      if (dto.status === TaskStatus.FOCUS) {
-        const space = await this.prisma.space.findUnique({
-          where: { id: nextSpaceId },
-        });
-        const limit = space?.focusLimit ?? 3;
-        const focused = await this.prisma.task.count({
-          where: { spaceId: nextSpaceId, status: TaskStatus.FOCUS },
-        });
-        if (focused >= limit) {
-          throw new BadRequestException(
-            `手头这 ${limit} 件先盯紧啦。搞定或先放回任务池，再接新的。`,
-          );
-        }
       }
       data.status = dto.status;
       if (dto.status === TaskStatus.DONE) {
@@ -131,7 +107,38 @@ export class TasksService {
       }
     }
 
-    return this.prisma.task.update({ where: { id }, data });
+    const enteringFocus =
+      dto.status === TaskStatus.FOCUS && task.status !== TaskStatus.FOCUS;
+    const movingWhileFocused =
+      nextSpaceId !== task.spaceId &&
+      task.status === TaskStatus.FOCUS &&
+      (dto.status === undefined || dto.status === TaskStatus.FOCUS);
+    if (!enteringFocus && !movingWhileFocused) {
+      return this.prisma.task.update({ where: { id }, data });
+    }
+
+    const space = await this.prisma.space.findUnique({
+      where: { id: nextSpaceId },
+    });
+    const limit = space?.focusLimit ?? 3;
+    const fullMessage =
+      movingWhileFocused && !enteringFocus
+        ? `那边聚焦已经满了（${limit} 件），先腾出位子再搬过去。`
+        : `手头这 ${limit} 件先盯紧啦。搞定或先放回任务池，再接新的。`;
+    // 锁住空间这一行，慢网下同时送进来的几条才会按顺序占名额。
+    return this.prisma.$transaction(async (tx) => {
+      await tx.$queryRawUnsafe(
+        'SELECT "id" FROM "Space" WHERE "id" = $1::uuid FOR UPDATE',
+        nextSpaceId,
+      );
+      const focused = await tx.task.count({
+        where: { spaceId: nextSpaceId, status: TaskStatus.FOCUS },
+      });
+      if (focused >= limit) {
+        throw new BadRequestException(fullMessage);
+      }
+      return tx.task.update({ where: { id }, data });
+    });
   }
 
   async remove(id: string) {

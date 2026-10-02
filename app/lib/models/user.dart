@@ -36,4 +36,31 @@ class Me {
       mustChangePassword: (json['mustChangePassword'] as bool?) ?? false,
     );
   }
+
+  Me copyWith({
+    String? id,
+    String? activeSpaceId,
+    bool clearActiveSpaceId = false,
+    int? archiveAfterDays,
+    int? focusLimit,
+    int? deleteArchivedAfterDays,
+    bool? showArchiveTab,
+    String? themeKey,
+    bool? voiceInputEnabled,
+    bool? mustChangePassword,
+  }) {
+    return Me(
+      id: id ?? this.id,
+      activeSpaceId:
+          clearActiveSpaceId ? null : (activeSpaceId ?? this.activeSpaceId),
+      archiveAfterDays: archiveAfterDays ?? this.archiveAfterDays,
+      focusLimit: focusLimit ?? this.focusLimit,
+      deleteArchivedAfterDays:
+          deleteArchivedAfterDays ?? this.deleteArchivedAfterDays,
+      showArchiveTab: showArchiveTab ?? this.showArchiveTab,
+      themeKey: themeKey ?? this.themeKey,
+      voiceInputEnabled: voiceInputEnabled ?? this.voiceInputEnabled,
+      mustChangePassword: mustChangePassword ?? this.mustChangePassword,
+    );
+  }
 }

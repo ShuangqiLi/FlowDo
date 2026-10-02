@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -168,9 +170,8 @@ class SpaceSwitcher extends ConsumerWidget {
         if (id == activeId) {
           return;
         }
-        await ref.read(meProvider.notifier).save(activeSpaceId: id);
-        ref.invalidate(briefingProvider);
-        invalidateTaskLists(ref);
+        // 本地先切，缓存先亮；对账失败再滚回去。
+        await switchActiveSpace(ref, id);
         return;
       } else if (value == 'create') {
         final name = await _askName(context, title: '新建任务空间', initial: '');
@@ -178,10 +179,8 @@ class SpaceSwitcher extends ConsumerWidget {
           return;
         }
         final created = await api.createSpace(name);
-        await ref.read(meProvider.notifier).save(activeSpaceId: created.id);
-        ref.invalidate(spacesProvider);
-        ref.invalidate(briefingProvider);
-        invalidateTaskLists(ref);
+        ref.read(spacesProvider.notifier).upsert(created);
+        await switchActiveSpace(ref, created.id);
         return;
       } else if (value == 'rename') {
         final current = spaces.cast<Space?>().firstWhere(
@@ -195,8 +194,15 @@ class SpaceSwitcher extends ConsumerWidget {
         if (name == null || name.isEmpty || name == current.name) {
           return;
         }
-        await api.renameSpace(current.id, name);
-        ref.invalidate(spacesProvider);
+        final renamed = Space(id: current.id, name: name);
+        ref.read(spacesProvider.notifier).upsert(renamed);
+        try {
+          await api.renameSpace(current.id, name);
+          unawaited(ref.read(spacesProvider.notifier).reload(quiet: true));
+        } catch (_) {
+          ref.read(spacesProvider.notifier).upsert(current);
+          rethrow;
+        }
         return;
       } else if (value == 'delete') {
         final current = spaces.cast<Space?>().firstWhere(
@@ -217,10 +223,37 @@ class SpaceSwitcher extends ConsumerWidget {
           return;
         }
         await api.deleteSpace(current.id);
+        ref.read(spacesProvider.notifier).removeById(current.id);
         await ref.read(meProvider.notifier).reload();
-        ref.invalidate(spacesProvider);
-        ref.invalidate(briefingProvider);
-        invalidateTaskLists(ref);
+        final nextId = ref.read(meProvider).value?.activeSpaceId;
+        if (nextId != null) {
+          final cache = ref.read(spaceSnapshotCacheProvider);
+          final cached = cache.tasksFor(nextId);
+          if (cached != null) {
+            for (final status in taskListStatuses) {
+              final list = cached[status];
+              if (list != null && ref.exists(tasksProvider(status))) {
+                ref.read(tasksProvider(status).notifier).replaceAll(list);
+              }
+            }
+          } else {
+            for (final status in taskListStatuses) {
+              if (ref.exists(tasksProvider(status))) {
+                ref.read(tasksProvider(status).notifier).replaceAll(const []);
+              }
+            }
+          }
+          final briefing = cache.briefingFor(nextId);
+          if (briefing != null && ref.exists(briefingProvider)) {
+            ref.read(briefingProvider.notifier).apply(briefing);
+          }
+        }
+        unawaited(
+          ref.read(lazySyncProvider.notifier).run(
+                quiet: true,
+                bumpCalendar: true,
+              ),
+        );
         return;
       }
     } on ApiException catch (e) {

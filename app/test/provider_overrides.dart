@@ -54,11 +54,22 @@ class FixedBriefingController extends BriefingController {
 briefingOverride(Briefing briefing) =>
     briefingProvider.overrideWith(() => FixedBriefingController(briefing));
 
-weatherOverride([WeatherSnapshot? snap]) => weatherProvider.overrideWith(
-      (_) async => snap ??
-          const WeatherSnapshot(
-            label: '晴',
-            icon: Icons.wb_sunny_rounded,
-            temperatureC: 22,
-          ),
-    );
+class FixedWeatherController extends WeatherController {
+  FixedWeatherController([this.snap]);
+
+  final WeatherSnapshot? snap;
+
+  @override
+  Future<WeatherSnapshot?> build() async =>
+      snap ??
+      const WeatherSnapshot(
+        label: '晴',
+        icon: Icons.wb_sunny_rounded,
+        minC: 18,
+        maxC: 26,
+      );
+}
+
+weatherOverride([WeatherSnapshot? snap]) =>
+    weatherProvider.overrideWith(() => FixedWeatherController(snap));
+

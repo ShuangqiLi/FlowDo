@@ -14,6 +14,22 @@
 
 ## [Unreleased]
 
+## [0.8.5] - 2026-10-03
+
+### Fixed
+
+- 慢网下连续把任务送进聚焦时按名额排队，满了会提示，不再悄悄超出上限
+- 手机键盘弹出时，加号和输入条抬到键盘上方
+- 随手记里拖动选字不再被整页右滑抢走
+
+### Changed
+
+- 今日看看去掉「正在聚焦」，只保留「可以先做这些」（有聚焦任务时这一栏就是它们）
+- 设置里的主题改成一个大色块下拉，名字写在色块上
+- 右上角时间和天气同一行、字更大；天气带汉字，温度改成今日高低
+- 切空间、完成任务等操作先本地更新并静默对账；访问过的空间会缓存列表，慢网也不卡庆祝动画
+- 设置页改完自动保存；去掉「保存」和「现在就收拾一下」；退出登录改成红色
+
 ## [0.8.4] - 2026-10-02
 
 ### Fixed
@@ -308,7 +324,8 @@
 - 通过 GitHub Releases 发版（推送 `v*.*.*` 标签）
 - 账号级设置（聚焦上限、归档天数、是否显示归档页）
 
-[Unreleased]: https://github.com/ShuangqiLi/FlowDo/compare/v0.8.4...HEAD
+[Unreleased]: https://github.com/ShuangqiLi/FlowDo/compare/v0.8.5...HEAD
+[0.8.5]: https://github.com/ShuangqiLi/FlowDo/compare/v0.8.4...v0.8.5
 [0.8.4]: https://github.com/ShuangqiLi/FlowDo/compare/v0.8.3...v0.8.4
 [0.8.3]: https://github.com/ShuangqiLi/FlowDo/compare/v0.8.2...v0.8.3
 [0.8.2]: https://github.com/ShuangqiLi/FlowDo/compare/v0.8.1...v0.8.2

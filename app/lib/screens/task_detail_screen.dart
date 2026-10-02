@@ -88,8 +88,10 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
     try {
       await _saveIfNeeded();
       await ref.read(apiProvider).updateTask(widget.task.id, spaceId: spaceId);
-      invalidateTaskLists(ref);
-      ref.invalidate(briefingProvider);
+      // 当前空间列表里先拿掉，背后再对账，别整表 invalidate 卡住返回动画。
+      if (ref.exists(tasksProvider(widget.task.status))) {
+        ref.read(tasksProvider(widget.task.status).notifier).removeById(widget.task.id);
+      }
       ref.read(lazySyncProvider.notifier).schedule();
       if (mounted) {
         Navigator.of(context).pop();
@@ -166,43 +168,49 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
         ),
         body: ResponsiveContent(
           maxWidth: AppLayout.readingMaxWidth,
-          child: ListView(
+          child: Padding(
             padding: const EdgeInsets.all(AppSpacing.md),
-            children: [
-              FlowDoCard(
-                child: TextField(
-                  controller: _title,
-                  readOnly: _archived,
-                  decoration: const InputDecoration(
-                    labelText: '要办的事',
+            child: Column(
+              children: [
+                FlowDoCard(
+                  child: TextField(
+                    controller: _title,
+                    readOnly: _archived,
+                    decoration: const InputDecoration(
+                      labelText: '要办的事',
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              FlowDoCard(
-                child: TextField(
-                  controller: _body,
-                  readOnly: _archived,
-                  minLines: 10,
-                  maxLines: 24,
-                  decoration: InputDecoration(
-                    labelText: '过程小记',
-                    hintText: _archived ? null : '想到什么就记一笔（可选）',
-                    alignLabelWithHint: true,
-                  ),
-                ),
-              ),
-              if (_archived) ...[
                 const SizedBox(height: AppSpacing.sm),
-                Text(
-                  '这条已经收进归档，只能看看。',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
+                if (_archived) ...[
+                  Text(
+                    '这条已经收进归档，只能看看。',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                ],
+                Expanded(
+                  child: FlowDoCard(
+                    child: TextField(
+                      controller: _body,
+                      readOnly: _archived,
+                      expands: true,
+                      minLines: null,
+                      maxLines: null,
+                      textAlignVertical: TextAlignVertical.top,
+                      decoration: InputDecoration(
+                        labelText: '过程小记',
+                        hintText: _archived ? null : '想到什么就记一笔（可选）',
+                        alignLabelWithHint: true,
                       ),
+                    ),
+                  ),
                 ),
               ],
-            ],
+            ),
           ),
         ),
       ),

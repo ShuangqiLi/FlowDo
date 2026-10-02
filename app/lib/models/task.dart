@@ -36,6 +36,34 @@ class Task {
     );
   }
 
+  Task copyWith({
+    String? id,
+    String? title,
+    String? body,
+    bool clearBody = false,
+    String? status,
+    String? priority,
+    DateTime? completedAt,
+    bool clearCompletedAt = false,
+    DateTime? archivedAt,
+    bool clearArchivedAt = false,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) {
+    return Task(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      body: clearBody ? null : (body ?? this.body),
+      status: status ?? this.status,
+      priority: priority ?? this.priority,
+      completedAt:
+          clearCompletedAt ? null : (completedAt ?? this.completedAt),
+      archivedAt: clearArchivedAt ? null : (archivedAt ?? this.archivedAt),
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+
   String get priorityLabel {
     switch (priority) {
       case 'HIGH':

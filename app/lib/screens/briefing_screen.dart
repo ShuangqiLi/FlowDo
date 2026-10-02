@@ -75,22 +75,6 @@ class BriefingScreen extends ConsumerWidget {
                       ),
                     ),
                   const SizedBox(height: AppSpacing.lg),
-                  const SectionHeader('正在聚焦'),
-                  if (data.focusedTasks.isEmpty)
-                    Text(
-                      '手头还空着，挑一件放进来吧。',
-                      style: TextStyle(color: scheme.onSurfaceVariant),
-                    )
-                  else
-                    ...data.focusedTasks.map(
-                      (task) => _taskTile(
-                        context,
-                        task,
-                        PriorityBadge(priority: task.priority),
-                        onTap: () => _openTask(context, ref, task),
-                      ),
-                    ),
-                  const SizedBox(height: AppSpacing.lg),
                   const SectionHeader('月度回顾', caption: '左右滑可以看别的月份'),
                   SwipeMonthCalendar(
                     key: ValueKey('month-$calendarEpoch'),

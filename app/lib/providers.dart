@@ -101,13 +101,16 @@ class TasksController extends AsyncNotifier<List<Task>> {
   @override
   Future<List<Task>> build() async {
     ref.watch(authStateProvider);
-    return ref.read(apiProvider).listTasks(status: status);
+    final tasks = await ref.read(apiProvider).listTasks(status: status);
+    _cacheCurrent(tasks);
+    return tasks;
   }
 
   Future<void> reload({bool quiet = false}) async {
     try {
       final tasks = await ref.read(apiProvider).listTasks(status: status);
       state = AsyncData(tasks);
+      _cacheCurrent(tasks);
     } catch (error, stack) {
       if (!quiet || state.value == null) {
         state = AsyncError(error, stack);
@@ -134,6 +137,14 @@ class TasksController extends AsyncNotifier<List<Task>> {
   void replaceAll(List<Task> tasks) {
     state = AsyncData(List<Task>.of(tasks));
   }
+
+  void _cacheCurrent(List<Task> tasks) {
+    final spaceId = ref.read(meProvider).value?.activeSpaceId;
+    if (spaceId == null) {
+      return;
+    }
+    ref.read(spaceSnapshotCacheProvider).putTasks(spaceId, status, tasks);
+  }
 }
 
 int _priorityRank(String priority) {
@@ -155,10 +166,112 @@ int _byPriorityThenRecent(Task a, Task b) {
 
 const taskListStatuses = ['TODO', 'FOCUS', 'DONE', 'ARCHIVED'];
 
-/// 当前空间的四个任务列表都作废，切空间后重新拉。
-void invalidateTaskLists(WidgetRef ref) {
-  for (final status in taskListStatuses) {
-    ref.invalidate(tasksProvider(status));
+/// 当前空间四个列表的内存快照，切回去时先亮出来再静默对账。
+final spaceSnapshotCacheProvider = Provider<SpaceSnapshotCache>((ref) {
+  return SpaceSnapshotCache();
+});
+
+class SpaceSnapshotCache {
+  final Map<String, Map<String, List<Task>>> _tasks = {};
+  final Map<String, Briefing> _briefings = {};
+
+  void putTasks(String spaceId, String status, List<Task> tasks) {
+    final bucket = _tasks.putIfAbsent(spaceId, () => {});
+    bucket[status] = List<Task>.of(tasks);
+  }
+
+  void putBriefing(String spaceId, Briefing briefing) {
+    _briefings[spaceId] = briefing;
+  }
+
+  Map<String, List<Task>>? tasksFor(String spaceId) => _tasks[spaceId];
+
+  Briefing? briefingFor(String spaceId) => _briefings[spaceId];
+}
+
+/// 切空间：本地先换、有缓存先亮，网络在背后慢慢对。
+Future<void> switchActiveSpace(WidgetRef ref, String spaceId) async {
+  final me = ref.read(meProvider).value;
+  if (me == null || me.activeSpaceId == spaceId) {
+    return;
+  }
+  final previous = me;
+  final fromId = previous.activeSpaceId;
+  final cache = ref.read(spaceSnapshotCacheProvider);
+
+  if (fromId != null) {
+    for (final status in taskListStatuses) {
+      final list = ref.read(tasksProvider(status)).value;
+      if (list != null) {
+        cache.putTasks(fromId, status, list);
+      }
+    }
+    final briefing = ref.read(briefingProvider).value;
+    if (briefing != null) {
+      cache.putBriefing(fromId, briefing);
+    }
+  }
+
+  ref.read(meProvider.notifier).apply(previous.copyWith(activeSpaceId: spaceId));
+
+  final cachedTasks = cache.tasksFor(spaceId);
+  if (cachedTasks != null) {
+    for (final status in taskListStatuses) {
+      final list = cachedTasks[status];
+      if (list != null && ref.exists(tasksProvider(status))) {
+        ref.read(tasksProvider(status).notifier).replaceAll(list);
+      }
+    }
+  } else {
+    for (final status in taskListStatuses) {
+      if (ref.exists(tasksProvider(status))) {
+        ref.read(tasksProvider(status).notifier).replaceAll(const []);
+      }
+    }
+  }
+
+  final cachedBriefing = cache.briefingFor(spaceId);
+  if (cachedBriefing != null && ref.exists(briefingProvider)) {
+    ref.read(briefingProvider.notifier).apply(cachedBriefing);
+  }
+
+  try {
+    await ref.read(meProvider.notifier).save(activeSpaceId: spaceId);
+    unawaited(
+      ref
+          .read(lazySyncProvider.notifier)
+          .run(quiet: true, bumpCalendar: true)
+          .then((_) {
+        for (final status in taskListStatuses) {
+          final list = ref.read(tasksProvider(status)).value;
+          if (list != null) {
+            cache.putTasks(spaceId, status, list);
+          }
+        }
+        final briefing = ref.read(briefingProvider).value;
+        if (briefing != null) {
+          cache.putBriefing(spaceId, briefing);
+        }
+      }),
+    );
+  } catch (_) {
+    ref.read(meProvider.notifier).apply(previous);
+    if (fromId != null) {
+      final rollback = cache.tasksFor(fromId);
+      if (rollback != null) {
+        for (final status in taskListStatuses) {
+          final list = rollback[status];
+          if (list != null && ref.exists(tasksProvider(status))) {
+            ref.read(tasksProvider(status).notifier).replaceAll(list);
+          }
+        }
+      }
+      final briefing = cache.briefingFor(fromId);
+      if (briefing != null && ref.exists(briefingProvider)) {
+        ref.read(briefingProvider.notifier).apply(briefing);
+      }
+    }
+    rethrow;
   }
 }
 
@@ -169,13 +282,26 @@ class BriefingController extends AsyncNotifier<Briefing> {
   @override
   Future<Briefing> build() async {
     ref.watch(authStateProvider);
-    return ref.read(apiProvider).todayBriefing();
+    final briefing = await ref.read(apiProvider).todayBriefing();
+    final spaceId = ref.read(meProvider).value?.activeSpaceId;
+    if (spaceId != null) {
+      ref.read(spaceSnapshotCacheProvider).putBriefing(spaceId, briefing);
+    }
+    return briefing;
+  }
+
+  void apply(Briefing briefing) {
+    state = AsyncData(briefing);
   }
 
   Future<void> reload({bool quiet = false}) async {
     try {
       final briefing = await ref.read(apiProvider).todayBriefing();
       state = AsyncData(briefing);
+      final spaceId = ref.read(meProvider).value?.activeSpaceId;
+      if (spaceId != null) {
+        ref.read(spaceSnapshotCacheProvider).putBriefing(spaceId, briefing);
+      }
     } catch (error, stack) {
       if (!quiet || state.value == null) {
         state = AsyncError(error, stack);
@@ -192,6 +318,25 @@ class SpacesController extends AsyncNotifier<List<Space>> {
   Future<List<Space>> build() async {
     ref.watch(authStateProvider);
     return ref.read(apiProvider).listSpaces();
+  }
+
+  void apply(List<Space> spaces) {
+    state = AsyncData(List<Space>.of(spaces));
+  }
+
+  void upsert(Space space) {
+    final current = List<Space>.of(state.value ?? const []);
+    current.removeWhere((item) => item.id == space.id);
+    current.add(space);
+    state = AsyncData(current);
+  }
+
+  void removeById(String id) {
+    final current = state.value;
+    if (current == null) {
+      return;
+    }
+    state = AsyncData(current.where((space) => space.id != id).toList());
   }
 
   Future<void> reload({bool quiet = false}) async {

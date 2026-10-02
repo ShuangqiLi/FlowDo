@@ -16,6 +16,7 @@ class _FakeApi extends ApiClient {
   _FakeApi(super.prefs, {this.failUpdate = false});
 
   final bool failUpdate;
+  var updates = 0;
   final List<Task> tasks = [
     Task(
       id: '1',
@@ -48,6 +49,7 @@ class _FakeApi extends ApiClient {
     if (failUpdate) {
       throw ApiException('手头这 3 件先盯紧啦。');
     }
+    updates++;
     final i = tasks.indexWhere((t) => t.id == id);
     final old = tasks[i];
     final moved = Task(
@@ -151,6 +153,41 @@ void main() {
     await tester.pumpAndSettle();
     expect(api.tasks, isEmpty);
     expect(find.text('喂猫'), findsNothing);
+  });
+
+  testWidgets('a full focus list refuses another task from the pool', (tester) async {
+    final prefs = await SharedPreferences.getInstance();
+    final api = _FakeApi(prefs);
+    final now = DateTime(2026, 9, 25);
+    api.tasks
+      ..clear()
+      ..addAll([
+        for (var i = 0; i < 3; i++)
+          Task(
+            id: 'f$i',
+            title: '已聚焦$i',
+            status: 'FOCUS',
+            priority: 'MEDIUM',
+            createdAt: now,
+            updatedAt: now,
+          ),
+        Task(
+          id: 'todo',
+          title: '再来一件',
+          status: 'TODO',
+          priority: 'MEDIUM',
+          createdAt: now,
+          updatedAt: now,
+        ),
+      ]);
+    await _pumpInbox(tester, api);
+
+    await _swipeRight(tester, find.text('再来一件'));
+
+    expect(find.textContaining('先盯紧啦'), findsOneWidget);
+    expect(find.text('再来一件'), findsOneWidget);
+    expect(api.updates, 0);
+    expect(api.tasks.where((task) => task.status == 'FOCUS'), hasLength(3));
   });
 
   testWidgets('a rejected swipe brings the task back', (tester) async {

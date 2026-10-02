@@ -118,6 +118,16 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('想到什么？先放进任务池'), findsOneWidget);
 
+    final dpr = tester.view.devicePixelRatio;
+    tester.view.viewInsets = FakeViewPadding(bottom: 320 * dpr);
+    addTearDown(tester.view.resetViewInsets);
+    await tester.pumpAndSettle();
+
+    final screen = tester.getSize(find.byType(MaterialApp));
+    final keyboardTop = screen.height - 320;
+    expect(tester.getRect(find.byKey(const ValueKey('add-task-fab'))).bottom, lessThanOrEqualTo(keyboardTop));
+    expect(tester.getRect(find.text('想到什么？先放进任务池')).bottom, lessThanOrEqualTo(keyboardTop));
+
     await tester.enterText(find.byType(TextField), '买菜');
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await tester.pumpAndSettle();
