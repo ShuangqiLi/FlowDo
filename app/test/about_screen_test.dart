@@ -9,6 +9,7 @@ import 'package:flowdo/providers.dart';
 import 'package:flowdo/screens/about_screen.dart';
 import 'package:flowdo/screens/settings_screen.dart';
 import 'package:flowdo/theme.dart';
+import 'provider_overrides.dart';
 
 void main() {
   testWidgets('about page shows the current version when already up to date', (tester) async {
@@ -99,8 +100,8 @@ void main() {
               ),
             ),
           ),
-          meProvider.overrideWith(
-            (_) async => Me(
+          meOverride(
+            Me(
               id: 'user',
               archiveAfterDays: 7,
               focusLimit: 3,

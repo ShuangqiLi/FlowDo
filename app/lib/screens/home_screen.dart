@@ -180,13 +180,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         children: [
           Scaffold(
             appBar: AppBar(
-              title: _showBriefing
-                  ? const Text('今日看看')
-                  : effectiveSelected == HomeTab.settings
-                      ? const Text('设置')
-                      : effectiveSelected == HomeTab.archive
-                          ? const Text('归档')
-                          : const SpaceSwitcher(),
+              title: _showBriefing ? const Text('今日看看') : const SpaceSwitcher(),
               titleSpacing: 16,
               automaticallyImplyLeading: false,
               actions: [

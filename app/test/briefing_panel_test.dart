@@ -12,6 +12,7 @@ import 'package:flowdo/providers.dart';
 import 'package:flowdo/screens/briefing_screen.dart';
 import 'package:flowdo/screens/home_screen.dart';
 import 'package:flowdo/theme.dart';
+import 'provider_overrides.dart';
 
 Briefing _briefing() {
   final now = DateTime(2026, 9, 25);
@@ -58,12 +59,12 @@ Future<void> _pumpHome(WidgetTester tester) async {
     ProviderScope(
       overrides: [
         prefsProvider.overrideWithValue(prefs),
-        meProvider.overrideWith((_) async => me),
+        meOverride(me),
         spacesProvider.overrideWith(
           (_) async => [Space(id: 'space', name: '默认')],
         ),
         briefingProvider.overrideWith((_) async => _briefing()),
-        tasksProvider.overrideWith((_, __) async => <Task>[]),
+        emptyTasksOverride(),
       ],
       child: MaterialApp(theme: buildAppTheme(), home: const HomeScreen()),
     ),

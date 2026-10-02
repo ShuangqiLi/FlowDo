@@ -6,6 +6,7 @@ import 'package:flowdo/models/user.dart';
 import 'package:flowdo/providers.dart';
 import 'package:flowdo/screens/change_password_screen.dart';
 import 'package:flowdo/screens/home_screen.dart';
+import 'provider_overrides.dart';
 
 Me _me({required bool mustChangePassword}) => Me(
       id: 'default',
@@ -26,7 +27,7 @@ void main() {
       ProviderScope(
         overrides: [
           prefsProvider.overrideWithValue(prefs),
-          meProvider.overrideWith((_) async => _me(mustChangePassword: true)),
+          meOverride(_me(mustChangePassword: true)),
         ],
         child: const FlowDoApp(),
       ),

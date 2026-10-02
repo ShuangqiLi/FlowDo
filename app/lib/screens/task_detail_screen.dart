@@ -84,10 +84,7 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
     try {
       await _saveIfNeeded();
       await ref.read(apiProvider).updateTask(widget.task.id, spaceId: spaceId);
-      ref.invalidate(tasksProvider('TODO'));
-      ref.invalidate(tasksProvider('FOCUS'));
-      ref.invalidate(tasksProvider('DONE'));
-      ref.invalidate(tasksProvider('ARCHIVED'));
+      invalidateTaskLists(ref);
       ref.invalidate(briefingProvider);
       if (mounted) {
         Navigator.of(context).pop();

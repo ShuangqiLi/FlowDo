@@ -12,6 +12,7 @@ import 'package:flowdo/providers.dart';
 import 'package:flowdo/screens/home_screen.dart';
 import 'package:flowdo/screens/settings_screen.dart';
 import 'package:flowdo/theme.dart';
+import 'provider_overrides.dart';
 
 class _FakeApi extends ApiClient {
   _FakeApi(super.prefs);
@@ -92,7 +93,7 @@ Future<_FakeApi> _pumpHome(
       overrides: [
         prefsProvider.overrideWithValue(prefs),
         apiProvider.overrideWithValue(api),
-        meProvider.overrideWith((_) async => me),
+        meOverride(me),
         spacesProvider.overrideWith(
           (_) async => [Space(id: 'space', name: '默认')],
         ),
@@ -244,18 +245,12 @@ void main() {
 
     await tester.tap(find.byTooltip('归档'));
     await tester.pumpAndSettle();
-    expect(
-      find.descendant(of: find.byType(AppBar), matching: find.text('归档')),
-      findsOneWidget,
-    );
+    expect(find.byTooltip('切换任务空间'), findsOneWidget);
     expect(find.textContaining('归档柜空着'), findsOneWidget);
 
     await tester.tap(find.byTooltip('设置'));
     await tester.pumpAndSettle();
-    expect(
-      find.descendant(of: find.byType(AppBar), matching: find.text('设置')),
-      findsOneWidget,
-    );
+    expect(find.byTooltip('切换任务空间'), findsOneWidget);
     final settingsScrollable = find.descendant(
       of: find.byType(SettingsScreen),
       matching: find.byType(Scrollable),
@@ -270,10 +265,7 @@ void main() {
 
     await tester.tap(find.byTooltip('任务池'));
     await tester.pumpAndSettle();
-    expect(
-      find.descendant(of: find.byType(AppBar), matching: find.text('设置')),
-      findsNothing,
-    );
+    expect(find.byTooltip('切换任务空间'), findsOneWidget);
     expect(find.byTooltip('设置'), findsOneWidget);
   });
 }

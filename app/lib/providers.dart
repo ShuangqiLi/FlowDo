@@ -38,26 +38,122 @@ class AuthController extends Notifier<bool> {
   }
 }
 
-final meProvider = FutureProvider<Me>((ref) async {
-  ref.watch(authStateProvider);
-  return ref.watch(apiProvider).getMe();
-});
+final meProvider = AsyncNotifierProvider<MeController, Me>(MeController.new);
 
-final tasksProvider = FutureProvider.family<List<Task>, String>((ref, status) async {
-  ref.watch(authStateProvider);
-  return ref.watch(apiProvider).listTasks(status: status);
-});
+class MeController extends AsyncNotifier<Me> {
+  @override
+  Future<Me> build() async {
+    ref.watch(authStateProvider);
+    return ref.read(apiProvider).getMe();
+  }
+
+  /// 用 PATCH /me 的返回值直接写回，省掉再 GET 一次。
+  void apply(Me me) {
+    state = AsyncData(me);
+  }
+
+  Future<Me> save({
+    int? archiveAfterDays,
+    int? focusLimit,
+    int? deleteArchivedAfterDays,
+    bool? showArchiveTab,
+    String? themeKey,
+    bool? voiceInputEnabled,
+    String? activeSpaceId,
+  }) async {
+    final me = await ref.read(apiProvider).updateMe(
+          archiveAfterDays: archiveAfterDays,
+          focusLimit: focusLimit,
+          deleteArchivedAfterDays: deleteArchivedAfterDays,
+          showArchiveTab: showArchiveTab,
+          themeKey: themeKey,
+          voiceInputEnabled: voiceInputEnabled,
+          activeSpaceId: activeSpaceId,
+        );
+    apply(me);
+    return me;
+  }
+
+  Future<void> reload() async {
+    state = await AsyncValue.guard(() => ref.read(apiProvider).getMe());
+  }
+}
+
+final tasksProvider =
+    AsyncNotifierProvider.family<TasksController, List<Task>, String>(
+  TasksController.new,
+);
+
+class TasksController extends AsyncNotifier<List<Task>> {
+  TasksController(this.status);
+
+  final String status;
+
+  @override
+  Future<List<Task>> build() async {
+    ref.watch(authStateProvider);
+    return ref.read(apiProvider).listTasks(status: status);
+  }
+
+  Future<void> reload() async {
+    state = await AsyncValue.guard(
+      () => ref.read(apiProvider).listTasks(status: status),
+    );
+  }
+
+  void removeById(String id) {
+    final current = state.value;
+    if (current == null) {
+      return;
+    }
+    state = AsyncData(current.where((task) => task.id != id).toList());
+  }
+
+  void upsert(Task task) {
+    final current = List<Task>.of(state.value ?? const []);
+    current.removeWhere((item) => item.id == task.id);
+    current.add(task);
+    current.sort(_byPriorityThenRecent);
+    state = AsyncData(current);
+  }
+
+  void replaceAll(List<Task> tasks) {
+    state = AsyncData(List<Task>.of(tasks));
+  }
+}
+
+int _priorityRank(String priority) {
+  return switch (priority) {
+    'HIGH' => 0,
+    'MEDIUM' => 1,
+    'LOW' => 2,
+    _ => 9,
+  };
+}
+
+int _byPriorityThenRecent(Task a, Task b) {
+  final byPriority = _priorityRank(a.priority) - _priorityRank(b.priority);
+  if (byPriority != 0) {
+    return byPriority;
+  }
+  return b.updatedAt.compareTo(a.updatedAt);
+}
+
+/// 当前空间的四个任务列表都作废，切空间后重新拉。
+void invalidateTaskLists(WidgetRef ref) {
+  for (final status in const ['TODO', 'FOCUS', 'DONE', 'ARCHIVED']) {
+    ref.invalidate(tasksProvider(status));
+  }
+}
 
 final briefingProvider = FutureProvider<Briefing>((ref) async {
   ref.watch(authStateProvider);
-  ref.watch(meProvider);
-  return ref.watch(apiProvider).todayBriefing();
+  return ref.read(apiProvider).todayBriefing();
 });
 
 final spacesProvider = FutureProvider<List<Space>>((ref) async {
   ref.watch(authStateProvider);
-  ref.watch(meProvider);
-  return ref.watch(apiProvider).listSpaces();
+  return ref.read(apiProvider).listSpaces();
 });
 
 /// 新建任务后，任务池列表滚到这一条。

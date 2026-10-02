@@ -433,12 +433,20 @@ class _SwipeMonthCalendarState extends State<SwipeMonthCalendar> {
   static const _origin = 1200;
   late final PageController _pages = PageController(initialPage: _origin);
   final _cache = <int, MonthReview>{};
+  final _loading = <int>{};
+  final _fetched = <int>{};
   int _page = _origin;
 
   @override
   void initState() {
     super.initState();
-    _cache[_origin] = widget.initial;
+    if (widget.initial.days.isEmpty) {
+      _cache[_origin] = _skeleton(widget.initial.year, widget.initial.month);
+      _ensure(_origin);
+    } else {
+      _cache[_origin] = widget.initial;
+      _fetched.add(_origin);
+    }
   }
 
   @override
@@ -446,7 +454,14 @@ class _SwipeMonthCalendarState extends State<SwipeMonthCalendar> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.initial.year != widget.initial.year ||
         oldWidget.initial.month != widget.initial.month) {
-      _cache[_origin] = widget.initial;
+      _fetched.remove(_origin);
+      if (widget.initial.days.isEmpty) {
+        _cache[_origin] = _skeleton(widget.initial.year, widget.initial.month);
+        _ensure(_origin);
+      } else {
+        _cache[_origin] = widget.initial;
+        _fetched.add(_origin);
+      }
     }
   }
 
@@ -456,34 +471,69 @@ class _SwipeMonthCalendarState extends State<SwipeMonthCalendar> {
     super.dispose();
   }
 
+  MonthReview _skeleton(int year, int month) {
+    final length = DateTime(year, month + 1, 0).day;
+    return MonthReview(
+      year: year,
+      month: month,
+      completedCount: 0,
+      activeDays: 0,
+      days: [
+        for (var day = 1; day <= length; day++)
+          ReviewDay(
+            date:
+                '$year-${month.toString().padLeft(2, '0')}-${day.toString().padLeft(2, '0')}',
+            count: 0,
+          ),
+      ],
+    );
+  }
+
   DateTime _monthAt(int page) {
     return DateTime(widget.initial.year, widget.initial.month + (page - _origin), 1);
   }
 
   Future<void> _ensure(int page) async {
-    if (_cache.containsKey(page)) {
+    if (_fetched.contains(page) || _loading.contains(page)) {
       return;
     }
+    _loading.add(page);
     final date = _monthAt(page);
     try {
       final review = await widget.loadMonth(date.year, date.month);
       if (!mounted) {
         return;
       }
-      setState(() => _cache[page] = review);
+      setState(() {
+        _cache[page] = review;
+        _fetched.add(page);
+      });
     } catch (_) {
       if (!mounted) {
         return;
       }
-      setState(() {});
+      setState(() {
+        _cache[page] = _skeleton(date.year, date.month);
+        _fetched.add(page);
+      });
+    } finally {
+      _loading.remove(page);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final shown = _monthAt(_page);
+    final current = _cache[_page] ?? _skeleton(shown.year, shown.month);
     return Column(
       children: [
+        ReviewSummaryRow(
+          completedLabel: '本月搞定',
+          completedCount: current.completedCount,
+          activeLabel: '活跃天数',
+          activeDays: current.activeDays,
+        ),
+        const SizedBox(height: AppSpacing.xs),
         Row(
           children: [
             IconButton(
@@ -520,10 +570,8 @@ class _SwipeMonthCalendarState extends State<SwipeMonthCalendar> {
               _ensure(page);
             },
             itemBuilder: (context, page) {
-              final review = _cache[page];
-              if (review == null) {
-                return const Center(child: CircularProgressIndicator());
-              }
+              final date = _monthAt(page);
+              final review = _cache[page] ?? _skeleton(date.year, date.month);
               return MonthReviewCalendar(
                 year: review.year,
                 month: review.month,

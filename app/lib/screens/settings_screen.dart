@@ -73,7 +73,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     String? successMessage,
   }) async {
     try {
-      await ref.read(apiProvider).updateMe(
+      await ref.read(meProvider.notifier).save(
             archiveAfterDays: archiveAfterDays,
             focusLimit: focusLimit,
             deleteArchivedAfterDays: deleteArchivedAfterDays,
@@ -81,7 +81,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             themeKey: themeKey,
             voiceInputEnabled: voiceInputEnabled,
           );
-      ref.invalidate(meProvider);
       if (successMessage != null && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(successMessage)),

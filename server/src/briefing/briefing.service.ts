@@ -45,10 +45,6 @@ export class BriefingService {
   async today() {
     const now = new Date();
     const startOfToday = startOfDay(now);
-    const month = await this.month(
-      startOfToday.getFullYear(),
-      startOfToday.getMonth() + 1,
-    );
     const space = await this.instance.activeSpace();
     const spaceId = space.id;
     const startOfYesterday = addDays(startOfToday, -1);
@@ -99,7 +95,6 @@ export class BriefingService {
       completedToday,
       completedYesterday,
       pendingArchive: done,
-      monthReview: month,
     };
   }
 

@@ -14,6 +14,15 @@
 
 ## [Unreleased]
 
+## [0.8.2] - 2026-10-02
+
+### Fixed
+
+- 改状态、改优先级后直接用接口返回值更新列表，不再串行整表重拉
+- 切空间时写回 `PATCH /me` 的结果，不再额外 `GET /me`，也不重拉空间列表
+- 今日看看不再顺带拉整月回顾；月历单独请求，打开更快
+- 归档和设置页左上角也是空间切换，不再显示页名
+
 ## [0.8.1] - 2026-10-02
 
 ### Fixed
@@ -280,7 +289,8 @@
 - 通过 GitHub Releases 发版（推送 `v*.*.*` 标签）
 - 账号级设置（聚焦上限、归档天数、是否显示归档页）
 
-[Unreleased]: https://github.com/ShuangqiLi/FlowDo/compare/v0.8.1...HEAD
+[Unreleased]: https://github.com/ShuangqiLi/FlowDo/compare/v0.8.2...HEAD
+[0.8.2]: https://github.com/ShuangqiLi/FlowDo/compare/v0.8.1...v0.8.2
 [0.8.1]: https://github.com/ShuangqiLi/FlowDo/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/ShuangqiLi/FlowDo/compare/v0.7.3...v0.8.0
 [0.7.3]: https://github.com/ShuangqiLi/FlowDo/compare/v0.7.2...v0.7.3

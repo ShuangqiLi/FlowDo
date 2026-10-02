@@ -85,10 +85,9 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
   bool get wantKeepAlive => true;
 
   Future<void> _refresh() async {
-    ref.invalidate(tasksProvider(widget.status));
     ref.invalidate(briefingProvider);
     try {
-      await ref.read(tasksProvider(widget.status).future);
+      await ref.read(tasksProvider(widget.status).notifier).reload();
     } catch (_) {
       // 列表本身会渲染错误态，这里只要等这一轮刷新结束
     }
@@ -117,6 +116,15 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
     );
   }
 
+  void _applyStatusLocally(Task updated, String fromStatus) {
+    ref.read(tasksProvider(fromStatus).notifier).removeById(updated.id);
+    final dest = tasksProvider(updated.status);
+    if (ref.exists(dest) && ref.read(dest).hasValue) {
+      ref.read(dest.notifier).upsert(updated);
+    }
+    ref.invalidate(briefingProvider);
+  }
+
   Future<void> _setStatus(Task task, String status) async {
     if (status == 'FOCUS') {
       final limit = ref.read(meProvider).value?.focusLimit ?? 3;
@@ -125,23 +133,19 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
         _goFocusWithHint(
           '手头这 $limit 件先盯紧啦。搞定或先放回任务池，再接新的。',
         );
-        await _refresh();
         return;
       }
     }
     try {
-      await ref.read(apiProvider).updateTask(task.id, status: status);
+      final updated =
+          await ref.read(apiProvider).updateTask(task.id, status: status);
       if (status == 'DONE' && mounted) {
         showFlowDoCelebration(context);
       }
-      await _refresh();
-      if (status != widget.status) {
-        ref.invalidate(tasksProvider(status));
-      }
+      _applyStatusLocally(updated, widget.status);
     } on ApiException catch (e) {
       if (status == 'FOCUS') {
         _goFocusWithHint(e.message);
-        await _refresh();
         return;
       }
       if (!mounted) {
@@ -163,8 +167,10 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
     if (chosen == null || chosen == current) {
       return;
     }
-    await ref.read(apiProvider).updateTask(id, priority: chosen);
-    await _refresh();
+    final updated =
+        await ref.read(apiProvider).updateTask(id, priority: chosen);
+    ref.read(tasksProvider(widget.status).notifier).upsert(updated);
+    ref.invalidate(briefingProvider);
   }
 
   Future<void> _delete(Task task) async {
@@ -184,7 +190,8 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
     setState(() => _dismissing.add(task.id));
     try {
       await ref.read(apiProvider).deleteTask(task.id);
-      await _refresh();
+      ref.read(tasksProvider(widget.status).notifier).removeById(task.id);
+      ref.invalidate(briefingProvider);
     } finally {
       if (mounted) {
         setState(() => _dismissing.remove(task.id));

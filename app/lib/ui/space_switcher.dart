@@ -150,14 +150,21 @@ class SpaceSwitcher extends ConsumerWidget {
         if (id == activeId) {
           return;
         }
-        await api.updateMe(activeSpaceId: id);
+        await ref.read(meProvider.notifier).save(activeSpaceId: id);
+        ref.invalidate(briefingProvider);
+        invalidateTaskLists(ref);
+        return;
       } else if (value == 'create') {
         final name = await _askName(context, title: '新建任务空间', initial: '');
         if (name == null || name.isEmpty) {
           return;
         }
         final created = await api.createSpace(name);
-        await api.updateMe(activeSpaceId: created.id);
+        await ref.read(meProvider.notifier).save(activeSpaceId: created.id);
+        ref.invalidate(spacesProvider);
+        ref.invalidate(briefingProvider);
+        invalidateTaskLists(ref);
+        return;
       } else if (value == 'rename') {
         final current = spaces.cast<Space?>().firstWhere(
               (space) => space?.id == activeId,
@@ -171,6 +178,8 @@ class SpaceSwitcher extends ConsumerWidget {
           return;
         }
         await api.renameSpace(current.id, name);
+        ref.invalidate(spacesProvider);
+        return;
       } else if (value == 'delete') {
         final current = spaces.cast<Space?>().firstWhere(
               (space) => space?.id == activeId,
@@ -190,14 +199,12 @@ class SpaceSwitcher extends ConsumerWidget {
           return;
         }
         await api.deleteSpace(current.id);
+        await ref.read(meProvider.notifier).reload();
+        ref.invalidate(spacesProvider);
+        ref.invalidate(briefingProvider);
+        invalidateTaskLists(ref);
+        return;
       }
-      ref.invalidate(meProvider);
-      ref.invalidate(spacesProvider);
-      ref.invalidate(briefingProvider);
-      ref.invalidate(tasksProvider('TODO'));
-      ref.invalidate(tasksProvider('FOCUS'));
-      ref.invalidate(tasksProvider('DONE'));
-      ref.invalidate(tasksProvider('ARCHIVED'));
     } on ApiException catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));

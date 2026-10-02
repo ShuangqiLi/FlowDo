@@ -76,15 +76,14 @@ class BriefingScreen extends ConsumerWidget {
                   ),
                 const SizedBox(height: AppSpacing.lg),
                 const SectionHeader('月度回顾', caption: '左右滑可以看别的月份'),
-                ReviewSummaryRow(
-                  completedLabel: '本月搞定',
-                  completedCount: data.monthReview.completedCount,
-                  activeLabel: '活跃天数',
-                  activeDays: data.monthReview.activeDays,
-                ),
-                const SizedBox(height: AppSpacing.xs),
                 SwipeMonthCalendar(
-                  initial: data.monthReview,
+                  initial: MonthReview(
+                    year: DateTime.now().year,
+                    month: DateTime.now().month,
+                    completedCount: 0,
+                    activeDays: 0,
+                    days: const [],
+                  ),
                   todayKey: todayKey,
                   loadMonth: (year, month) =>
                       ref.read(apiProvider).monthBriefing(year, month),

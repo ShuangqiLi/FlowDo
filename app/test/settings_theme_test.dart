@@ -7,6 +7,7 @@ import 'package:flowdo/models/user.dart';
 import 'package:flowdo/providers.dart';
 import 'package:flowdo/screens/settings_screen.dart';
 import 'package:flowdo/theme.dart';
+import 'provider_overrides.dart';
 
 void main() {
   testWidgets('settings exposes all account theme choices', (tester) async {
@@ -25,7 +26,7 @@ void main() {
       ProviderScope(
         overrides: [
           prefsProvider.overrideWithValue(prefs),
-          meProvider.overrideWith((_) async => me),
+          meOverride(me),
         ],
         child: MaterialApp(
           theme: buildAppTheme(AppThemeKey.hazeBlue),
@@ -67,7 +68,7 @@ void main() {
         overrides: [
           prefsProvider.overrideWithValue(prefs),
           apiProvider.overrideWithValue(api),
-          meProvider.overrideWith((_) async => me),
+          meOverride(me),
         ],
         child: MaterialApp(
           theme: buildAppTheme(),
@@ -109,7 +110,7 @@ void main() {
         overrides: [
           prefsProvider.overrideWithValue(prefs),
           apiProvider.overrideWithValue(_FailingMeApi(prefs)),
-          meProvider.overrideWith((_) async => me),
+          meOverride(me),
         ],
         child: MaterialApp(
           theme: buildAppTheme(AppThemeKey.hazeBlue),

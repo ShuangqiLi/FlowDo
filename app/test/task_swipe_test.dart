@@ -10,6 +10,7 @@ import 'package:flowdo/screens/task_list_screen.dart';
 import 'package:flowdo/theme.dart';
 import 'package:flowdo/ui/task_gesture_policy.dart';
 import 'package:flowdo/widgets/priority_selector.dart';
+import 'provider_overrides.dart';
 
 class _FakeApi extends ApiClient {
   _FakeApi(super.prefs, {this.failUpdate = false});
@@ -80,7 +81,7 @@ Future<void> _pumpInbox(
     ProviderScope(
       overrides: [
         apiProvider.overrideWithValue(api),
-        meProvider.overrideWith((_) async => me),
+        meOverride(me),
       ],
       child: MaterialApp(
         theme: buildAppTheme().copyWith(platform: platform),
