@@ -14,6 +14,14 @@
 
 ## [Unreleased]
 
+## [0.8.6] - 2026-10-03
+
+### Fixed
+
+- 今日看看空白处右滑可以退出；下拉刷新在列表不满一屏时也能拉动
+- 加号输入框打开后，背后的任务列表仍可滑动
+- 完成或改状态后，慢网刷新不再把任务刷回旧状态
+
 ## [0.8.5] - 2026-10-03
 
 ### Fixed
@@ -324,7 +332,8 @@
 - 通过 GitHub Releases 发版（推送 `v*.*.*` 标签）
 - 账号级设置（聚焦上限、归档天数、是否显示归档页）
 
-[Unreleased]: https://github.com/ShuangqiLi/FlowDo/compare/v0.8.5...HEAD
+[Unreleased]: https://github.com/ShuangqiLi/FlowDo/compare/v0.8.6...HEAD
+[0.8.6]: https://github.com/ShuangqiLi/FlowDo/compare/v0.8.5...v0.8.6
 [0.8.5]: https://github.com/ShuangqiLi/FlowDo/compare/v0.8.4...v0.8.5
 [0.8.4]: https://github.com/ShuangqiLi/FlowDo/compare/v0.8.3...v0.8.4
 [0.8.3]: https://github.com/ShuangqiLi/FlowDo/compare/v0.8.2...v0.8.3

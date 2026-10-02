@@ -93,8 +93,8 @@ Future<void> _openBriefing(WidgetTester tester) async {
 }
 
 Future<void> _swipeAway(WidgetTester tester) async {
-  final origin = tester.getCenter(find.text('可以先做这些').first);
-  final gesture = await tester.startGesture(Offset(12, origin.dy));
+    final origin = tester.getCenter(find.text('可以先做这些').first);
+    final gesture = await tester.startGesture(origin);
   for (var i = 0; i < 20; i++) {
     await gesture.moveBy(const Offset(40, 0));
     await tester.pump();

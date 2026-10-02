@@ -250,6 +250,7 @@ class _AddTaskFabState extends ConsumerState<AddTaskFab>
       ref.read(pendingScrollTaskIdProvider.notifier).request(created.id);
       ref.read(tasksProvider('TODO').notifier).upsert(created);
       ref.read(homeTabProvider.notifier).setTab(HomeTab.todo);
+      ref.read(lazySyncProvider.notifier).protectLocalWrite();
       ref.read(lazySyncProvider.notifier).schedule();
       _submitting = false;
       await _closeComposer();
@@ -551,14 +552,6 @@ class _AddTaskFabState extends ConsumerState<AddTaskFab>
     return SizedBox.expand(
       child: Stack(
         children: [
-          if (_composerOpen)
-            Positioned.fill(
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: _closeComposer,
-                child: const ColoredBox(color: Colors.transparent),
-              ),
-            ),
           if (_composerOpen)
             _ComposerBubble(
               fabTopLeft: fabTopLeft,

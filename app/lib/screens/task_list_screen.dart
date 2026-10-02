@@ -119,6 +119,18 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
     if (ref.exists(dest) && ref.read(dest).hasValue) {
       ref.read(dest.notifier).upsert(updated);
     }
+  }
+
+  int _hold(String id, Task? task) {
+    return ref.read(pendingTaskWritesProvider).begin(
+          id: id,
+          spaceId: ref.read(meProvider).value?.activeSpaceId,
+          task: task,
+        );
+  }
+
+  void _finishWrite(String id, int gen) {
+    ref.read(lazySyncProvider.notifier).settleWrite(id, gen);
     ref.read(lazySyncProvider.notifier).schedule();
   }
 
@@ -162,6 +174,7 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
       clearArchivedAt: status != 'ARCHIVED' && task.status == 'ARCHIVED',
       updatedAt: now,
     );
+    final gen = _hold(task.id, optimistic);
     _applyStatusLocally(optimistic, widget.status);
     if (status == 'DONE' && mounted) {
       showFlowDoCelebration(context);
@@ -174,7 +187,9 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
       if (ref.exists(dest) && ref.read(dest).hasValue) {
         ref.read(dest.notifier).upsert(updated);
       }
+      _finishWrite(task.id, gen);
     } on ApiException catch (e) {
+      _finishWrite(task.id, gen);
       ref.read(tasksProvider(status).notifier).removeById(task.id);
       if (ref.exists(tasksProvider(widget.status))) {
         ref.read(tasksProvider(widget.status).notifier).upsert(task);
@@ -195,6 +210,21 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(e.message)),
       );
+    } catch (e) {
+      _finishWrite(task.id, gen);
+      ref.read(tasksProvider(status).notifier).removeById(task.id);
+      if (ref.exists(tasksProvider(widget.status))) {
+        ref.read(tasksProvider(widget.status).notifier).upsert(task);
+      }
+      if (mounted) {
+        setState(() {
+          _dismissing.remove(task.id);
+          _swipeGeneration[task.id] = (_swipeGeneration[task.id] ?? 0) + 1;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$e')),
+        );
+      }
     } finally {
       if (heldFocus) {
         _focusAdmission.release(task.id);
@@ -216,13 +246,15 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
       priority: chosen,
       updatedAt: DateTime.now(),
     );
+    final gen = _hold(id, optimistic);
     ref.read(tasksProvider(widget.status).notifier).upsert(optimistic);
-    ref.read(lazySyncProvider.notifier).schedule();
     try {
       final updated =
           await ref.read(apiProvider).updateTask(id, priority: chosen);
       ref.read(tasksProvider(widget.status).notifier).upsert(updated);
+      _finishWrite(id, gen);
     } on ApiException catch (e) {
+      _finishWrite(id, gen);
       ref.read(tasksProvider(widget.status).notifier).upsert(task);
       if (!mounted) {
         return;
@@ -248,16 +280,26 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
       return;
     }
     setState(() => _dismissing.add(task.id));
+    final gen = _hold(task.id, null);
     ref.read(tasksProvider(widget.status).notifier).removeById(task.id);
-    ref.read(lazySyncProvider.notifier).schedule();
     unawaited(() async {
       try {
         await ref.read(apiProvider).deleteTask(task.id);
+        _finishWrite(task.id, gen);
       } on ApiException catch (e) {
+        _finishWrite(task.id, gen);
         ref.read(tasksProvider(widget.status).notifier).upsert(task);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(e.message)),
+          );
+        }
+      } catch (e) {
+        _finishWrite(task.id, gen);
+        ref.read(tasksProvider(widget.status).notifier).upsert(task);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('$e')),
           );
         }
       } finally {
@@ -279,6 +321,7 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
             builder: (_) => TaskDetailScreen(task: task),
           ),
         );
+        ref.read(lazySyncProvider.notifier).protectLocalWrite();
         ref.read(lazySyncProvider.notifier).schedule();
       },
       onPickPriority: widget.status == 'ARCHIVED'
@@ -302,6 +345,7 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
         error: (e, _) => RefreshIndicator(
           onRefresh: _refresh,
           child: ListView(
+            physics: refreshScrollPhysics,
             children: [
               SizedBox(
                 height: 280,
@@ -319,6 +363,7 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
             return RefreshIndicator(
               onRefresh: _refresh,
               child: ListView(
+                physics: refreshScrollPhysics,
                 children: [
                   SizedBox(
                     height: 280,
@@ -335,6 +380,7 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
             onRefresh: _refresh,
             child: ListView.separated(
               controller: _scroll,
+              physics: refreshScrollPhysics,
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
               itemCount: tasks.length,
               separatorBuilder: (_, __) =>

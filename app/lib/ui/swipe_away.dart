@@ -13,6 +13,7 @@ class SwipeAway extends StatefulWidget {
     required this.onAway,
     required this.child,
     this.fromLeftEdgeOnly = false,
+    this.avoidHorizontalScrollers = false,
     this.edgeWidth = 56,
   });
 
@@ -21,6 +22,9 @@ class SwipeAway extends StatefulWidget {
 
   /// 为 true 时只从左缘起势，避免和任务卡片左右滑抢手势。
   final bool fromLeftEdgeOnly;
+
+  /// 起点落在横向翻页上时不参加，留给月历自己滑。
+  final bool avoidHorizontalScrollers;
   final double edgeWidth;
 
   @override
@@ -59,8 +63,41 @@ class _SwipeAwayState extends State<SwipeAway> {
     });
   }
 
-  /// 按下时就落在输入框上：这次手势不参加竞争，选字和长按才能拿到。
-  bool _allowsSwipe(Offset global) => !_pointerOnEditable(global);
+  /// 按下时就落在输入框或横向翻页上：这次手势不参加竞争。
+  bool _allowsSwipe(Offset global) {
+    if (_pointerOnEditable(global)) {
+      return false;
+    }
+    if (widget.avoidHorizontalScrollers && _onHorizontalScrollable(global)) {
+      return false;
+    }
+    return true;
+  }
+
+  bool _onHorizontalScrollable(Offset global) {
+    var found = false;
+    void visitor(Element element) {
+      if (found) {
+        return;
+      }
+      final widget = element.widget;
+      if (widget is Scrollable &&
+          axisDirectionToAxis(widget.axisDirection) == Axis.horizontal) {
+        final render = element.renderObject;
+        if (render is RenderBox && render.attached && render.hasSize) {
+          final rect = render.localToGlobal(Offset.zero) & render.size;
+          if (rect.contains(global)) {
+            found = true;
+            return;
+          }
+        }
+      }
+      element.visitChildren(visitor);
+    }
+
+    context.visitChildElements(visitor);
+    return found;
+  }
 
   /// 起点落在输入框就别抢手势，好让选字和框内滑动。
   bool _pointerOnEditable(Offset global) {

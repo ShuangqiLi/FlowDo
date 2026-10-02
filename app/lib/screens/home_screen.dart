@@ -237,7 +237,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   child: _showBriefing
                       ? SwipeAway(
                           key: const ValueKey('briefing-panel'),
-                          fromLeftEdgeOnly: true,
+                          avoidHorizontalScrollers: true,
                           onAway: _closeBriefing,
                           child: const BriefingScreen(),
                         )

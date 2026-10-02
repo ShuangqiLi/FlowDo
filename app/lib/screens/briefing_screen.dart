@@ -29,7 +29,7 @@ class BriefingScreen extends ConsumerWidget {
         error: (e, _) => RefreshIndicator(
           onRefresh: () => ref.read(lazySyncProvider.notifier).pull(),
           child: ListView(
-            physics: const AlwaysScrollableScrollPhysics(),
+            physics: refreshScrollPhysics,
             children: [
               SizedBox(
                 height: 280,
@@ -44,7 +44,7 @@ class BriefingScreen extends ConsumerWidget {
             child: RefreshIndicator(
               onRefresh: () => ref.read(lazySyncProvider.notifier).pull(),
               child: ListView(
-                physics: const AlwaysScrollableScrollPhysics(),
+                physics: refreshScrollPhysics,
                 padding: const EdgeInsets.fromLTRB(
                   AppSpacing.md,
                   AppSpacing.xs,

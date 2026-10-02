@@ -97,25 +97,47 @@ class TasksController extends AsyncNotifier<List<Task>> {
   TasksController(this.status);
 
   final String status;
+  int _epoch = 0;
 
   @override
   Future<List<Task>> build() async {
+    final epoch = ++_epoch;
     ref.watch(authStateProvider);
-    final tasks = await ref.read(apiProvider).listTasks(status: status);
+    final tasks = _merge(await ref.read(apiProvider).listTasks(status: status));
+    if (epoch != _epoch) {
+      return state.value ?? tasks;
+    }
     _cacheCurrent(tasks);
     return tasks;
   }
 
+  /// 丢掉还在路上的列表响应，避免慢请求盖掉刚写完的本地状态。
+  void abandonInflight() {
+    _epoch++;
+  }
+
   Future<void> reload({bool quiet = false}) async {
+    final epoch = ++_epoch;
     try {
-      final tasks = await ref.read(apiProvider).listTasks(status: status);
+      final tasks = _merge(await ref.read(apiProvider).listTasks(status: status));
+      if (epoch != _epoch) {
+        return;
+      }
       state = AsyncData(tasks);
       _cacheCurrent(tasks);
     } catch (error, stack) {
+      if (epoch != _epoch) {
+        return;
+      }
       if (!quiet || state.value == null) {
         state = AsyncError(error, stack);
       }
     }
+  }
+
+  List<Task> _merge(List<Task> tasks) {
+    final spaceId = ref.read(meProvider).value?.activeSpaceId;
+    return ref.read(pendingTaskWritesProvider).merge(status, spaceId, tasks);
   }
 
   void removeById(String id) {
@@ -165,6 +187,85 @@ int _byPriorityThenRecent(Task a, Task b) {
 }
 
 const taskListStatuses = ['TODO', 'FOCUS', 'DONE', 'ARCHIVED'];
+
+/// 还没跟服务器对上的任务。刷新回来的旧列表不能把它们盖回去。
+final pendingTaskWritesProvider = Provider<PendingTaskWrites>((ref) {
+  return PendingTaskWrites();
+});
+
+class PendingTaskWrites {
+  final Map<String, _TaskHold> _holds = {};
+
+  /// [task] 为 null 表示这条已经从当前空间列表拿掉（删除或搬走）。
+  int begin({
+    required String id,
+    required String? spaceId,
+    required Task? task,
+  }) {
+    final next = (_holds[id]?.gen ?? 0) + 1;
+    _holds[id] = _TaskHold(gen: next, spaceId: spaceId, task: task);
+    return next;
+  }
+
+  void settle(String id, int gen) {
+    final current = _holds[id];
+    if (current == null || current.gen != gen) {
+      return;
+    }
+    _holds.remove(id);
+  }
+
+  List<Task> merge(String status, String? spaceId, List<Task> server) {
+    if (_holds.isEmpty) {
+      return server;
+    }
+    final result = <Task>[];
+    final placed = <String>{};
+    var changed = false;
+    for (final task in server) {
+      final hold = _holds[task.id];
+      if (hold == null || hold.spaceId != spaceId) {
+        result.add(task);
+        continue;
+      }
+      changed = true;
+      final override = hold.task;
+      if (override != null && override.status == status) {
+        result.add(override);
+        placed.add(override.id);
+      }
+    }
+    for (final entry in _holds.entries) {
+      final hold = entry.value;
+      final task = hold.task;
+      if (hold.spaceId != spaceId || task == null || task.status != status) {
+        continue;
+      }
+      if (placed.contains(task.id)) {
+        continue;
+      }
+      changed = true;
+      result.add(task);
+    }
+    if (!changed) {
+      return server;
+    }
+    result.sort(_byPriorityThenRecent);
+    return result;
+  }
+}
+
+class _TaskHold {
+  const _TaskHold({
+    required this.gen,
+    required this.spaceId,
+    required this.task,
+  });
+
+  final int gen;
+  final String? spaceId;
+  final Task? task;
+}
 
 /// 当前空间四个列表的内存快照，切回去时先亮出来再静默对账。
 final spaceSnapshotCacheProvider = Provider<SpaceSnapshotCache>((ref) {
@@ -372,6 +473,24 @@ class LazySyncController extends Notifier<int> {
     _debounce = Timer(delay, () {
       unawaited(run(quiet: true, bumpCalendar: false));
     });
+  }
+
+  /// 本地写入已经落地：丢掉半路的旧列表，再排队对账。
+  void settleWrite(String id, int gen) {
+    ref.read(pendingTaskWritesProvider).settle(id, gen);
+    _abandonTaskLists();
+  }
+
+  void protectLocalWrite() {
+    _abandonTaskLists();
+  }
+
+  void _abandonTaskLists() {
+    for (final status in taskListStatuses) {
+      if (ref.exists(tasksProvider(status))) {
+        ref.read(tasksProvider(status).notifier).abandonInflight();
+      }
+    }
   }
 
   /// 任意界面下拉：等全部拉完，并刷新月历缓存。

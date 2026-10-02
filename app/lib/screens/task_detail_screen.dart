@@ -63,6 +63,7 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
       if (ref.exists(tasksProvider(updated.status))) {
         ref.read(tasksProvider(updated.status).notifier).upsert(updated);
       }
+      ref.read(lazySyncProvider.notifier).protectLocalWrite();
       ref.read(lazySyncProvider.notifier).schedule();
     } catch (e) {
       if (mounted) {
@@ -85,22 +86,35 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
       return;
     }
     setState(() => _moving = true);
+    final gen = ref.read(pendingTaskWritesProvider).begin(
+          id: widget.task.id,
+          spaceId: ref.read(meProvider).value?.activeSpaceId,
+          task: null,
+        );
+    if (ref.exists(tasksProvider(widget.task.status))) {
+      ref.read(tasksProvider(widget.task.status).notifier).removeById(widget.task.id);
+    }
     try {
       await _saveIfNeeded();
       await ref.read(apiProvider).updateTask(widget.task.id, spaceId: spaceId);
-      // 当前空间列表里先拿掉，背后再对账，别整表 invalidate 卡住返回动画。
-      if (ref.exists(tasksProvider(widget.task.status))) {
-        ref.read(tasksProvider(widget.task.status).notifier).removeById(widget.task.id);
-      }
+      ref.read(lazySyncProvider.notifier).settleWrite(widget.task.id, gen);
       ref.read(lazySyncProvider.notifier).schedule();
       if (mounted) {
         Navigator.of(context).pop();
       }
     } on ApiException catch (e) {
+      ref.read(lazySyncProvider.notifier).settleWrite(widget.task.id, gen);
+      if (ref.exists(tasksProvider(widget.task.status))) {
+        ref.read(tasksProvider(widget.task.status).notifier).upsert(widget.task);
+      }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
       }
     } catch (e) {
+      ref.read(lazySyncProvider.notifier).settleWrite(widget.task.id, gen);
+      if (ref.exists(tasksProvider(widget.task.status))) {
+        ref.read(tasksProvider(widget.task.status).notifier).upsert(widget.task);
+      }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
       }

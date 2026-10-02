@@ -254,7 +254,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       child: RefreshIndicator(
         onRefresh: () => ref.read(lazySyncProvider.notifier).pull(),
         child: ListView(
-          physics: const AlwaysScrollableScrollPhysics(),
+          physics: refreshScrollPhysics,
           padding: const EdgeInsets.fromLTRB(
             AppSpacing.md,
             AppSpacing.sm,
