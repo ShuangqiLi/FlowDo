@@ -55,11 +55,15 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
     }
     _saving = true;
     try {
-      await ref.read(apiProvider).updateTask(
+      final updated = await ref.read(apiProvider).updateTask(
             widget.task.id,
             title: title,
             body: _body.text,
           );
+      if (ref.exists(tasksProvider(updated.status))) {
+        ref.read(tasksProvider(updated.status).notifier).upsert(updated);
+      }
+      ref.read(lazySyncProvider.notifier).schedule();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
@@ -86,6 +90,7 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
       await ref.read(apiProvider).updateTask(widget.task.id, spaceId: spaceId);
       invalidateTaskLists(ref);
       ref.invalidate(briefingProvider);
+      ref.read(lazySyncProvider.notifier).schedule();
       if (mounted) {
         Navigator.of(context).pop();
       }

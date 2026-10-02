@@ -18,100 +18,118 @@ class BriefingScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final briefing = ref.watch(briefingProvider);
+    final calendarEpoch = ref.watch(lazySyncProvider);
     final scheme = Theme.of(context).colorScheme;
 
     return ColoredBox(
       color: Theme.of(context).scaffoldBackgroundColor,
       child: briefing.when(
+        skipLoadingOnReload: true,
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('$e')),
+        error: (e, _) => RefreshIndicator(
+          onRefresh: () => ref.read(lazySyncProvider.notifier).pull(),
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            children: [
+              SizedBox(
+                height: 280,
+                child: Center(child: Text('$e')),
+              ),
+            ],
+          ),
+        ),
         data: (data) {
           final todayKey = _todayKey();
           return ResponsiveContent(
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.md,
-                AppSpacing.xs,
-                AppSpacing.md,
-                AppSpacing.lg,
-              ),
-              children: [
-                Text(
-                  _prettyDate(data.date),
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                      ),
+            child: RefreshIndicator(
+              onRefresh: () => ref.read(lazySyncProvider.notifier).pull(),
+              child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.md,
+                  AppSpacing.xs,
+                  AppSpacing.md,
+                  AppSpacing.lg,
                 ),
-                const SizedBox(height: AppSpacing.lg),
-                const SectionHeader('可以先做这些', caption: '挑一件顺手的，就算开始。'),
-                if (data.suggestedFocus.isEmpty)
-                  const EmptyState(
-                    icon: Icons.lightbulb_rounded,
-                    message: '暂时没什么特别推荐，\n去任务池随便挑一件吧。',
-                  )
-                else
-                  ...data.suggestedFocus.map(
-                    (task) => _taskTile(
-                      context,
-                      task,
-                      PriorityBadge(priority: task.priority),
-                      onTap: () => _openTask(context, ref, task),
-                    ),
-                  ),
-                const SizedBox(height: AppSpacing.lg),
-                const SectionHeader('正在聚焦'),
-                if (data.focusedTasks.isEmpty)
+                children: [
                   Text(
-                    '手头还空着，挑一件放进来吧。',
-                    style: TextStyle(color: scheme.onSurfaceVariant),
-                  )
-                else
-                  ...data.focusedTasks.map(
-                    (task) => _taskTile(
-                      context,
-                      task,
-                      PriorityBadge(priority: task.priority),
-                      onTap: () => _openTask(context, ref, task),
+                    _prettyDate(data.date),
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                  const SectionHeader('可以先做这些', caption: '挑一件顺手的，就算开始。'),
+                  if (data.suggestedFocus.isEmpty)
+                    const EmptyState(
+                      icon: Icons.lightbulb_rounded,
+                      message: '暂时没什么特别推荐，\n去任务池随便挑一件吧。',
+                    )
+                  else
+                    ...data.suggestedFocus.map(
+                      (task) => _taskTile(
+                        context,
+                        task,
+                        PriorityBadge(priority: task.priority),
+                        onTap: () => _openTask(context, ref, task),
+                      ),
+                    ),
+                  const SizedBox(height: AppSpacing.lg),
+                  const SectionHeader('正在聚焦'),
+                  if (data.focusedTasks.isEmpty)
+                    Text(
+                      '手头还空着，挑一件放进来吧。',
+                      style: TextStyle(color: scheme.onSurfaceVariant),
+                    )
+                  else
+                    ...data.focusedTasks.map(
+                      (task) => _taskTile(
+                        context,
+                        task,
+                        PriorityBadge(priority: task.priority),
+                        onTap: () => _openTask(context, ref, task),
+                      ),
+                    ),
+                  const SizedBox(height: AppSpacing.lg),
+                  const SectionHeader('月度回顾', caption: '左右滑可以看别的月份'),
+                  SwipeMonthCalendar(
+                    key: ValueKey('month-$calendarEpoch'),
+                    initial: MonthReview(
+                      year: DateTime.now().year,
+                      month: DateTime.now().month,
+                      completedCount: 0,
+                      activeDays: 0,
+                      days: const [],
+                    ),
+                    todayKey: todayKey,
+                    loadMonth: (year, month) =>
+                        ref.read(apiProvider).monthBriefing(year, month),
+                    onDayTap: (anchor, day) => _openDay(anchor, ref, day),
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                  FlowDoCard(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: AppSpacing.md,
+                      horizontal: AppSpacing.xxs,
+                    ),
+                    child: Row(
+                      children: [
+                        _stat(context, '任务池', data.todoCount),
+                        _stat(context, '聚焦', data.focusCount),
+                        _stat(context, '完成', data.doneCount),
+                      ],
                     ),
                   ),
-                const SizedBox(height: AppSpacing.lg),
-                const SectionHeader('月度回顾', caption: '左右滑可以看别的月份'),
-                SwipeMonthCalendar(
-                  initial: MonthReview(
-                    year: DateTime.now().year,
-                    month: DateTime.now().month,
-                    completedCount: 0,
-                    activeDays: 0,
-                    days: const [],
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    '今天搞定 ${data.completedToday.length} · 昨天搞定 ${data.completedYesterday.length}',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
                   ),
-                  todayKey: todayKey,
-                  loadMonth: (year, month) =>
-                      ref.read(apiProvider).monthBriefing(year, month),
-                  onDayTap: (anchor, day) => _openDay(anchor, ref, day),
-                ),
-                const SizedBox(height: AppSpacing.lg),
-                FlowDoCard(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: AppSpacing.md,
-                    horizontal: AppSpacing.xxs,
-                  ),
-                  child: Row(
-                    children: [
-                      _stat(context, '任务池', data.todoCount),
-                      _stat(context, '聚焦', data.focusCount),
-                      _stat(context, '完成', data.doneCount),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.xs),
-                Text(
-                  '今天搞定 ${data.completedToday.length} · 昨天搞定 ${data.completedYesterday.length}',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                      ),
-                ),
-              ],
+                ],
+              ),
             ),
           );
         },
@@ -142,8 +160,7 @@ class BriefingScreen extends ConsumerWidget {
         builder: (_) => TaskDetailScreen(task: task),
       ),
     );
-    ref.invalidate(briefingProvider);
-    ref.invalidate(tasksProvider(task.status));
+    ref.read(lazySyncProvider.notifier).schedule();
   }
 
   /// 日历高亮用本地今天，避免服务端 UTC 日期对不齐。

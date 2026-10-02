@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -74,8 +76,15 @@ class MeController extends AsyncNotifier<Me> {
     return me;
   }
 
-  Future<void> reload() async {
-    state = await AsyncValue.guard(() => ref.read(apiProvider).getMe());
+  Future<void> reload({bool quiet = false}) async {
+    try {
+      final me = await ref.read(apiProvider).getMe();
+      state = AsyncData(me);
+    } catch (error, stack) {
+      if (!quiet || state.value == null) {
+        state = AsyncError(error, stack);
+      }
+    }
   }
 }
 
@@ -95,10 +104,15 @@ class TasksController extends AsyncNotifier<List<Task>> {
     return ref.read(apiProvider).listTasks(status: status);
   }
 
-  Future<void> reload() async {
-    state = await AsyncValue.guard(
-      () => ref.read(apiProvider).listTasks(status: status),
-    );
+  Future<void> reload({bool quiet = false}) async {
+    try {
+      final tasks = await ref.read(apiProvider).listTasks(status: status);
+      state = AsyncData(tasks);
+    } catch (error, stack) {
+      if (!quiet || state.value == null) {
+        state = AsyncError(error, stack);
+      }
+    }
   }
 
   void removeById(String id) {
@@ -139,22 +153,110 @@ int _byPriorityThenRecent(Task a, Task b) {
   return b.updatedAt.compareTo(a.updatedAt);
 }
 
+const taskListStatuses = ['TODO', 'FOCUS', 'DONE', 'ARCHIVED'];
+
 /// 当前空间的四个任务列表都作废，切空间后重新拉。
 void invalidateTaskLists(WidgetRef ref) {
-  for (final status in const ['TODO', 'FOCUS', 'DONE', 'ARCHIVED']) {
+  for (final status in taskListStatuses) {
     ref.invalidate(tasksProvider(status));
   }
 }
 
-final briefingProvider = FutureProvider<Briefing>((ref) async {
-  ref.watch(authStateProvider);
-  return ref.read(apiProvider).todayBriefing();
-});
+final briefingProvider =
+    AsyncNotifierProvider<BriefingController, Briefing>(BriefingController.new);
 
-final spacesProvider = FutureProvider<List<Space>>((ref) async {
-  ref.watch(authStateProvider);
-  return ref.read(apiProvider).listSpaces();
-});
+class BriefingController extends AsyncNotifier<Briefing> {
+  @override
+  Future<Briefing> build() async {
+    ref.watch(authStateProvider);
+    return ref.read(apiProvider).todayBriefing();
+  }
+
+  Future<void> reload({bool quiet = false}) async {
+    try {
+      final briefing = await ref.read(apiProvider).todayBriefing();
+      state = AsyncData(briefing);
+    } catch (error, stack) {
+      if (!quiet || state.value == null) {
+        state = AsyncError(error, stack);
+      }
+    }
+  }
+}
+
+final spacesProvider =
+    AsyncNotifierProvider<SpacesController, List<Space>>(SpacesController.new);
+
+class SpacesController extends AsyncNotifier<List<Space>> {
+  @override
+  Future<List<Space>> build() async {
+    ref.watch(authStateProvider);
+    return ref.read(apiProvider).listSpaces();
+  }
+
+  Future<void> reload({bool quiet = false}) async {
+    try {
+      final spaces = await ref.read(apiProvider).listSpaces();
+      state = AsyncData(spaces);
+    } catch (error, stack) {
+      if (!quiet || state.value == null) {
+        state = AsyncError(error, stack);
+      }
+    }
+  }
+}
+
+/// 懒同步：本地先改，过一会儿再和服务器对账；下拉刷新走 [pull]。
+/// 状态值是月历缓存世代，下拉后加一，逼月历重拉。
+final lazySyncProvider = NotifierProvider<LazySyncController, int>(
+  LazySyncController.new,
+);
+
+class LazySyncController extends Notifier<int> {
+  Timer? _debounce;
+
+  @override
+  int build() {
+    ref.onDispose(() => _debounce?.cancel());
+    return 0;
+  }
+
+  /// 操作后防抖对账，不打断界面。
+  void schedule([Duration delay = const Duration(milliseconds: 450)]) {
+    _debounce?.cancel();
+    _debounce = Timer(delay, () {
+      unawaited(run(quiet: true, bumpCalendar: false));
+    });
+  }
+
+  /// 任意界面下拉：等全部拉完，并刷新月历缓存。
+  Future<void> pull() => run(quiet: false, bumpCalendar: true);
+
+  Future<void> run({
+    required bool quiet,
+    required bool bumpCalendar,
+  }) async {
+    _debounce?.cancel();
+    final jobs = <Future<void>>[
+      ref.read(meProvider.notifier).reload(quiet: quiet),
+    ];
+    if (ref.exists(briefingProvider)) {
+      jobs.add(ref.read(briefingProvider.notifier).reload(quiet: quiet));
+    }
+    if (ref.exists(spacesProvider)) {
+      jobs.add(ref.read(spacesProvider.notifier).reload(quiet: quiet));
+    }
+    for (final status in taskListStatuses) {
+      if (ref.exists(tasksProvider(status))) {
+        jobs.add(ref.read(tasksProvider(status).notifier).reload(quiet: quiet));
+      }
+    }
+    await Future.wait(jobs);
+    if (bumpCalendar) {
+      state++;
+    }
+  }
+}
 
 /// 新建任务后，任务池列表滚到这一条。
 final pendingScrollTaskIdProvider =

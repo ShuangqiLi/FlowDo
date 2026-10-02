@@ -12,6 +12,7 @@ import 'package:flowdo/providers.dart';
 import 'package:flowdo/screens/home_screen.dart';
 import 'package:flowdo/screens/settings_screen.dart';
 import 'package:flowdo/theme.dart';
+import 'package:flowdo/ui/briefing_clock_button.dart';
 import 'provider_overrides.dart';
 
 class _FakeApi extends ApiClient {
@@ -71,6 +72,7 @@ Future<_FakeApi> _pumpHome(
   WidgetTester tester, {
   bool voiceInputEnabled = true,
 }) async {
+  BriefingClockButton.tick = false;
   SharedPreferences.setMockInitialValues({
     'accessToken': 'token',
     'lastBriefingDate': DateTime.now().toIso8601String().substring(0, 10),
@@ -94,9 +96,8 @@ Future<_FakeApi> _pumpHome(
         prefsProvider.overrideWithValue(prefs),
         apiProvider.overrideWithValue(api),
         meOverride(me),
-        spacesProvider.overrideWith(
-          (_) async => [Space(id: 'space', name: '默认')],
-        ),
+        spacesOverride([Space(id: 'space', name: '默认')]),
+        weatherOverride(),
       ],
       child: MaterialApp(theme: buildAppTheme(), home: const HomeScreen()),
     ),

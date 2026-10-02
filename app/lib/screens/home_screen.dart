@@ -5,6 +5,7 @@ import '../models/user.dart';
 import '../providers.dart';
 import '../theme.dart';
 import '../ui/add_task_fab.dart';
+import '../ui/briefing_clock_button.dart';
 import '../ui/focus_dock.dart';
 import '../ui/space_switcher.dart';
 import '../ui/swipe_away.dart';
@@ -184,11 +185,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               titleSpacing: 16,
               automaticallyImplyLeading: false,
               actions: [
-                IconButton(
-                  tooltip: _showBriefing ? '关掉今日看看' : '今日看看',
-                  icon: Icon(
-                    _showBriefing ? Icons.close : Icons.wb_sunny_outlined,
-                  ),
+                BriefingClockButton(
+                  open: _showBriefing,
                   onPressed: _showBriefing ? _closeBriefing : _openBriefing,
                 ),
               ],

@@ -228,9 +228,9 @@ class _AddTaskFabState extends ConsumerState<AddTaskFab>
             priority: 'MEDIUM',
           );
       ref.read(pendingScrollTaskIdProvider.notifier).request(created.id);
-      ref.invalidate(tasksProvider('TODO'));
-      ref.invalidate(briefingProvider);
+      ref.read(tasksProvider('TODO').notifier).upsert(created);
       ref.read(homeTabProvider.notifier).setTab(HomeTab.todo);
+      ref.read(lazySyncProvider.notifier).schedule();
       _submitting = false;
       await _closeComposer();
     } on ApiException catch (e) {

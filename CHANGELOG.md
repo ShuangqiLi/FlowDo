@@ -14,6 +14,19 @@
 
 ## [Unreleased]
 
+## [0.8.3] - 2026-10-02
+
+### Fixed
+
+- 发版检查不再被测试文件的类型提示卡住。0.8.2 的网页镜像因此失败，没有安装包
+
+### Changed
+
+- 客户端改为懒同步：操作先写本地，稍后再和服务器对账；任务列表、设置、今日看看都可下拉主动刷新
+- 设置里当前空间的外观、聚焦、归档在前，语音和关于在后；修改密码和退出登录同一层，不再单列密码分组
+- 右上角显示当前时间和天气图标，点击打开今日看看
+- 空间胶囊点按时不再出现矩形选中框
+
 ## [0.8.2] - 2026-10-02
 
 ### Fixed
@@ -289,7 +302,8 @@
 - 通过 GitHub Releases 发版（推送 `v*.*.*` 标签）
 - 账号级设置（聚焦上限、归档天数、是否显示归档页）
 
-[Unreleased]: https://github.com/ShuangqiLi/FlowDo/compare/v0.8.2...HEAD
+[Unreleased]: https://github.com/ShuangqiLi/FlowDo/compare/v0.8.3...HEAD
+[0.8.3]: https://github.com/ShuangqiLi/FlowDo/compare/v0.8.2...v0.8.3
 [0.8.2]: https://github.com/ShuangqiLi/FlowDo/compare/v0.8.1...v0.8.2
 [0.8.1]: https://github.com/ShuangqiLi/FlowDo/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/ShuangqiLi/FlowDo/compare/v0.7.3...v0.8.0

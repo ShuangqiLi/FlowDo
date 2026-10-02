@@ -123,9 +123,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     });
 
     final body = ResponsiveContent(
-      child: ListView(
-        padding: const EdgeInsets.all(AppSpacing.md),
-        children: [
+      child: RefreshIndicator(
+        onRefresh: () => ref.read(lazySyncProvider.notifier).pull(),
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(AppSpacing.md),
+          children: [
           const SectionHeader('当前空间外观', caption: '只影响现在这个任务空间'),
           FlowDoCard(
             child: Wrap(
@@ -175,19 +178,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   child: const Text('保存聚焦上限'),
                 ),
               ],
-            ),
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          const SectionHeader('语音输入', caption: '长按加号直接说，松手就记下'),
-          FlowDoCard(
-            child: _VoiceInputSettings(
-              enabled: me.value?.voiceInputEnabled ?? true,
-              onChanged: (v) async {
-                final ok = await _saveMe(voiceInputEnabled: v);
-                if (ok && v && kIsWeb && AddTaskFab.voiceSupported) {
-                  await ref.read(micPermissionProvider.notifier).request();
-                }
-              },
             ),
           ),
           const SizedBox(height: AppSpacing.lg),
@@ -246,9 +236,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 OutlinedButton(
                   onPressed: () async {
                     final result = await ref.read(apiProvider).runArchive();
-                    ref.invalidate(tasksProvider('DONE'));
-                    ref.invalidate(tasksProvider('ARCHIVED'));
-                    ref.invalidate(briefingProvider);
+                    await ref.read(lazySyncProvider.notifier).pull();
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
@@ -265,7 +253,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
           ),
           const SizedBox(height: AppSpacing.lg),
-          const SectionHeader('关于'),
+          const SectionHeader('语音输入', caption: '全局 · 长按加号直接说，松手就记下'),
+          FlowDoCard(
+            child: _VoiceInputSettings(
+              enabled: me.value?.voiceInputEnabled ?? true,
+              onChanged: (v) async {
+                final ok = await _saveMe(voiceInputEnabled: v);
+                if (ok && v && kIsWeb && AddTaskFab.voiceSupported) {
+                  await ref.read(micPermissionProvider.notifier).request();
+                }
+              },
+            ),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          const SectionHeader('关于', caption: '全局'),
           FlowDoCard(
             onTap: () {
               Navigator.of(context).push(
@@ -287,36 +288,24 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
           ),
           const SizedBox(height: AppSpacing.lg),
-          const SectionHeader('密码', caption: '这台 FlowDo 的登录密码'),
-          FlowDoCard(
-            onTap: () {
+          FilledButton.tonal(
+            onPressed: () {
               Navigator.of(context).push(
                 FlowDoPageRoute(
                   builder: (_) => const ChangePasswordScreen(fromSettings: true),
                 ),
               );
             },
-            child: Row(
-              children: [
-                Icon(Icons.lock_outline, color: scheme.primary),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: Text(
-                    '修改密码',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                ),
-                Icon(Icons.chevron_right_rounded, color: scheme.onSurfaceVariant),
-              ],
-            ),
+            child: const Text('修改密码'),
           ),
-          const SizedBox(height: AppSpacing.lg),
+          const SizedBox(height: AppSpacing.sm),
           FilledButton.tonal(
             onPressed: () => ref.read(authStateProvider.notifier).logout(),
             child: const Text('退出登录'),
           ),
           const SizedBox(height: AppSpacing.xl),
         ],
+        ),
       ),
     );
 

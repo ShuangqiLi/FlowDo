@@ -84,14 +84,7 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
   @override
   bool get wantKeepAlive => true;
 
-  Future<void> _refresh() async {
-    ref.invalidate(briefingProvider);
-    try {
-      await ref.read(tasksProvider(widget.status).notifier).reload();
-    } catch (_) {
-      // 列表本身会渲染错误态，这里只要等这一轮刷新结束
-    }
-  }
+  Future<void> _refresh() => ref.read(lazySyncProvider.notifier).pull();
 
   void _dismissTo(Task task, String status) {
     setState(() => _dismissing.add(task.id));
@@ -122,7 +115,7 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
     if (ref.exists(dest) && ref.read(dest).hasValue) {
       ref.read(dest.notifier).upsert(updated);
     }
-    ref.invalidate(briefingProvider);
+    ref.read(lazySyncProvider.notifier).schedule();
   }
 
   Future<void> _setStatus(Task task, String status) async {
@@ -170,7 +163,7 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
     final updated =
         await ref.read(apiProvider).updateTask(id, priority: chosen);
     ref.read(tasksProvider(widget.status).notifier).upsert(updated);
-    ref.invalidate(briefingProvider);
+    ref.read(lazySyncProvider.notifier).schedule();
   }
 
   Future<void> _delete(Task task) async {
@@ -191,7 +184,7 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
     try {
       await ref.read(apiProvider).deleteTask(task.id);
       ref.read(tasksProvider(widget.status).notifier).removeById(task.id);
-      ref.invalidate(briefingProvider);
+      ref.read(lazySyncProvider.notifier).schedule();
     } finally {
       if (mounted) {
         setState(() => _dismissing.remove(task.id));
@@ -210,7 +203,7 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
             builder: (_) => TaskDetailScreen(task: task),
           ),
         );
-        await _refresh();
+        ref.read(lazySyncProvider.notifier).schedule();
       },
       onPickPriority: widget.status == 'ARCHIVED'
           ? null
@@ -228,8 +221,19 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
 
     return ResponsiveContent(
       child: async.when(
+        skipLoadingOnReload: true,
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('$e')),
+        error: (e, _) => RefreshIndicator(
+          onRefresh: _refresh,
+          child: ListView(
+            children: [
+              SizedBox(
+                height: 280,
+                child: Center(child: Text('$e')),
+              ),
+            ],
+          ),
+        ),
         data: (all) {
           final tasks = _dismissing.isEmpty
               ? all

@@ -12,6 +12,7 @@ import 'package:flowdo/providers.dart';
 import 'package:flowdo/screens/briefing_screen.dart';
 import 'package:flowdo/screens/home_screen.dart';
 import 'package:flowdo/theme.dart';
+import 'package:flowdo/ui/briefing_clock_button.dart';
 import 'provider_overrides.dart';
 
 Briefing _briefing() {
@@ -40,6 +41,7 @@ Briefing _briefing() {
 }
 
 Future<void> _pumpHome(WidgetTester tester) async {
+  BriefingClockButton.tick = false;
   SharedPreferences.setMockInitialValues({
     'accessToken': 'token',
     'lastBriefingDate': DateTime.now().toIso8601String().substring(0, 10),
@@ -60,11 +62,10 @@ Future<void> _pumpHome(WidgetTester tester) async {
       overrides: [
         prefsProvider.overrideWithValue(prefs),
         meOverride(me),
-        spacesProvider.overrideWith(
-          (_) async => [Space(id: 'space', name: '默认')],
-        ),
-        briefingProvider.overrideWith((_) async => _briefing()),
+        spacesOverride([Space(id: 'space', name: '默认')]),
+        briefingOverride(_briefing()),
         emptyTasksOverride(),
+        weatherOverride(),
       ],
       child: MaterialApp(theme: buildAppTheme(), home: const HomeScreen()),
     ),
@@ -72,18 +73,17 @@ Future<void> _pumpHome(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
-Finder _toggle() => find.descendant(
-      of: find.byType(AppBar),
-      matching: find.byWidgetPredicate(
-        (widget) =>
-            widget is Icon &&
-            (widget.icon == Icons.wb_sunny_outlined || widget.icon == Icons.close),
-      ),
-    );
+Finder _toggle() {
+  final open = find.byTooltip('今日看看');
+  if (open.evaluate().isNotEmpty) {
+    return open;
+  }
+  return find.byTooltip('关掉今日看看');
+}
 
 bool _panelVisible() => find.text('可以先做这些').evaluate().isNotEmpty;
 
-bool _toggleSaysOpen() => find.byIcon(Icons.close).evaluate().isNotEmpty;
+bool _toggleSaysOpen() => find.byTooltip('关掉今日看看').evaluate().isNotEmpty;
 
 Future<void> _openBriefing(WidgetTester tester) async {
   if (!_panelVisible()) {

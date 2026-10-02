@@ -26,10 +26,26 @@ class SpaceSwitcher extends ConsumerWidget {
       orElse: () => '任务空间',
     );
 
-    return PopupMenuButton<String>(
-      tooltip: '切换任务空间',
-      onSelected: (value) => _onSelected(context, ref, value, spaces.value ?? const []),
-      itemBuilder: (context) {
+    return Theme(
+      data: Theme.of(context).copyWith(
+        splashFactory: NoSplash.splashFactory,
+        highlightColor: Colors.transparent,
+        splashColor: Colors.transparent,
+        hoverColor: Colors.transparent,
+        focusColor: Colors.transparent,
+      ),
+      child: PopupMenuButton<String>(
+        tooltip: '切换任务空间',
+        style: const ButtonStyle(
+          overlayColor: WidgetStatePropertyAll(Colors.transparent),
+          splashFactory: NoSplash.splashFactory,
+          visualDensity: VisualDensity.compact,
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        ),
+        padding: EdgeInsets.zero,
+        onSelected: (value) =>
+            _onSelected(context, ref, value, spaces.value ?? const []),
+        itemBuilder: (context) {
         final list = spaces.value ?? const <Space>[];
         final scheme = Theme.of(context).colorScheme;
         return [
@@ -101,6 +117,7 @@ class SpaceSwitcher extends ConsumerWidget {
               color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.85),
             ),
           ),
+          clipBehavior: Clip.antiAlias,
           child: Padding(
             padding: const EdgeInsets.fromLTRB(12, 8, 10, 8),
             child: Row(
@@ -132,6 +149,7 @@ class SpaceSwitcher extends ConsumerWidget {
             ),
           ),
         ),
+      ),
       ),
     );
   }
