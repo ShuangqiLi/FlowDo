@@ -14,6 +14,12 @@
 
 ## [Unreleased]
 
+## [0.8.4] - 2026-10-02
+
+### Fixed
+
+- 离开登录或改密页后拆掉网页上的密码框，改任务状态时密码插件不再误提示更新密码
+
 ## [0.8.3] - 2026-10-02
 
 ### Fixed
@@ -302,7 +308,8 @@
 - 通过 GitHub Releases 发版（推送 `v*.*.*` 标签）
 - 账号级设置（聚焦上限、归档天数、是否显示归档页）
 
-[Unreleased]: https://github.com/ShuangqiLi/FlowDo/compare/v0.8.3...HEAD
+[Unreleased]: https://github.com/ShuangqiLi/FlowDo/compare/v0.8.4...HEAD
+[0.8.4]: https://github.com/ShuangqiLi/FlowDo/compare/v0.8.3...v0.8.4
 [0.8.3]: https://github.com/ShuangqiLi/FlowDo/compare/v0.8.2...v0.8.3
 [0.8.2]: https://github.com/ShuangqiLi/FlowDo/compare/v0.8.1...v0.8.2
 [0.8.1]: https://github.com/ShuangqiLi/FlowDo/compare/v0.8.0...v0.8.1

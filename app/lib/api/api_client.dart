@@ -8,6 +8,7 @@ import '../models/briefing.dart';
 import '../models/space.dart';
 import '../models/task.dart';
 import '../models/user.dart';
+import '../ui/password_field.dart';
 
 class ApiException implements Exception {
   ApiException(this.message, [this.statusCode]);
@@ -64,6 +65,13 @@ class ApiClient {
     bool auth = true,
     bool retried = false,
   }) async {
+    // 登录/改密要留着密码框，插件才能记住。其它写请求先拆掉残留的密码框，
+    // 否则插件会把改任务状态当成更新密码。
+    if (method != 'GET' &&
+        path != '/auth/login' &&
+        path != '/auth/change-password') {
+      retireStrayPasswordFields();
+    }
     final uri = _uri(path, query);
     final encoded = body == null ? null : jsonEncode(body);
     late http.Response res;

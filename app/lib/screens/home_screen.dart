@@ -6,6 +6,7 @@ import '../providers.dart';
 import '../theme.dart';
 import '../ui/add_task_fab.dart';
 import '../ui/briefing_clock_button.dart';
+import '../ui/password_field.dart';
 import '../ui/focus_dock.dart';
 import '../ui/space_switcher.dart';
 import '../ui/swipe_away.dart';
@@ -39,10 +40,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     _pages = PageController(
       initialPage: _loopBase + (index < 0 ? 0 : index),
     );
+    retireStrayPasswordFields();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) {
         return;
       }
+      retireStrayPasswordFields();
       _maybeOpenBriefing();
       _maybeAskMic(ref.read(meProvider).value);
     });

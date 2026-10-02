@@ -4,6 +4,51 @@ import 'dart:ui_web' as ui_web;
 import 'package:flutter/material.dart';
 import 'package:web/web.dart' as web;
 
+/// 还挂在页面上的密码表单。离开登录/改密页后必须拆掉，
+/// 否则密码插件会把后面的任务请求当成「更新密码」。
+final List<web.HTMLFormElement> _passwordForms = <web.HTMLFormElement>[];
+
+/// 拆掉已经不该继续留在页面上的密码框。
+///
+/// 登录和改密页上的表单标着 `data-flowdo-mounted=1`，不会动。
+void retireStrayPasswordFields() {
+  for (final form in List<web.HTMLFormElement>.of(_passwordForms)) {
+    if (form.getAttribute('data-flowdo-mounted') == '1') {
+      continue;
+    }
+    _neuterPasswordForm(form);
+    _passwordForms.remove(form);
+  }
+  final nodes = web.document.querySelectorAll('[data-flowdo-pw]');
+  for (var i = 0; i < nodes.length; i++) {
+    final node = nodes.item(i);
+    if (node == null || !node.isA<web.HTMLElement>()) {
+      continue;
+    }
+    final el = node as web.HTMLElement;
+    if (el.getAttribute('data-flowdo-mounted') == '1') {
+      continue;
+    }
+    _neuterPasswordForm(el);
+  }
+}
+
+void _neuterPasswordForm(web.HTMLElement form) {
+  final inputs = form.querySelectorAll('input');
+  for (var i = 0; i < inputs.length; i++) {
+    final node = inputs.item(i);
+    if (node == null || !node.isA<web.HTMLInputElement>()) {
+      continue;
+    }
+    final input = node as web.HTMLInputElement;
+    input.setAttribute('data-retired', '1');
+    input.removeAttribute('name');
+    input.autocomplete = 'off';
+    input.type = 'text';
+  }
+  form.remove();
+}
+
 /// 网页上的密码框。
 ///
 /// Flutter 把界面画在画布上，密码插件只能看见真正的 `<input type="password">`。
@@ -33,9 +78,11 @@ class PasswordField extends StatefulWidget {
 
 class _PasswordFieldState extends State<PasswordField> {
   late final String _viewType = 'flowdo-pw-${identityHashCode(this)}';
+  web.HTMLFormElement? _form;
   web.HTMLInputElement? _input;
   web.HTMLStyleElement? _styleEl;
   var _registered = false;
+  var _disposed = false;
   var _syncing = false;
 
   Color _fill = const Color(0xFFFFFFFF);
@@ -62,15 +109,34 @@ class _PasswordFieldState extends State<PasswordField> {
 
   @override
   void dispose() {
+    _disposed = true;
     widget.controller.removeListener(_pushToDom);
+    _retire();
     super.dispose();
+  }
+
+  /// 页面还在时插件需要这个表单；离开后立刻拆掉。
+  /// Flutter 的 platform view 有时会在组件销毁之后才把表单插进文档，
+  /// 所以这里先作废，插进来的也只是普通输入框。
+  void _retire() {
+    final form = _form;
+    _form = null;
+    _input = null;
+    if (form == null) {
+      return;
+    }
+    form.setAttribute('data-flowdo-mounted', '0');
+    _neuterPasswordForm(form);
+    _passwordForms.remove(form);
   }
 
   void _pushToDom() {
     final input = _input;
     if (input == null || _syncing) return;
     if (input.value != widget.controller.text) {
+      input.setAttribute('data-silent', '1');
       input.value = widget.controller.text;
+      input.removeAttribute('data-silent');
     }
   }
 
@@ -91,6 +157,9 @@ class _PasswordFieldState extends State<PasswordField> {
     if (_registered) return;
     _registered = true;
     ui_web.platformViewRegistry.registerViewFactory(_viewType, (int _) {
+      if (_disposed || !mounted) {
+        return web.HTMLDivElement();
+      }
       return _createForm();
     });
   }
@@ -103,7 +172,11 @@ class _PasswordFieldState extends State<PasswordField> {
 
   web.HTMLFormElement _createForm() {
     final form = web.HTMLFormElement();
+    form.setAttribute('data-flowdo-pw', '1');
+    form.setAttribute('data-flowdo-mounted', '1');
     form.setAttribute('autocomplete', 'on');
+    _form = form;
+    _passwordForms.add(form);
     form.style
       ..margin = '0'
       ..height = '100%'
@@ -188,6 +261,8 @@ class _PasswordFieldState extends State<PasswordField> {
     set(v) {
       if (desc.get.call(this) === v) return;
       desc.set.call(this, v);
+      if (input.getAttribute('data-silent') === '1') return;
+      if (input.getAttribute('data-retired') === '1') return;
       input.dispatchEvent(new Event('input', { bubbles: true }));
     }
   });

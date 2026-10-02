@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../theme.dart';
 
+/// 网页端才会留下真正的密码框。这里没有需要拆的东西。
+void retireStrayPasswordFields() {}
+
 /// 测试和非网页端用的密码框。网页端会换成真正的 HTML 输入框。
 class PasswordField extends StatelessWidget {
   const PasswordField({
