@@ -56,8 +56,8 @@ export class TasksService {
   }
 
   async update(id: string, dto: UpdateTaskDto) {
-    const spaceId = await this.instance.spaceId();
-    const task = await this.prisma.task.findFirst({ where: { id, spaceId } });
+    // 换空间时任务可能已不在当前空间，所以按 id 查。
+    const task = await this.prisma.task.findFirst({ where: { id } });
     if (!task) {
       throw new NotFoundException('这条任务找不到了');
     }
@@ -75,15 +75,40 @@ export class TasksService {
     if (dto.priority !== undefined) {
       data.priority = dto.priority;
     }
+
+    let nextSpaceId = task.spaceId;
+    if (dto.spaceId !== undefined && dto.spaceId !== task.spaceId) {
+      const target = await this.prisma.space.findUnique({
+        where: { id: dto.spaceId },
+      });
+      if (!target) {
+        throw new BadRequestException('这个任务空间找不到了');
+      }
+      if (task.status === TaskStatus.FOCUS) {
+        const focused = await this.prisma.task.count({
+          where: { spaceId: target.id, status: TaskStatus.FOCUS },
+        });
+        if (focused >= target.focusLimit) {
+          throw new BadRequestException(
+            `那边聚焦已经满了（${target.focusLimit} 件），先腾出位子再搬过去。`,
+          );
+        }
+      }
+      data.space = { connect: { id: target.id } };
+      nextSpaceId = target.id;
+    }
+
     if (dto.status !== undefined && dto.status !== task.status) {
       if (!canTransition(task.status, dto.status)) {
         throw new BadRequestException('这条任务现在不能改成那个状态');
       }
       if (dto.status === TaskStatus.FOCUS) {
-        const settings = await this.instance.get();
-        const limit = settings.focusLimit ?? 3;
+        const space = await this.prisma.space.findUnique({
+          where: { id: nextSpaceId },
+        });
+        const limit = space?.focusLimit ?? 3;
         const focused = await this.prisma.task.count({
-          where: { spaceId, status: TaskStatus.FOCUS },
+          where: { spaceId: nextSpaceId, status: TaskStatus.FOCUS },
         });
         if (focused >= limit) {
           throw new BadRequestException(

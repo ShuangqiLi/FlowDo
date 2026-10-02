@@ -5,11 +5,9 @@ import '../models/user.dart';
 import '../providers.dart';
 import '../theme.dart';
 import '../ui/add_task_fab.dart';
-import '../ui/flowdo_page_route.dart';
 import '../ui/focus_dock.dart';
 import '../ui/space_switcher.dart';
 import '../ui/swipe_away.dart';
-import 'archive_screen.dart';
 import 'briefing_screen.dart';
 import 'settings_screen.dart';
 import 'task_list_screen.dart';
@@ -25,12 +23,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   bool _showBriefing = false;
   bool _autoOpenedBriefing = false;
   late final PageController _pages;
+  /// 无限翻页的中间基数，逻辑页 = (page - base) % tabCount。
+  static const int _loopBase = 10000;
+  List<HomeTab> _tabs = homeTabsFor(showArchive: true);
+  var _syncingPage = false;
 
   @override
   void initState() {
     super.initState();
-    final initial = ref.read(homeTabProvider).clamp(0, 2);
-    _pages = PageController(initialPage: initial);
+    final showArchive = ref.read(meProvider).value?.showArchiveTab ?? true;
+    _tabs = homeTabsFor(showArchive: showArchive);
+    final initial = ref.read(homeTabProvider);
+    final index = _tabs.indexOf(initial);
+    _pages = PageController(
+      initialPage: _loopBase + (index < 0 ? 0 : index),
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) {
         return;
@@ -60,7 +67,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     _openBriefing();
   }
 
-  /// 设置里开着语音输入，就在进首页时把麦克风权限申请好；长按加号时不用再分神点允许。
   void _maybeAskMic(Me? me) {
     if (me == null || !me.voiceInputEnabled || !AddTaskFab.voiceSupported) {
       return;
@@ -85,56 +91,79 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     await prefs.setString('lastBriefingDate', today);
   }
 
-  void _goTab(int index) {
-    final next = index.clamp(0, 2);
-    if (ref.read(homeTabProvider) == next) {
-      return;
+  int _logicalIndex(int page) {
+    final n = _tabs.length;
+    if (n == 0) {
+      return 0;
     }
-    // 只改 provider；PageView 由 listen 跟过去，避免连点两次 animate。
-    ref.read(homeTabProvider.notifier).setIndex(next);
+    return ((page - _loopBase) % n + n) % n;
   }
 
-  Future<void> _openSettings() async {
-    await _closeBriefing();
-    if (!mounted) {
+  void _goTab(HomeTab tab) {
+    if (!_tabs.contains(tab)) {
+      tab = HomeTab.todo;
+    }
+    if (ref.read(homeTabProvider) == tab) {
       return;
     }
-    await Navigator.of(context).push(
-      FlowDoPageRoute(
-        swipeFromLeftEdgeOnly: false,
-        builder: (_) => const SettingsScreen(),
-      ),
-    );
+    ref.read(homeTabProvider.notifier).setTab(tab);
   }
 
-  Future<void> _openArchive() async {
-    await _closeBriefing();
-    if (!mounted) {
+  void _jumpToTab(HomeTab tab) {
+    if (!_pages.hasClients) {
       return;
     }
-    await Navigator.of(context).push(
-      FlowDoPageRoute(
-        swipeFromLeftEdgeOnly: false,
-        builder: (_) => const ArchiveScreen(),
-      ),
-    );
+    final index = _tabs.indexOf(tab);
+    if (index < 0) {
+      return;
+    }
+    final current = _pages.page?.round() ?? _loopBase;
+    final logical = _logicalIndex(current);
+    if (logical == index) {
+      return;
+    }
+    _syncingPage = true;
+    _pages.jumpToPage(current - logical + index);
+    _syncingPage = false;
+  }
+
+  Widget _pageFor(HomeTab tab) {
+    return switch (tab) {
+      HomeTab.todo => const TaskListScreen(status: 'TODO'),
+      HomeTab.focus => const TaskListScreen(status: 'FOCUS'),
+      HomeTab.done => const TaskListScreen(status: 'DONE'),
+      HomeTab.archive => const TaskListScreen(status: 'ARCHIVED'),
+      HomeTab.settings => const SettingsScreen(embedded: true),
+    };
   }
 
   @override
   Widget build(BuildContext context) {
-    final index = ref.watch(homeTabProvider).clamp(0, 2);
     final showArchive = ref.watch(meProvider).value?.showArchiveTab ?? true;
-    // 外部改 tab（加号建完、聚焦满了）时跟上 PageView。
-    ref.listen<int>(homeTabProvider, (prev, next) {
-      final page = next.clamp(0, 2);
-      if (!_pages.hasClients) {
+    final tabs = homeTabsFor(showArchive: showArchive);
+    final selected = ref.watch(homeTabProvider);
+    final effectiveSelected =
+        tabs.contains(selected) ? selected : HomeTab.todo;
+
+    if (tabs.length != _tabs.length ||
+        !_listEquals(tabs, _tabs)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) {
+          return;
+        }
+        setState(() => _tabs = tabs);
+        if (!tabs.contains(ref.read(homeTabProvider))) {
+          ref.read(homeTabProvider.notifier).setTab(HomeTab.todo);
+        }
+        _jumpToTab(ref.read(homeTabProvider));
+      });
+    }
+
+    ref.listen<HomeTab>(homeTabProvider, (prev, next) {
+      if (!_tabs.contains(next)) {
         return;
       }
-      final current = _pages.page?.round() ?? index;
-      if (current == page) {
-        return;
-      }
-      _pages.jumpToPage(page);
+      _jumpToTab(next);
     });
     ref.listen<AsyncValue<Me>>(meProvider, (prev, next) {
       _maybeAskMic(next.value);
@@ -151,24 +180,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         children: [
           Scaffold(
             appBar: AppBar(
-              title: _showBriefing ? const Text('今日看看') : const SpaceSwitcher(),
+              title: _showBriefing
+                  ? const Text('今日看看')
+                  : effectiveSelected == HomeTab.settings
+                      ? const Text('设置')
+                      : effectiveSelected == HomeTab.archive
+                          ? const Text('归档')
+                          : const SpaceSwitcher(),
               titleSpacing: 16,
               automaticallyImplyLeading: false,
               actions: [
-                if (!_showBriefing && showArchive)
-                  IconButton(
-                    key: const ValueKey('open-archive'),
-                    tooltip: '归档',
-                    icon: const Icon(Icons.archive_rounded),
-                    onPressed: _openArchive,
-                  ),
-                if (!_showBriefing)
-                  IconButton(
-                    key: const ValueKey('open-settings'),
-                    tooltip: '设置',
-                    icon: const Icon(Icons.settings_rounded),
-                    onPressed: _openSettings,
-                  ),
                 IconButton(
                   tooltip: _showBriefing ? '关掉今日看看' : '今日看看',
                   icon: Icon(
@@ -180,20 +201,29 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
             body: Stack(
               children: [
-                PageView(
-                  controller: _pages,
-                  allowImplicitScrolling: false,
-                  onPageChanged: (i) {
-                    ref.read(homeTabProvider.notifier).setIndex(i);
-                    if (_showBriefing) {
-                      _closeBriefing();
-                    }
-                  },
-                  children: const [
-                    TaskListScreen(status: 'TODO'),
-                    TaskListScreen(status: 'FOCUS'),
-                    TaskListScreen(status: 'DONE'),
-                  ],
+                ScrollConfiguration(
+                  behavior: const HomePageScrollBehavior(),
+                  child: PageView.builder(
+                    controller: _pages,
+                    allowImplicitScrolling: false,
+                    onPageChanged: (page) {
+                      if (_syncingPage) {
+                        return;
+                      }
+                      final tab = _tabs[_logicalIndex(page)];
+                      ref.read(homeTabProvider.notifier).setTab(tab);
+                      if (_showBriefing) {
+                        _closeBriefing();
+                      }
+                    },
+                    itemBuilder: (context, page) {
+                      final tab = _tabs[_logicalIndex(page)];
+                      return KeyedSubtree(
+                        key: ValueKey('page-$tab'),
+                        child: _pageFor(tab),
+                      );
+                    },
+                  ),
                 ),
                 AnimatedSwitcher(
                   duration: AppMotion.standard,
@@ -224,9 +254,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
             bottomNavigationBar: RepaintBoundary(
               child: FocusDock(
-                selectedIndex: index,
-                onSelected: (i) {
-                  _goTab(i);
+                tabs: tabs,
+                selected: effectiveSelected,
+                onSelected: (tab) {
+                  _goTab(tab);
                   if (_showBriefing) {
                     _closeBriefing();
                   }
@@ -234,9 +265,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
             ),
           ),
-          AddTaskFab(visible: !_showBriefing),
+          AddTaskFab(
+            visible: !_showBriefing &&
+                effectiveSelected != HomeTab.settings &&
+                effectiveSelected != HomeTab.archive,
+          ),
         ],
       ),
     );
   }
+}
+
+bool _listEquals(List<HomeTab> a, List<HomeTab> b) {
+  if (a.length != b.length) {
+    return false;
+  }
+  for (var i = 0; i < a.length; i++) {
+    if (a[i] != b[i]) {
+      return false;
+    }
+  }
+  return true;
 }

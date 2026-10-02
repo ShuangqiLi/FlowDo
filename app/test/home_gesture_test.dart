@@ -10,6 +10,7 @@ import 'package:flowdo/models/space.dart';
 import 'package:flowdo/models/user.dart';
 import 'package:flowdo/providers.dart';
 import 'package:flowdo/screens/home_screen.dart';
+import 'package:flowdo/screens/settings_screen.dart';
 import 'package:flowdo/theme.dart';
 
 class _FakeApi extends ApiClient {
@@ -185,14 +186,14 @@ void main() {
     }
   });
 
-  testWidgets('dock is a floating capsule, evenly split, focus in the middle',
+  testWidgets('dock is a floating capsule with equal tabs, focus among the first three',
       (tester) async {
     await _pumpHome(tester);
     final bodyBottom = tester.getRect(find.byType(PageView)).bottom;
     final screen = tester.getSize(find.byType(MaterialApp));
 
     final rects = {
-      for (final label in ['任务池', '聚焦', '完成'])
+      for (final label in ['任务池', '聚焦', '完成', '归档', '设置'])
         label: tester.getRect(find.byTooltip(label)),
     };
     for (final entry in rects.entries) {
@@ -202,10 +203,10 @@ void main() {
       expect(entry.value.width, greaterThanOrEqualTo(48), reason: entry.key);
     }
 
-    // 三等分：三个页签一样宽，聚焦正好在屏幕中线上。
     expect(rects['任务池']!.width, moreOrLessEquals(rects['聚焦']!.width, epsilon: 1));
     expect(rects['完成']!.width, moreOrLessEquals(rects['聚焦']!.width, epsilon: 1));
-    expect(rects['聚焦']!.center.dx, moreOrLessEquals(screen.width / 2, epsilon: 1));
+    expect(rects['归档']!.width, moreOrLessEquals(rects['聚焦']!.width, epsilon: 1));
+    expect(rects['设置']!.width, moreOrLessEquals(rects['聚焦']!.width, epsilon: 1));
     expect(rects['任务池']!.right, lessThanOrEqualTo(rects['聚焦']!.left + 1));
     expect(rects['聚焦']!.right, lessThanOrEqualTo(rects['完成']!.left + 1));
 
@@ -236,56 +237,43 @@ void main() {
     expect(selected.overlaps(poolLabel), isTrue);
   });
 
-  testWidgets('settings and archive open from top-left app bar', (tester) async {
+  testWidgets('archive and settings open from the bottom dock', (tester) async {
     await _pumpHome(tester);
-    expect(find.text('聚焦'), findsOneWidget);
-    expect(find.text('任务池'), findsWidgets);
-    expect(find.text('完成'), findsOneWidget);
-    expect(find.byKey(const ValueKey('open-settings')), findsOneWidget);
-    expect(find.byKey(const ValueKey('open-archive')), findsOneWidget);
-    expect(
-      find.descendant(of: find.byType(AppBar), matching: find.text('任务池')),
-      findsNothing,
-    );
+    expect(find.byTooltip('归档'), findsOneWidget);
+    expect(find.byTooltip('设置'), findsOneWidget);
 
-    await tester.tap(find.byKey(const ValueKey('open-archive')));
+    await tester.tap(find.byTooltip('归档'));
     await tester.pumpAndSettle();
     expect(
       find.descendant(of: find.byType(AppBar), matching: find.text('归档')),
       findsOneWidget,
     );
     expect(find.textContaining('归档柜空着'), findsOneWidget);
-    final archiveSwipe = await tester.startGesture(
-      tester.getCenter(find.textContaining('归档柜空着')),
-    );
-    for (var i = 0; i < 20; i++) {
-      await archiveSwipe.moveBy(const Offset(40, 0));
-      await tester.pump();
-    }
-    await archiveSwipe.up();
-    await tester.pumpAndSettle();
-    expect(
-      find.descendant(of: find.byType(AppBar), matching: find.text('归档')),
-      findsNothing,
-    );
 
-    await tester.tap(find.byKey(const ValueKey('open-settings')));
+    await tester.tap(find.byTooltip('设置'));
     await tester.pumpAndSettle();
     expect(
       find.descendant(of: find.byType(AppBar), matching: find.text('设置')),
       findsOneWidget,
     );
-    expect(find.text('密码'), findsOneWidget);
+    final settingsScrollable = find.descendant(
+      of: find.byType(SettingsScreen),
+      matching: find.byType(Scrollable),
+    );
+    await tester.scrollUntilVisible(
+      find.text('修改密码'),
+      200,
+      scrollable: settingsScrollable.first,
+    );
+    expect(find.text('修改密码'), findsOneWidget);
     expect(find.text('打开归档柜'), findsNothing);
 
-    final gesture = await tester.startGesture(tester.getCenter(find.text('密码')));
-    for (var i = 0; i < 20; i++) {
-      await gesture.moveBy(const Offset(40, 0));
-      await tester.pump();
-    }
-    await gesture.up();
+    await tester.tap(find.byTooltip('任务池'));
     await tester.pumpAndSettle();
-    expect(find.text('密码'), findsNothing);
-    expect(find.byKey(const ValueKey('open-settings')), findsOneWidget);
+    expect(
+      find.descendant(of: find.byType(AppBar), matching: find.text('设置')),
+      findsNothing,
+    );
+    expect(find.byTooltip('设置'), findsOneWidget);
   });
 }

@@ -96,8 +96,6 @@ class MonthReviewCalendar extends StatelessWidget {
     return Builder(
       builder: (cellContext) => _DayCell(
         dayNumber: '$day',
-        lunarLabel: review.lunarLabel,
-        hasReminder: review.reminders.isNotEmpty,
         count: review.count,
         maxCount: maxCount,
         isToday: key == todayKey,
@@ -145,14 +143,10 @@ class _DayCell extends StatelessWidget {
     required this.maxCount,
     required this.isToday,
     required this.scheme,
-    this.lunarLabel,
-    this.hasReminder = false,
     this.onTap,
   });
 
   final String dayNumber;
-  final String? lunarLabel;
-  final bool hasReminder;
   final int count;
   final int maxCount;
   final bool isToday;
@@ -193,40 +187,13 @@ class _DayCell extends StatelessWidget {
                     ? Border.all(color: scheme.primary, width: 1.6)
                     : null,
               ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    dayNumber,
-                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                          color: onFill,
-                          fontWeight:
-                              isToday ? FontWeight.w700 : FontWeight.w500,
-                          height: 1.05,
-                        ),
-                  ),
-                  if (lunarLabel != null)
-                    Text(
-                      lunarLabel!,
-                      maxLines: 1,
-                      overflow: TextOverflow.clip,
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: onFill.withValues(alpha: 0.85),
-                            fontSize: 9,
-                            height: 1.05,
-                          ),
+              child: Text(
+                dayNumber,
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: onFill,
+                      fontWeight: isToday ? FontWeight.w700 : FontWeight.w500,
+                      height: 1.05,
                     ),
-                  if (hasReminder)
-                    Container(
-                      width: 4,
-                      height: 4,
-                      margin: const EdgeInsets.only(top: 1),
-                      decoration: BoxDecoration(
-                        color: scheme.tertiary,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                ],
               ),
             ),
           ),
@@ -308,7 +275,6 @@ Future<void> showReviewDayPopover(
   BuildContext anchorContext, {
   required ReviewDay day,
   required ValueChanged<Task> onOpenTask,
-  VoidCallback? onAddReminder,
 }) async {
   final anchor = anchorContext.findRenderObject() as RenderBox?;
   final overlay =
@@ -327,7 +293,7 @@ Future<void> showReviewDayPopover(
   final title = prettyReviewDayTitle(day.date);
   final tasks = day.tasks;
 
-  final selected = await showMenu<Object?>(
+  final selected = await showMenu<Task>(
     context: anchorContext,
     position: RelativeRect.fromLTRB(
       topLeft.dx.clamp(8.0, overlay.size.width - 240),
@@ -349,7 +315,7 @@ Future<void> showReviewDayPopover(
       curve: AppMotion.curve,
     ),
     items: [
-      PopupMenuItem<Object?>(
+      PopupMenuItem<Task>(
         enabled: false,
         height: 56,
         padding: const EdgeInsets.fromLTRB(
@@ -364,10 +330,7 @@ Future<void> showReviewDayPopover(
             Text(title, style: theme.textTheme.titleSmall),
             const SizedBox(height: 2),
             Text(
-              [
-                if (tasks.isEmpty) '这一天还没有搞定的事' else '搞定了 ${tasks.length} 件',
-                if (day.reminders.isNotEmpty) '提醒 ${day.reminders.length} 条',
-              ].join(' · '),
+              tasks.isEmpty ? '这一天还没有搞定的事' : '搞定了 ${tasks.length} 件',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: scheme.onSurfaceVariant,
               ),
@@ -376,7 +339,7 @@ Future<void> showReviewDayPopover(
         ),
       ),
       if (tasks.isEmpty)
-        PopupMenuItem<Object?>(
+        PopupMenuItem<Task>(
           enabled: false,
           height: 44,
           child: Text(
@@ -388,7 +351,7 @@ Future<void> showReviewDayPopover(
         )
       else
         for (final task in tasks.take(8))
-          PopupMenuItem<Object?>(
+          PopupMenuItem<Task>(
             value: task,
             height: 48,
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
@@ -416,7 +379,7 @@ Future<void> showReviewDayPopover(
             ),
           ),
       if (tasks.length > 8)
-        PopupMenuItem<Object?>(
+        PopupMenuItem<Task>(
           enabled: false,
           height: 36,
           child: Text(
@@ -426,29 +389,11 @@ Future<void> showReviewDayPopover(
             ),
           ),
         ),
-      for (final reminder in day.reminders.take(6))
-        PopupMenuItem<Object?>(
-          enabled: false,
-          height: 44,
-          child: Text(
-            reminder.kind == 'ANNIVERSARY' ? '纪念日 · ${reminder.title}' : reminder.title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-      if (onAddReminder != null)
-        PopupMenuItem<Object?>(
-          value: 'add-reminder',
-          height: 44,
-          child: const Text('加一条提醒'),
-        ),
     ],
   );
 
-  if (selected is Task) {
+  if (selected != null) {
     onOpenTask(selected);
-  } else if (selected == 'add-reminder') {
-    onAddReminder?.call();
   }
 }
 

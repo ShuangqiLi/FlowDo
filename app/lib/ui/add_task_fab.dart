@@ -230,7 +230,7 @@ class _AddTaskFabState extends ConsumerState<AddTaskFab>
       ref.read(pendingScrollTaskIdProvider.notifier).request(created.id);
       ref.invalidate(tasksProvider('TODO'));
       ref.invalidate(briefingProvider);
-      ref.read(homeTabProvider.notifier).setIndex(0);
+      ref.read(homeTabProvider.notifier).setTab(HomeTab.todo);
       _submitting = false;
       await _closeComposer();
     } on ApiException catch (e) {

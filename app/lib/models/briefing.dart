@@ -1,4 +1,3 @@
-import 'reminder.dart';
 import 'task.dart';
 
 class ReviewDay {
@@ -6,28 +5,19 @@ class ReviewDay {
     required this.date,
     required this.count,
     this.tasks = const [],
-    this.lunarLabel,
-    this.reminders = const [],
   });
 
   final String date;
   final int count;
   final List<Task> tasks;
-  final String? lunarLabel;
-  final List<DayReminder> reminders;
 
   factory ReviewDay.fromJson(Map<String, dynamic> json) {
     final rawTasks = json['tasks'] as List<dynamic>? ?? const [];
-    final rawReminders = json['reminders'] as List<dynamic>? ?? const [];
     return ReviewDay(
       date: json['date'] as String,
       count: (json['count'] as num?)?.toInt() ?? 0,
       tasks: rawTasks
           .map((e) => Task.fromJson(e as Map<String, dynamic>))
-          .toList(),
-      lunarLabel: json['lunarLabel'] as String?,
-      reminders: rawReminders
-          .map((e) => DayReminder.fromJson(e as Map<String, dynamic>))
           .toList(),
     );
   }
@@ -83,7 +73,6 @@ class Briefing {
     required this.completedToday,
     required this.completedYesterday,
     required this.pendingArchive,
-    this.todayReminders = const [],
     MonthReview? monthReview,
   })  : monthReview = monthReview ??
             MonthReview(
@@ -104,7 +93,6 @@ class Briefing {
   final List<Task> completedToday;
   final List<Task> completedYesterday;
   final int pendingArchive;
-  final List<Reminder> todayReminders;
   final MonthReview monthReview;
 
   factory Briefing.fromJson(Map<String, dynamic> json) {
@@ -126,9 +114,6 @@ class Briefing {
       completedToday: list(json['completedToday']),
       completedYesterday: list(json['completedYesterday']),
       pendingArchive: json['pendingArchive'] as int,
-      todayReminders: (json['todayReminders'] as List<dynamic>? ?? const [])
-          .map((e) => Reminder.fromJson(e as Map<String, dynamic>))
-          .toList(),
       monthReview: MonthReview.fromJson(
         json['monthReview'] as Map<String, dynamic>?,
       ),

@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../api/api_client.dart';
 import '../models/task.dart';
 import '../providers.dart';
 import '../theme.dart';
 import '../ui/flowdo_card.dart';
-import '../ui/flowdo_dialog.dart';
 
 class TaskDetailScreen extends ConsumerStatefulWidget {
   const TaskDetailScreen({super.key, required this.task});
@@ -19,8 +19,8 @@ class TaskDetailScreen extends ConsumerStatefulWidget {
 class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
   late final TextEditingController _title;
   late final TextEditingController _body;
-  bool _deleted = false;
   bool _saving = false;
+  bool _moving = false;
 
   @override
   void initState() {
@@ -45,10 +45,8 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
 
   bool get _archived => widget.task.status == 'ARCHIVED';
 
-  bool get _canDelete => widget.task.status == 'TODO' || widget.task.status == 'ARCHIVED';
-
   Future<void> _saveIfNeeded() async {
-    if (_deleted || _saving || !_dirty || _archived) {
+    if (_saving || !_dirty || _archived) {
       return;
     }
     final title = _title.text.trim();
@@ -78,28 +76,42 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
     }
   }
 
-  Future<void> _confirmDelete() async {
-    final archived = _archived;
-    final ok = await showFlowDoConfirmDialog(
-      context,
-      title: archived ? '清掉这条归档？' : '不做了？',
-      message: archived ? '删掉就回不来啦。' : '会从任务池里拿走，回不来哦。',
-      confirmLabel: '删掉',
-      destructive: true,
-    );
-    if (!ok) {
+  Future<void> _moveToSpace(String spaceId) async {
+    if (_moving || _archived) {
       return;
     }
-    _deleted = true;
-    await ref.read(apiProvider).deleteTask(widget.task.id);
-    if (mounted) {
-      Navigator.of(context).pop();
+    setState(() => _moving = true);
+    try {
+      await _saveIfNeeded();
+      await ref.read(apiProvider).updateTask(widget.task.id, spaceId: spaceId);
+      ref.invalidate(tasksProvider('TODO'));
+      ref.invalidate(tasksProvider('FOCUS'));
+      ref.invalidate(tasksProvider('DONE'));
+      ref.invalidate(tasksProvider('ARCHIVED'));
+      ref.invalidate(briefingProvider);
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
+    } on ApiException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _moving = false);
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final spaces = ref.watch(spacesProvider).value ?? const [];
+    final activeId = ref.watch(meProvider).value?.activeSpaceId;
 
     return PopScope(
       canPop: false,
@@ -117,11 +129,36 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
             onPressed: _onClose,
           ),
           actions: [
-            if (_canDelete)
-              IconButton(
-                tooltip: _archived ? '清掉' : '不做了',
-                icon: const Icon(Icons.delete_outline),
-                onPressed: _confirmDelete,
+            if (!_archived && spaces.length > 1)
+              PopupMenuButton<String>(
+                tooltip: '换到别的空间',
+                enabled: !_moving,
+                onSelected: _moveToSpace,
+                itemBuilder: (context) => [
+                  for (final space in spaces)
+                    PopupMenuItem(
+                      value: space.id,
+                      enabled: space.id != activeId,
+                      child: Row(
+                        children: [
+                          Icon(
+                            space.id == activeId
+                                ? Icons.check_rounded
+                                : Icons.layers_outlined,
+                            size: 18,
+                          ),
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: Text(
+                              space.name,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+                icon: const Icon(Icons.drive_file_move_outline),
               ),
           ],
         ),

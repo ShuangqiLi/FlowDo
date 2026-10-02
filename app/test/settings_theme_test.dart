@@ -29,7 +29,7 @@ void main() {
         ],
         child: MaterialApp(
           theme: buildAppTheme(AppThemeKey.hazeBlue),
-          home: const Scaffold(body: SettingsScreen()),
+          home: const SettingsScreen(),
         ),
       ),
     );
@@ -39,6 +39,11 @@ void main() {
     expect(find.text('远山'), findsOneWidget);
     expect(find.text('归途'), findsOneWidget);
     expect(find.text('微光'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('修改密码'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('修改密码'), findsOneWidget);
   });
 
@@ -66,7 +71,7 @@ void main() {
         ],
         child: MaterialApp(
           theme: buildAppTheme(),
-          home: const Scaffold(body: SettingsScreen()),
+          home: const SettingsScreen(),
         ),
       ),
     );
@@ -108,7 +113,7 @@ void main() {
         ],
         child: MaterialApp(
           theme: buildAppTheme(AppThemeKey.hazeBlue),
-          home: const Scaffold(body: SettingsScreen()),
+          home: const SettingsScreen(),
         ),
       ),
     );

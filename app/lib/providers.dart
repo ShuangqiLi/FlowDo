@@ -9,6 +9,7 @@ import 'models/task.dart';
 import 'models/user.dart';
 import 'platform/microphone.dart';
 import 'theme.dart';
+import 'ui/focus_dock.dart';
 
 final prefsProvider = Provider<SharedPreferences>((ref) {
   throw UnimplementedError('prefs must be overridden');
@@ -79,16 +80,16 @@ final appThemeProvider = Provider<AppThemeKey>((ref) {
   return AppThemeKey.fromKey(ref.watch(meProvider).value?.themeKey);
 });
 
-/// 0 任务池, 1 聚焦, 2 完成
-final homeTabProvider = NotifierProvider<HomeTabController, int>(
+/// 首页当前底栏入口（任务池 / 聚焦 / 完成 / 归档 / 设置）。
+final homeTabProvider = NotifierProvider<HomeTabController, HomeTab>(
   HomeTabController.new,
 );
 
-class HomeTabController extends Notifier<int> {
+class HomeTabController extends Notifier<HomeTab> {
   @override
-  int build() => 0;
+  HomeTab build() => HomeTab.todo;
 
-  void setIndex(int index) => state = index.clamp(0, 2);
+  void setTab(HomeTab tab) => state = tab;
 }
 
 /// 设置里开了语音输入才算"能说"。还没拿到设置时先当作开着。

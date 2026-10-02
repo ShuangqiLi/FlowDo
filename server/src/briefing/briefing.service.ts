@@ -1,14 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { Reminder } from '@prisma/client';
 import { InstanceService } from '../instance/instance.service';
 import { PrismaService } from '../prisma/prisma.service';
-import {
-  lunarDayLabel,
-  occurrenceKeysInMonth,
-  startOfDay,
-  toDateKey,
-} from '../reminders/lunar-date';
-import { presentReminder, toRule } from '../reminders/reminders.service';
 import { TaskPriority, TaskStatus } from '../tasks/task.enums';
 
 const PRIORITY_ORDER: Record<TaskPriority, number> = {
@@ -57,11 +49,11 @@ export class BriefingService {
       startOfToday.getFullYear(),
       startOfToday.getMonth() + 1,
     );
-    const spaceId = await this.instance.spaceId();
-    const settings = await this.instance.get();
+    const space = await this.instance.activeSpace();
+    const spaceId = space.id;
     const startOfYesterday = addDays(startOfToday, -1);
 
-    const [todo, focus, done, archived, completedToday, completedYesterday, inboxHigh, reminders] =
+    const [todo, focus, done, archived, completedToday, completedYesterday, inboxHigh] =
       await Promise.all([
         this.prisma.task.count({ where: { spaceId, status: TaskStatus.TODO } }),
         this.prisma.task.findMany({ where: { spaceId, status: TaskStatus.FOCUS } }),
@@ -85,22 +77,17 @@ export class BriefingService {
             priority: TaskPriority.HIGH,
           },
         }),
-        this.prisma.reminder.findMany({ where: { spaceId } }),
       ]);
 
     const focusedTasks = [...focus].sort(comparePriorityThenRecent);
     const suggestedFocus = pickSuggestedFocus(
       focusedTasks,
       inboxHigh,
-      settings.focusLimit ?? DEFAULT_SUGGEST_LIMIT,
+      space.focusLimit ?? DEFAULT_SUGGEST_LIMIT,
     );
-    const todayKey = toDateKey(startOfToday);
-    const todayReminders = reminders
-      .filter((row) => toDateKey(startOfDay(row.nextDate)) <= todayKey)
-      .map(presentReminder);
 
     return {
-      date: todayKey,
+      date: toDateKey(startOfToday),
       counts: {
         todo,
         focus: focusedTasks.length,
@@ -112,7 +99,6 @@ export class BriefingService {
       completedToday,
       completedYesterday,
       pendingArchive: done,
-      todayReminders,
       monthReview: month,
     };
   }
@@ -124,13 +110,10 @@ export class BriefingService {
     const spaceId = await this.instance.spaceId();
     const start = new Date(year, month - 1, 1);
     const end = new Date(year, month, 0, 23, 59, 59, 999);
-    const [completed, reminders] = await Promise.all([
-      this.prisma.task.findMany({
-        where: { spaceId, completedAt: { gte: start, lte: end } },
-        orderBy: { completedAt: 'desc' },
-      }),
-      this.prisma.reminder.findMany({ where: { spaceId } }),
-    ]);
+    const completed = await this.prisma.task.findMany({
+      where: { spaceId, completedAt: { gte: start, lte: end } },
+      orderBy: { completedAt: 'desc' },
+    });
 
     const dayCounts = new Map<string, number>();
     const dayTasks = new Map<string, typeof completed>();
@@ -145,7 +128,6 @@ export class BriefingService {
       dayTasks.set(key, list);
     }
 
-    const reminderMarks = marksForMonth(reminders, year, month);
     const length = end.getDate();
     const days = Array.from({ length }, (_, i) => {
       const day = addDays(start, i);
@@ -154,8 +136,6 @@ export class BriefingService {
         date: key,
         count: dayCounts.get(key) ?? 0,
         tasks: dayTasks.get(key) ?? [],
-        lunarLabel: lunarDayLabel(day),
-        reminders: reminderMarks.get(key) ?? [],
       };
     });
 
@@ -169,23 +149,15 @@ export class BriefingService {
   }
 }
 
-function marksForMonth(reminders: Reminder[], year: number, month: number) {
-  const marks = new Map<string, Array<{ id: string; title: string; kind: string; calendar: string }>>();
-  for (const row of reminders) {
-    const keys = occurrenceKeysInMonth(toRule(row), year, month);
-    const mark = {
-      id: row.id,
-      title: row.title,
-      kind: row.kind,
-      calendar: row.calendar,
-    };
-    for (const key of keys) {
-      const list = marks.get(key) ?? [];
-      list.push(mark);
-      marks.set(key, list);
-    }
-  }
-  return marks;
+function startOfDay(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function toDateKey(date: Date): string {
+  const y = date.getFullYear();
+  const m = `${date.getMonth() + 1}`.padStart(2, '0');
+  const d = `${date.getDate()}`.padStart(2, '0');
+  return `${y}-${m}-${d}`;
 }
 
 function addDays(date: Date, days: number): Date {

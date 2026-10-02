@@ -5,7 +5,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/about.dart';
 import '../models/briefing.dart';
-import '../models/reminder.dart';
 import '../models/space.dart';
 import '../models/task.dart';
 import '../models/user.dart';
@@ -233,12 +232,14 @@ class ApiClient {
     String? body,
     String? priority,
     String? status,
+    String? spaceId,
   }) async {
     final payload = <String, dynamic>{};
     if (title != null) payload['title'] = title;
     if (body != null) payload['body'] = body;
     if (priority != null) payload['priority'] = priority;
     if (status != null) payload['status'] = status;
+    if (spaceId != null) payload['spaceId'] = spaceId;
     final json = await _request('PATCH', '/tasks/$id', body: payload);
     return Task.fromJson(json as Map<String, dynamic>);
   }
@@ -280,19 +281,6 @@ class ApiClient {
 
   Future<void> deleteSpace(String id) async {
     await _request('DELETE', '/spaces/$id');
-  }
-
-  Future<Reminder> createReminder(Map<String, dynamic> body) async {
-    final json = await _request('POST', '/reminders', body: body);
-    return Reminder.fromJson(json as Map<String, dynamic>);
-  }
-
-  Future<void> acknowledgeReminder(String id) async {
-    await _request('POST', '/reminders/$id/ack');
-  }
-
-  Future<void> deleteReminder(String id) async {
-    await _request('DELETE', '/reminders/$id');
   }
 
   Future<AboutInfo> about() async {

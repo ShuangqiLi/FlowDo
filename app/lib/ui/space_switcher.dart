@@ -31,6 +31,7 @@ class SpaceSwitcher extends ConsumerWidget {
       onSelected: (value) => _onSelected(context, ref, value, spaces.value ?? const []),
       itemBuilder: (context) {
         final list = spaces.value ?? const <Space>[];
+        final scheme = Theme.of(context).colorScheme;
         return [
           for (final space in list)
             PopupMenuItem(
@@ -42,37 +43,95 @@ class SpaceSwitcher extends ConsumerWidget {
                         ? Icons.check_rounded
                         : Icons.circle_outlined,
                     size: 18,
+                    color: space.id == activeId ? scheme.primary : null,
                   ),
                   const SizedBox(width: 8),
                   Flexible(
-                    child: Text(space.name, overflow: TextOverflow.ellipsis),
+                    child: Text(
+                      space.name,
+                      overflow: TextOverflow.ellipsis,
+                      style: space.id == activeId
+                          ? TextStyle(
+                              color: scheme.primary,
+                              fontWeight: FontWeight.w600,
+                            )
+                          : null,
+                    ),
                   ),
                 ],
               ),
             ),
           const PopupMenuDivider(),
-          const PopupMenuItem(value: 'create', child: Text('新建空间')),
-          const PopupMenuItem(value: 'rename', child: Text('重命名')),
-          if (list.length > 1)
-            const PopupMenuItem(value: 'delete', child: Text('删除这个空间')),
-        ];
-      },
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.layers_outlined, size: 20),
-          const SizedBox(width: 6),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 140),
-            child: Text(
-              name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.titleMedium,
+          const PopupMenuItem(
+            value: 'create',
+            child: ListTile(
+              contentPadding: EdgeInsets.zero,
+              dense: true,
+              leading: Icon(Icons.add_rounded, size: 20),
+              title: Text('新建空间'),
             ),
           ),
-          const Icon(Icons.arrow_drop_down_rounded),
-        ],
+          const PopupMenuItem(
+            value: 'rename',
+            child: ListTile(
+              contentPadding: EdgeInsets.zero,
+              dense: true,
+              leading: Icon(Icons.edit_outlined, size: 20),
+              title: Text('重命名'),
+            ),
+          ),
+          if (list.length > 1)
+            PopupMenuItem(
+              value: 'delete',
+              child: ListTile(
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+                leading: Icon(Icons.delete_outline, size: 20, color: scheme.error),
+                title: Text('删除这个空间', style: TextStyle(color: scheme.error)),
+              ),
+            ),
+        ];
+      },
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 44),
+        child: Material(
+          color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.55),
+          shape: StadiumBorder(
+            side: BorderSide(
+              color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.85),
+            ),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 10, 8),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.layers_outlined,
+                  size: 20,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                const SizedBox(width: 8),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 140),
+                  child: Text(
+                    name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                  ),
+                ),
+                const SizedBox(width: 2),
+                Icon(
+                  Icons.expand_more_rounded,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -123,7 +182,7 @@ class SpaceSwitcher extends ConsumerWidget {
         final ok = await showFlowDoConfirmDialog(
           context,
           title: '删掉「${current.name}」？',
-          message: '这个空间里的任务和提醒会一起删掉，回不来。',
+          message: '这个空间里的任务会一起删掉，回不来。',
           confirmLabel: '删掉',
           destructive: true,
         );

@@ -42,6 +42,7 @@ class _FakeApi extends ApiClient {
     String? body,
     String? priority,
     String? status,
+    String? spaceId,
   }) async {
     if (failUpdate) {
       throw ApiException('手头这 3 件先盯紧啦。');

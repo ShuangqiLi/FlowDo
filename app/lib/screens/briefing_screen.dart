@@ -8,7 +8,6 @@ import '../theme.dart';
 import '../ui/empty_state.dart';
 import '../ui/flowdo_card.dart';
 import '../ui/flowdo_page_route.dart';
-import '../ui/reminder_editor.dart';
 import '../ui/review_calendar.dart';
 import '../widgets/priority_selector.dart';
 import 'task_detail_screen.dart';
@@ -76,49 +75,6 @@ class BriefingScreen extends ConsumerWidget {
                     ),
                   ),
                 const SizedBox(height: AppSpacing.lg),
-                const SectionHeader('今天的提醒'),
-                if (data.todayReminders.isEmpty)
-                  Text(
-                    '今天没有要响的提醒。',
-                    style: TextStyle(color: scheme.onSurfaceVariant),
-                  )
-                else
-                  ...data.todayReminders.map(
-                    (reminder) => FlowDoCard(
-                      margin: const EdgeInsets.only(bottom: AppSpacing.xs),
-                      padding: EdgeInsets.zero,
-                      child: ListTile(
-                        leading: Icon(
-                          reminder.kind == 'ANNIVERSARY'
-                              ? Icons.cake_outlined
-                              : Icons.notifications_none_rounded,
-                          color: scheme.primary,
-                        ),
-                        title: Text(reminder.title),
-                        subtitle: Text(
-                          reminder.calendar == 'LUNAR'
-                              ? '农历 ${reminder.whenLabel}'
-                              : reminder.whenLabel,
-                        ),
-                        trailing: TextButton(
-                          onPressed: () async {
-                            await ref.read(apiProvider).acknowledgeReminder(reminder.id);
-                            ref.invalidate(briefingProvider);
-                          },
-                          child: const Text('知道了'),
-                        ),
-                      ),
-                    ),
-                  ),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: TextButton.icon(
-                    onPressed: () => _addReminder(context, ref),
-                    icon: const Icon(Icons.add_rounded),
-                    label: const Text('加提醒'),
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.lg),
                 const SectionHeader('月度回顾', caption: '左右滑可以看别的月份'),
                 ReviewSummaryRow(
                   completedLabel: '本月搞定',
@@ -169,35 +125,11 @@ class BriefingScreen extends ConsumerWidget {
     WidgetRef ref,
     ReviewDay day,
   ) {
-    final match = RegExp(r'^(\d{4})-(\d{2})-(\d{2})$').firstMatch(day.date);
-    final initial = match == null
-        ? DateTime.now()
-        : DateTime(
-            int.parse(match.group(1)!),
-            int.parse(match.group(2)!),
-            int.parse(match.group(3)!),
-          );
     return showReviewDayPopover(
       anchorContext,
       day: day,
       onOpenTask: (task) => _openTask(anchorContext, ref, task),
-      onAddReminder: () => _addReminder(anchorContext, ref, initial),
     );
-  }
-
-  Future<void> _addReminder(
-    BuildContext context,
-    WidgetRef ref, [
-    DateTime? initial,
-  ]) async {
-    final created = await showReminderEditor(
-      context,
-      ref.read(apiProvider),
-      initialDate: initial,
-    );
-    if (created) {
-      ref.invalidate(briefingProvider);
-    }
   }
 
   Future<void> _openTask(

@@ -7,7 +7,6 @@ import { BriefingModule } from './briefing/briefing.module';
 import { HealthController } from './health.controller';
 import { InstanceModule } from './instance/instance.module';
 import { PrismaModule } from './prisma/prisma.module';
-import { RemindersModule } from './reminders/reminders.module';
 import { SpacesModule } from './spaces/spaces.module';
 import { SystemModule } from './system/system.module';
 import { TasksModule } from './tasks/tasks.module';
@@ -24,7 +23,6 @@ import { UsersModule } from './users/users.module';
     UsersModule,
     SpacesModule,
     TasksModule,
-    RemindersModule,
     BriefingModule,
     ArchiveModule,
     SystemModule,

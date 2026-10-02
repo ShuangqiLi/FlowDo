@@ -42,12 +42,44 @@ class _SwipeAwayState extends State<SwipeAway> {
   }
 
   void _onDragStart(DragStartDetails details) {
+    if (_hitEditable(details.globalPosition)) {
+      setState(() {
+        _dragging = false;
+        _armed = false;
+      });
+      return;
+    }
     final armed = !widget.fromLeftEdgeOnly ||
         details.localPosition.dx <= widget.edgeWidth;
     setState(() {
       _dragging = true;
       _armed = armed;
     });
+  }
+
+  /// 起点落在输入框就别抢手势，好让选字和框内滑动。
+  bool _hitEditable(Offset global) {
+    bool found = false;
+    void visitor(Element element) {
+      if (found) {
+        return;
+      }
+      if (element.widget is EditableText || element.widget is TextField) {
+        final render = element.renderObject;
+        if (render is RenderBox && render.hasSize) {
+          final topLeft = render.localToGlobal(Offset.zero);
+          final rect = topLeft & render.size;
+          if (rect.contains(global)) {
+            found = true;
+            return;
+          }
+        }
+      }
+      element.visitChildren(visitor);
+    }
+
+    context.visitChildElements(visitor);
+    return found;
   }
 
   void _onDragUpdate(DragUpdateDetails details) {

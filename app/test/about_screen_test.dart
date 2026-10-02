@@ -116,11 +116,11 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.scrollUntilVisible(
-      find.text('关于随随办办'),
+      find.text('版本和更新'),
       200,
       scrollable: find.byType(Scrollable).first,
     );
-    await tester.tap(find.text('关于随随办办'));
+    await tester.tap(find.text('版本和更新'));
     await tester.pumpAndSettle();
     expect(find.text('当前版本 0.5.0'), findsOneWidget);
     expect(find.textContaining('连不上 GitHub'), findsOneWidget);

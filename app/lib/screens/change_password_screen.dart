@@ -8,9 +8,11 @@ import '../ui/flowdo_card.dart';
 import '../ui/flowdo_logo.dart';
 import '../ui/password_field.dart';
 
-/// 第一次用默认密码登录后，必须先换掉密码才能进首页。
+/// 改密码。首次登录强制改，或从设置里主动改。
 class ChangePasswordScreen extends ConsumerStatefulWidget {
-  const ChangePasswordScreen({super.key});
+  const ChangePasswordScreen({super.key, this.fromSettings = false});
+
+  final bool fromSettings;
 
   @override
   ConsumerState<ChangePasswordScreen> createState() => _ChangePasswordScreenState();
@@ -49,7 +51,17 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
             currentPassword: _current.text,
             newPassword: _next.text,
           );
-      ref.invalidate(meProvider);
+      if (widget.fromSettings) {
+        ref.invalidate(meProvider);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('密码改好了')),
+          );
+          Navigator.of(context).pop();
+        }
+      } else {
+        ref.invalidate(meProvider);
+      }
     } on ApiException catch (e) {
       setState(() => _error = e.message);
     } catch (_) {
@@ -84,13 +96,15 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                     ),
                     const SizedBox(height: AppSpacing.md),
                     Text(
-                      '先换个密码',
+                      widget.fromSettings ? '改密码' : '先换个密码',
                       style: Theme.of(context).textTheme.headlineSmall,
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      '这台 FlowDo 还在用初始密码。换成你自己的，之后就不再问了。',
+                      widget.fromSettings
+                          ? '改完用新密码登录。'
+                          : '这台 FlowDo 还在用初始密码。换成你自己的，之后就不再问了。',
                       style: Theme.of(context)
                           .textTheme
                           .bodyMedium
@@ -100,7 +114,7 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                     const SizedBox(height: AppSpacing.lg),
                     PasswordField(
                       controller: _current,
-                      label: '初始密码',
+                      label: widget.fromSettings ? '现在的密码' : '初始密码',
                     ),
                     const SizedBox(height: 12),
                     PasswordField(
@@ -122,14 +136,26 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                     const SizedBox(height: 20),
                     FilledButton(
                       onPressed: _busy ? null : _submit,
-                      child: Text(_busy ? '正在改…' : '改好，进去'),
+                      child: Text(
+                        _busy
+                            ? '正在改…'
+                            : widget.fromSettings
+                                ? '改好'
+                                : '改好，进去',
+                      ),
                     ),
-                    TextButton(
-                      onPressed: _busy
-                          ? null
-                          : () => ref.read(authStateProvider.notifier).logout(),
-                      child: const Text('先退出'),
-                    ),
+                    if (widget.fromSettings)
+                      TextButton(
+                        onPressed: _busy ? null : () => Navigator.of(context).pop(),
+                        child: const Text('先不改'),
+                      )
+                    else
+                      TextButton(
+                        onPressed: _busy
+                            ? null
+                            : () => ref.read(authStateProvider.notifier).logout(),
+                        child: const Text('先退出'),
+                      ),
                   ],
                 ),
               ),

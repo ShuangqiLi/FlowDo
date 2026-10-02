@@ -1,5 +1,12 @@
 import { TaskPriority, TaskStatus } from '../task.enums';
-import { IsEnum, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import {
+  IsEnum,
+  IsOptional,
+  IsString,
+  IsUUID,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
 
 export class CreateTaskDto {
   @IsString({ message: '标题空空的，写几个字吧' })
@@ -36,4 +43,8 @@ export class UpdateTaskDto {
   @IsOptional()
   @IsEnum(TaskStatus, { message: '这个状态我还不认识' })
   status?: TaskStatus;
+
+  @IsOptional()
+  @IsUUID('4', { message: '任务空间不对' })
+  spaceId?: string;
 }

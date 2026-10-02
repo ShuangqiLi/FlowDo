@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../api/api_client.dart';
 import '../models/about.dart';
+import '../platform/open_url.dart';
 import '../providers.dart';
 import '../theme.dart';
 import '../ui/flowdo_card.dart';
@@ -176,6 +177,19 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
                       label: Text(_updating ? '正在更新' : '更新到 ${info.latest}'),
                     ),
                   ],
+                  const SizedBox(height: AppSpacing.sm),
+                  TextButton.icon(
+                    key: const ValueKey('about-release-notes'),
+                    onPressed: () {
+                      final tag = info?.latest ?? info?.version;
+                      final url = tag == null
+                          ? 'https://github.com/ShuangqiLi/FlowDo/releases'
+                          : 'https://github.com/ShuangqiLi/FlowDo/releases/tag/v$tag';
+                      openExternalUrl(url);
+                    },
+                    icon: const Icon(Icons.open_in_new_rounded, size: 18),
+                    label: const Text('发行说明'),
+                  ),
                 ],
               ),
             ),

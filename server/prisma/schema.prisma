@@ -20,50 +20,32 @@ enum TaskPriority {
   LOW
 }
 
-enum ReminderCalendar {
-  SOLAR
-  LUNAR
-}
-
-enum ReminderRecurrence {
-  NONE
-  DAILY
-  WEEKLY
-  MONTHLY
-  YEARLY
-}
-
-enum ReminderKind {
-  NORMAL
-  ANNIVERSARY
-}
-
-/// 一台部署只有一行：登录密码和全局设置。数据用任务空间隔开。
+/// 一台部署只有一行：登录密码、语音开关和当前空间。
 model Instance {
-  id                      String   @id
-  passwordHash            String
+  id                 String   @id
+  passwordHash       String
   /// 还在用初始密码时为 true，改过一次就清掉。
-  mustChangePassword      Boolean  @default(false)
-  activeSpaceId           String?
-  activeSpace             Space?   @relation("ActiveSpace", fields: [activeSpaceId], references: [id], onDelete: SetNull)
-  archiveAfterDays        Int      @default(7)
-  focusLimit              Int      @default(3)
-  deleteArchivedAfterDays Int      @default(30)
-  showArchiveTab          Boolean  @default(true)
-  themeKey                String   @default("mint")
-  voiceInputEnabled       Boolean  @default(true)
-  createdAt               DateTime @default(now())
-  updatedAt               DateTime @updatedAt
+  mustChangePassword Boolean  @default(false)
+  activeSpaceId      String?
+  activeSpace        Space?   @relation("ActiveSpace", fields: [activeSpaceId], references: [id], onDelete: SetNull)
+  voiceInputEnabled  Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 }
 
+/// 任务空间：主题、聚焦上限和归档习惯各自独立。
 model Space {
-  id        String     @id @default(uuid())
-  name      String
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
-  tasks     Task[]
-  reminders Reminder[]
-  activeFor Instance[] @relation("ActiveSpace")
+  id                      String     @id @default(uuid())
+  name                    String
+  archiveAfterDays        Int        @default(7)
+  focusLimit              Int        @default(3)
+  deleteArchivedAfterDays Int        @default(30)
+  showArchiveTab          Boolean    @default(true)
+  themeKey                String     @default("mint")
+  createdAt               DateTime   @default(now())
+  updatedAt               DateTime   @updatedAt
+  tasks                   Task[]
+  activeFor               Instance[] @relation("ActiveSpace")
 }
 
 model Task {
@@ -81,24 +63,4 @@ model Task {
 
   @@index([spaceId, status])
   @@index([spaceId, priority])
-}
-
-model Reminder {
-  id          String             @id @default(uuid())
-  spaceId     String
-  space       Space              @relation(fields: [spaceId], references: [id], onDelete: Cascade)
-  title       String
-  note        String?
-  calendar    ReminderCalendar   @default(SOLAR)
-  /// 下一次要提醒的公历日（当天 0 点，按服务端本地时区）。
-  nextDate    DateTime
-  recurrence  ReminderRecurrence @default(NONE)
-  kind        ReminderKind       @default(NORMAL)
-  lunarMonth  Int?
-  lunarDay    Int?
-  leapMonth   Boolean            @default(false)
-  createdAt   DateTime           @default(now())
-  updatedAt   DateTime           @updatedAt
-
-  @@index([spaceId, nextDate])
 }

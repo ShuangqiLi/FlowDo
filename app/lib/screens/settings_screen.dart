@@ -8,13 +8,16 @@ import '../providers.dart';
 import '../theme.dart';
 import '../ui/add_task_fab.dart';
 import '../ui/flowdo_card.dart';
-import '../ui/password_field.dart';
 import '../ui/flowdo_page_route.dart';
 import '../utils/voice_input_messages.dart';
 import 'about_screen.dart';
+import 'change_password_screen.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
-  const SettingsScreen({super.key});
+  const SettingsScreen({super.key, this.embedded = false});
+
+  /// 嵌在首页底栏页时不自带 AppBar。
+  final bool embedded;
 
   @override
   ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
@@ -24,14 +27,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   final _days = TextEditingController();
   final _focusLimit = TextEditingController();
   final _deleteDays = TextEditingController();
-  final _currentPassword = TextEditingController();
-  final _newPassword = TextEditingController();
+  var _filled = false;
 
   @override
   void initState() {
     super.initState();
     if (kIsWeb && AddTaskFab.voiceSupported) {
-      // 进设置页刷一下麦克风状态，那行提示才是现在的情况。
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           ref.read(micPermissionProvider.notifier).refresh();
@@ -40,13 +41,25 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
   }
 
+  void _fillFromMe() {
+    if (_filled) {
+      return;
+    }
+    final user = ref.read(meProvider).value;
+    if (user == null) {
+      return;
+    }
+    _filled = true;
+    _days.text = '${user.archiveAfterDays}';
+    _focusLimit.text = '${user.focusLimit}';
+    _deleteDays.text = '${user.deleteArchivedAfterDays}';
+  }
+
   @override
   void dispose() {
     _days.dispose();
     _focusLimit.dispose();
     _deleteDays.dispose();
-    _currentPassword.dispose();
-    _newPassword.dispose();
     super.dispose();
   }
 
@@ -97,71 +110,24 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Widget build(BuildContext context) {
     final me = ref.watch(meProvider);
     final scheme = Theme.of(context).colorScheme;
+    ref.listen(meProvider, (prev, next) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _fillFromMe();
+        }
+      });
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _fillFromMe();
+      }
+    });
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('设置'),
-      ),
-      body: ResponsiveContent(
+    final body = ResponsiveContent(
       child: ListView(
         padding: const EdgeInsets.all(AppSpacing.md),
         children: [
-          const SectionHeader('密码', caption: '这台 FlowDo 的登录密码'),
-          FlowDoCard(
-            child: me.when(
-              loading: () => const LinearProgressIndicator(),
-              error: (e, _) => Text('$e'),
-              data: (user) {
-                if (_days.text.isEmpty) {
-                  _days.text = '${user.archiveAfterDays}';
-                }
-                if (_focusLimit.text.isEmpty) {
-                  _focusLimit.text = '${user.focusLimit}';
-                }
-                if (_deleteDays.text.isEmpty) {
-                  _deleteDays.text = '${user.deleteArchivedAfterDays}';
-                }
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    PasswordField(
-                      controller: _currentPassword,
-                      label: '现在的密码',
-                    ),
-                    const SizedBox(height: 12),
-                    PasswordField(
-                      controller: _newPassword,
-                      label: '新密码',
-                      autofillHint: AutofillHints.newPassword,
-                    ),
-                    const SizedBox(height: 12),
-                    FilledButton.tonal(
-                      onPressed: () async {
-                        try {
-                          await ref.read(apiProvider).changePassword(
-                                currentPassword: _currentPassword.text,
-                                newPassword: _newPassword.text,
-                              );
-                          _currentPassword.clear();
-                          _newPassword.clear();
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('密码改好了')),
-                            );
-                          }
-                        } on ApiException catch (e) {
-                          _showSaveError(e.message);
-                        }
-                      },
-                      child: const Text('修改密码'),
-                    ),
-                  ],
-                );
-              },
-            ),
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          const SectionHeader('外观', caption: '选一套顺眼的样子'),
+          const SectionHeader('当前空间外观', caption: '只影响现在这个任务空间'),
           FlowDoCard(
             child: Wrap(
               spacing: AppSpacing.sm,
@@ -178,7 +144,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
           ),
           const SizedBox(height: AppSpacing.lg),
-          const SectionHeader('聚焦'),
+          const SectionHeader('聚焦', caption: '当前任务空间'),
           FlowDoCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -220,14 +186,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               onChanged: (v) async {
                 final ok = await _saveMe(voiceInputEnabled: v);
                 if (ok && v && kIsWeb && AddTaskFab.voiceSupported) {
-                  // 刚打开就顺手把权限要下来，别等到长按的时候再弹窗。
                   await ref.read(micPermissionProvider.notifier).request();
                 }
               },
             ),
           ),
           const SizedBox(height: AppSpacing.lg),
-          const SectionHeader('归档'),
+          const SectionHeader('归档', caption: '当前任务空间'),
           FlowDoCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -241,8 +206,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 const SizedBox(height: AppSpacing.sm),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
-                  title: const Text('在首页显示归档入口'),
-                  subtitle: const Text('开着时左上角设置旁会出现归档；关掉后仍可自动归档'),
+                  title: const Text('在底栏显示归档'),
+                  subtitle: const Text('开着时底栏会出现归档；关掉后仍可自动归档'),
                   value: me.value?.showArchiveTab ?? true,
                   onChanged: (v) => _saveMe(showArchiveTab: v),
                 ),
@@ -313,31 +278,59 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 Icon(Icons.info_outline_rounded, color: scheme.primary),
                 const SizedBox(width: AppSpacing.sm),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('关于随随办办', style: Theme.of(context).textTheme.titleMedium),
-                      Text(
-                        '版本和更新',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: scheme.onSurfaceVariant,
-                            ),
-                      ),
-                    ],
+                  child: Text(
+                    '版本和更新',
+                    style: Theme.of(context).textTheme.titleMedium,
                   ),
                 ),
                 Icon(Icons.chevron_right_rounded, color: scheme.onSurfaceVariant),
               ],
             ),
           ),
-          const SizedBox(height: 32),
-          FilledButton(
+          const SizedBox(height: AppSpacing.lg),
+          const SectionHeader('密码', caption: '这台 FlowDo 的登录密码'),
+          FlowDoCard(
+            onTap: () {
+              Navigator.of(context).push(
+                FlowDoPageRoute(
+                  builder: (_) => const ChangePasswordScreen(fromSettings: true),
+                ),
+              );
+            },
+            child: Row(
+              children: [
+                Icon(Icons.lock_outline, color: scheme.primary),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Text(
+                    '修改密码',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
+                Icon(Icons.chevron_right_rounded, color: scheme.onSurfaceVariant),
+              ],
+            ),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          FilledButton.tonal(
             onPressed: () => ref.read(authStateProvider.notifier).logout(),
             child: const Text('退出登录'),
           ),
+          const SizedBox(height: AppSpacing.xl),
         ],
       ),
-      ),
+    );
+
+    if (widget.embedded) {
+      return ColoredBox(
+        color: context.flowColors.canvas,
+        child: body,
+      );
+    }
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('设置')),
+      body: body,
     );
   }
 }

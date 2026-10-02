@@ -10,6 +10,7 @@ import '../ui/empty_state.dart';
 import '../ui/flowdo_card.dart';
 import '../ui/flowdo_dialog.dart';
 import '../ui/flowdo_page_route.dart';
+import '../ui/focus_dock.dart';
 import '../ui/task_card.dart';
 import '../ui/task_interactable.dart';
 import '../widgets/priority_selector.dart';
@@ -40,12 +41,21 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
     super.dispose();
   }
 
-  void _scrollToPending(List<Task> tasks) {
+  void _scrollToPending(List<Task> tasks, {int attempt = 0}) {
     final id = ref.read(pendingScrollTaskIdProvider);
     if (widget.status != 'TODO' || id == null) {
       return;
     }
     if (!tasks.any((task) => task.id == id)) {
+      if (attempt >= 12) {
+        ref.read(pendingScrollTaskIdProvider.notifier).clear();
+      } else {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            _scrollToPending(tasks, attempt: attempt + 1);
+          }
+        });
+      }
       return;
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -54,6 +64,11 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
       }
       final target = _itemKeys[id]?.currentContext;
       if (target == null) {
+        if (attempt >= 12) {
+          ref.read(pendingScrollTaskIdProvider.notifier).clear();
+        } else {
+          _scrollToPending(tasks, attempt: attempt + 1);
+        }
         return;
       }
       Scrollable.ensureVisible(
@@ -93,7 +108,7 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
   }
 
   void _goFocusWithHint(String message) {
-    ref.read(homeTabProvider.notifier).setIndex(1);
+    ref.read(homeTabProvider.notifier).setTab(HomeTab.focus);
     if (!mounted) {
       return;
     }

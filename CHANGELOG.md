@@ -14,6 +14,28 @@
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-10-02
+
+### Breaking
+
+- 去掉提醒事项，包括模型、`/reminders` API、农历和今日看看里的提醒入口。升级时会丢掉 `Reminder` 表
+
+### Changed
+
+- 主题、聚焦上限、归档天数按任务空间各自生效；`/me` 读写当前空间的设置
+- 底栏纳入归档和设置，页签等宽；空白处左右滑可在全部底栏页之间循环切换
+- 改密拆成独立页；关于页可打开发行说明
+- 随手记输入框里选字或横滑不会退出详情，空白处右滑才关掉
+
+### Added
+
+- 任务详情里可换到别的任务空间，状态保持不变
+
+### Fixed
+
+- 新建任务后会多试几次，把新卡片滚到眼前
+- 电脑上按住鼠标可以拖动底栏切页
+
 ## [0.7.3] - 2026-10-02
 
 ### Fixed
@@ -252,7 +274,12 @@
 - 通过 GitHub Releases 发版（推送 `v*.*.*` 标签）
 - 账号级设置（聚焦上限、归档天数、是否显示归档页）
 
-[Unreleased]: https://github.com/ShuangqiLi/FlowDo/compare/v0.6.1...HEAD
+[Unreleased]: https://github.com/ShuangqiLi/FlowDo/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/ShuangqiLi/FlowDo/compare/v0.7.3...v0.8.0
+[0.7.3]: https://github.com/ShuangqiLi/FlowDo/compare/v0.7.2...v0.7.3
+[0.7.2]: https://github.com/ShuangqiLi/FlowDo/compare/v0.7.1...v0.7.2
+[0.7.1]: https://github.com/ShuangqiLi/FlowDo/compare/v0.7.0...v0.7.1
+[0.7.0]: https://github.com/ShuangqiLi/FlowDo/compare/v0.6.1...v0.7.0
 [0.6.1]: https://github.com/ShuangqiLi/FlowDo/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/ShuangqiLi/FlowDo/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/ShuangqiLi/FlowDo/compare/v0.4.0...v0.5.0

@@ -23,6 +23,9 @@ if [ -n "${DATABASE_URL:-}" ]; then
   esac
 fi
 
+echo "[flowdo] 准备空间设置..."
+node dist/bootstrap/migrate-space-settings.js
+
 echo "[flowdo] 同步数据库结构..."
 ok=0
 i=1

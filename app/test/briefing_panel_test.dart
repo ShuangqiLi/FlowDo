@@ -108,7 +108,7 @@ void main() {
       find.descendant(of: find.byType(AppBar), matching: find.text('任务池')),
       findsNothing,
     );
-    expect(find.byKey(const ValueKey('open-settings')), findsOneWidget);
+    expect(find.byTooltip('设置'), findsOneWidget);
     await _openBriefing(tester);
     expect(
       find.descendant(of: find.byType(AppBar), matching: find.text('今日看看')),

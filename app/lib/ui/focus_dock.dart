@@ -1,18 +1,63 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 import '../theme.dart';
 
-/// 悬浮胶囊底栏：任务池 / 聚焦 / 完成三等分。
-/// 选中态是包住图标和文字的浅色药丸。
+/// 首页底栏入口。归档是否出现由当前空间的 showArchiveTab 决定。
+enum HomeTab {
+  todo,
+  focus,
+  done,
+  archive,
+  settings,
+}
+
+extension HomeTabX on HomeTab {
+  String get label => switch (this) {
+        HomeTab.todo => '任务池',
+        HomeTab.focus => '聚焦',
+        HomeTab.done => '完成',
+        HomeTab.archive => '归档',
+        HomeTab.settings => '设置',
+      };
+
+  IconData get icon => switch (this) {
+        HomeTab.todo => Icons.inbox_outlined,
+        HomeTab.focus => Icons.center_focus_strong_outlined,
+        HomeTab.done => Icons.check_circle_outline_rounded,
+        HomeTab.archive => Icons.archive_outlined,
+        HomeTab.settings => Icons.settings_outlined,
+      };
+
+  IconData get selectedIcon => switch (this) {
+        HomeTab.todo => Icons.inbox_rounded,
+        HomeTab.focus => Icons.center_focus_strong_rounded,
+        HomeTab.done => Icons.check_circle_rounded,
+        HomeTab.archive => Icons.archive_rounded,
+        HomeTab.settings => Icons.settings_rounded,
+      };
+}
+
+List<HomeTab> homeTabsFor({required bool showArchive}) => [
+      HomeTab.todo,
+      HomeTab.focus,
+      HomeTab.done,
+      if (showArchive) HomeTab.archive,
+      HomeTab.settings,
+    ];
+
+/// 悬浮胶囊底栏。选中态是等宽浅色药丸，不闪矩形水波。
 class FocusDock extends StatelessWidget {
   const FocusDock({
     super.key,
-    required this.selectedIndex,
+    required this.tabs,
+    required this.selected,
     required this.onSelected,
   });
 
-  final int selectedIndex;
-  final ValueChanged<int> onSelected;
+  final List<HomeTab> tabs;
+  final HomeTab selected;
+  final ValueChanged<HomeTab> onSelected;
 
   /// 不含底部安全区。FAB 用它躲开底栏。
   static const double height = 84;
@@ -24,7 +69,7 @@ class FocusDock extends StatelessWidget {
     final bottomInset = MediaQuery.paddingOf(context).bottom;
 
     return Padding(
-      padding: EdgeInsets.fromLTRB(16, 0, 16, 10 + bottomInset),
+      padding: EdgeInsets.fromLTRB(12, 0, 12, 10 + bottomInset),
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: flow.card,
@@ -42,33 +87,14 @@ class FocusDock extends StatelessWidget {
           height: 64,
           child: Row(
             children: [
-              Expanded(
-                child: _DockItem(
-                  selected: selectedIndex == 0,
-                  icon: Icons.inbox_outlined,
-                  selectedIcon: Icons.inbox_rounded,
-                  label: '任务池',
-                  onTap: () => onSelected(0),
+              for (final tab in tabs)
+                Expanded(
+                  child: _DockItem(
+                    tab: tab,
+                    selected: tab == selected,
+                    onTap: () => onSelected(tab),
+                  ),
                 ),
-              ),
-              Expanded(
-                child: _DockItem(
-                  selected: selectedIndex == 1,
-                  icon: Icons.center_focus_strong_outlined,
-                  selectedIcon: Icons.center_focus_strong_rounded,
-                  label: '聚焦',
-                  onTap: () => onSelected(1),
-                ),
-              ),
-              Expanded(
-                child: _DockItem(
-                  selected: selectedIndex == 2,
-                  icon: Icons.check_circle_outline_rounded,
-                  selectedIcon: Icons.check_circle_rounded,
-                  label: '完成',
-                  onTap: () => onSelected(2),
-                ),
-              ),
             ],
           ),
         ),
@@ -79,17 +105,13 @@ class FocusDock extends StatelessWidget {
 
 class _DockItem extends StatelessWidget {
   const _DockItem({
+    required this.tab,
     required this.selected,
-    required this.icon,
-    required this.selectedIcon,
-    required this.label,
     required this.onTap,
   });
 
+  final HomeTab tab;
   final bool selected;
-  final IconData icon;
-  final IconData selectedIcon;
-  final String label;
   final VoidCallback onTap;
 
   @override
@@ -100,39 +122,42 @@ class _DockItem extends StatelessWidget {
         : AppMotion.quick;
     final fg = selected ? scheme.primary : scheme.onSurfaceVariant;
 
-    return SizedBox.expand(
-      child: Semantics(
+    return Semantics(
       button: true,
       selected: selected,
-      label: label,
+      label: tab.label,
       child: Tooltip(
-        message: label,
-        child: InkWell(
+        message: tab.label,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
           onTap: onTap,
-          hoverColor: Colors.transparent,
-          highlightColor: Colors.transparent,
           child: Center(
             child: AnimatedContainer(
               duration: motion,
               curve: AppMotion.curve,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              width: double.infinity,
+              margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+              padding: const EdgeInsets.symmetric(vertical: 4),
               decoration: BoxDecoration(
                 color: selected ? scheme.primaryContainer : Colors.transparent,
                 borderRadius: BorderRadius.circular(AppRadii.pill),
               ),
               child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(selected ? selectedIcon : icon, size: 22, color: fg),
+                  Icon(
+                    selected ? tab.selectedIcon : tab.icon,
+                    size: 22,
+                    color: fg,
+                  ),
                   const SizedBox(height: 2),
                   Text(
-                    label,
+                    tab.label,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.labelSmall!.copyWith(
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
                           color: fg,
-                          fontSize: 12,
-                          height: 1.1,
                           fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                         ),
                   ),
@@ -142,7 +167,21 @@ class _DockItem extends StatelessWidget {
           ),
         ),
       ),
-      ),
     );
   }
+}
+
+/// 仅首页翻页用：允许鼠标拖（全局行为去掉了 mouse，免得输入框选字拖页）。
+class HomePageScrollBehavior extends ScrollBehavior {
+  const HomePageScrollBehavior();
+
+  @override
+  Set<PointerDeviceKind> get dragDevices => const {
+        PointerDeviceKind.touch,
+        PointerDeviceKind.mouse,
+        PointerDeviceKind.trackpad,
+        PointerDeviceKind.stylus,
+        PointerDeviceKind.invertedStylus,
+        PointerDeviceKind.unknown,
+      };
 }
