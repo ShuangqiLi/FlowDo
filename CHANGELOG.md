@@ -14,6 +14,12 @@
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-10-02
+
+### Fixed
+
+- 网页里点更新时按当前容器认自己，不再拿上一次容器的短 ID 去查。已经用网页更新过的 0.7.x 会报 `No such container: <12 位 ID>`，这一次需要用启动脚本升级；之后可以继续在网页里更新
+
 ## [0.8.0] - 2026-10-02
 
 ### Breaking
@@ -274,7 +280,8 @@
 - 通过 GitHub Releases 发版（推送 `v*.*.*` 标签）
 - 账号级设置（聚焦上限、归档天数、是否显示归档页）
 
-[Unreleased]: https://github.com/ShuangqiLi/FlowDo/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/ShuangqiLi/FlowDo/compare/v0.8.1...HEAD
+[0.8.1]: https://github.com/ShuangqiLi/FlowDo/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/ShuangqiLi/FlowDo/compare/v0.7.3...v0.8.0
 [0.7.3]: https://github.com/ShuangqiLi/FlowDo/compare/v0.7.2...v0.7.3
 [0.7.2]: https://github.com/ShuangqiLi/FlowDo/compare/v0.7.1...v0.7.2

@@ -1,5 +1,5 @@
 import { request as httpRequest } from 'node:http';
-import { createReadStream, statSync } from 'node:fs';
+import { createReadStream, existsSync, readFileSync, statSync } from 'node:fs';
 import { hostname } from 'node:os';
 
 export const dockerSock = process.env.DOCKER_SOCK ?? '/var/run/docker.sock';
@@ -176,21 +176,79 @@ export async function loadImage(filePath: string): Promise<void> {
   });
 }
 
+/**
+ * 从 cgroup / mountinfo 里抽出本容器 ID。
+ * 网页更新会重建容器；若沿用旧的 Hostname，`os.hostname()` 还是上一个容器的短 ID，
+ * 按它去查就会得到 `No such container`。
+ */
+export function containerIdFromProc(text: string): string | null {
+  const patterns = [
+    /\/docker\/containers\/([0-9a-f]{64})/i,
+    /docker-([0-9a-f]{64})\.scope/i,
+    /containerd-([0-9a-f]{64})/i,
+    /\/docker\/([0-9a-f]{64})/i,
+    /([0-9a-f]{64})/i,
+  ];
+  for (const pattern of patterns) {
+    const found = pattern.exec(text);
+    if (found) {
+      return found[1].toLowerCase();
+    }
+  }
+  return null;
+}
+
+/** Docker 默认主机名就是容器短 ID。这种值不能抄到新容器上，否则下次认不出自己。 */
+export function hostnameToKeep(value: string | undefined): string | undefined {
+  if (!value || /^[0-9a-f]{12}$/i.test(value)) {
+    return undefined;
+  }
+  return value;
+}
+
+function selfIdCandidates(): string[] {
+  const ids: string[] = [];
+  for (const file of ['/proc/self/cgroup', '/proc/1/cgroup', '/proc/self/mountinfo']) {
+    if (!existsSync(file)) {
+      continue;
+    }
+    try {
+      const id = containerIdFromProc(readFileSync(file, 'utf8'));
+      if (id && !ids.includes(id)) {
+        ids.push(id);
+      }
+    } catch {
+      // 读不到就换下一种认法。
+    }
+  }
+  const short = hostname();
+  if (short && !ids.includes(short)) {
+    ids.push(short);
+  }
+  return ids;
+}
+
 export async function inspectSelf(): Promise<DockerInspect> {
-  return docker<DockerInspect>(
-    'GET',
-    `/containers/${hostname()}/json`,
-  );
+  let lastError: unknown;
+  for (const id of selfIdCandidates()) {
+    try {
+      return await docker<DockerInspect>('GET', `/containers/${id}/json`);
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  const listed = await findRunningService('api');
+  if (listed) {
+    return docker<DockerInspect>('GET', `/containers/${listed}/json`);
+  }
+  throw lastError instanceof Error ? lastError : new Error('找不到当前接口容器');
 }
 
 /**
  * 按原来的端口、环境变量和挂载重建一个 Compose 服务容器，镜像换成新加载的 tag。
  * 失败时把旧容器改回原名并重新启动。
  */
-export async function recreateService(
-  service: string,
-  image: string,
-): Promise<void> {
+async function findRunningService(service: string): Promise<string | null> {
   const filters = encodeURIComponent(
     JSON.stringify({
       label: [
@@ -204,9 +262,18 @@ export async function recreateService(
     `/containers/json?all=1&filters=${filters}`,
   );
   const found = list.find((item) => !item.Names.some((name) => name.endsWith('-old')));
-  if (!found) {
+  return found?.Id ?? null;
+}
+
+export async function recreateService(
+  service: string,
+  image: string,
+): Promise<void> {
+  const foundId = await findRunningService(service);
+  if (!foundId) {
     throw new Error(`找不到正在运行的 ${service} 容器`);
   }
+  const found = { Id: foundId };
 
   const info = await docker<DockerInspect>(
     'GET',
@@ -236,11 +303,12 @@ export async function recreateService(
     }
     delete hostConfig.ConsoleSize;
 
+    const keptHostname = hostnameToKeep(info.Config.Hostname);
     const created = await docker<{ Id: string }>(
       'POST',
       `/containers/create?name=${encodeURIComponent(name)}`,
       {
-        Hostname: info.Config.Hostname,
+        ...(keptHostname ? { Hostname: keptHostname } : {}),
         User: info.Config.User,
         Env: info.Config.Env,
         Cmd: info.Config.Cmd,
