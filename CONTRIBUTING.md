@@ -131,7 +131,7 @@ docker build -f web/Dockerfile -t flowdo-web:latest .
 少了 `assets/`（字体、图标）或 `canvaskit/` 就是同一类故障。
 
 网页端固定请求当前 origin，不提供 API 地址设置。没有注册，登录只填密码。
-跑 `./start.sh` 后，浏览器打开网页。全新数据库没有初始密码，第一次打开会让你设一个并再确认一次。
+跑 `./start.sh` 后，浏览器打开网页。第一次打开会让你设一个密码并再确认一次。
 
 改完代码提 PR 前先跑一遍：
 

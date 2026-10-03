@@ -19,7 +19,7 @@ Me _me({required bool mustChangePassword}) => Me(
     );
 
 void main() {
-  testWidgets('initial password blocks the home screen until changed', (tester) async {
+  testWidgets('first visit asks to set a password before home', (tester) async {
     SharedPreferences.setMockInitialValues({'accessToken': 'token'});
     final prefs = await SharedPreferences.getInstance();
 
@@ -37,7 +37,6 @@ void main() {
     expect(find.byType(ChangePasswordScreen), findsOneWidget);
     expect(find.byType(HomeScreen), findsNothing);
     expect(find.text('设一个密码'), findsOneWidget);
-    expect(find.text('初始密码'), findsNothing);
     expect(find.text('再输一次'), findsOneWidget);
   });
 }

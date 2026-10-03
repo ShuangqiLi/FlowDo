@@ -160,5 +160,5 @@ echo "  网页端：http://<本机 IP>:${web_port}"
 echo "  API：   http://<本机 IP>:${api_port}/health"
 echo "  数据库：只在容器网络内，不对外开放"
 echo
-echo "登录只需要密码。全新安装没有初始密码，第一次打开网页时设一个并再确认一次。"
+echo "登录只需要密码。第一次打开网页时设一个并再确认一次。"
 echo "停止：docker compose down    升级后清掉旧镜像：docker image prune -f"
