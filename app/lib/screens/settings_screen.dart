@@ -397,46 +397,47 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
             ),
             const SizedBox(height: AppSpacing.lg),
-            const SectionHeader('账户', caption: '全局'),
-            FlowDoCard(
-              padding: EdgeInsets.zero,
-              child: Column(
-                children: [
-                  _SettingsNavRow(
-                    icon: Icons.info_outline_rounded,
-                    label: '版本和更新',
-                    onTap: () {
-                      Navigator.of(context).push(
-                        FlowDoPageRoute(builder: (_) => const AboutScreen()),
-                      );
-                    },
-                  ),
-                  Divider(height: 1, color: scheme.outlineVariant),
-                  _SettingsNavRow(
-                    icon: Icons.lock_outline_rounded,
-                    label: '修改密码',
-                    onTap: () {
-                      Navigator.of(context).push(
-                        FlowDoPageRoute(
-                          builder: (_) =>
-                              const ChangePasswordScreen(fromSettings: true),
-                        ),
-                      );
-                    },
-                  ),
-                ],
-              ),
-            ),
+            const SectionHeader('关于', caption: '全局'),
+            const FlowDoCard(child: AboutUpdatePanel()),
             const SizedBox(height: AppSpacing.lg),
             SizedBox(
               width: double.infinity,
               height: 48,
               child: FilledButton(
                 style: FilledButton.styleFrom(
-                  backgroundColor: scheme.error,
-                  foregroundColor: scheme.onError,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppRadii.control),
+                  ),
+                ),
+                onPressed: () {
+                  Navigator.of(context).push(
+                    FlowDoPageRoute(
+                      builder: (_) =>
+                          const ChangePasswordScreen(fromSettings: true),
+                    ),
+                  );
+                },
+                child: const Text('修改密码'),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: Color.lerp(
+                    scheme.surface,
+                    scheme.error,
+                    0.18,
+                  ),
+                  foregroundColor: Color.lerp(
+                    scheme.error,
+                    scheme.onSurface,
+                    0.28,
+                  ),
                   disabledBackgroundColor:
-                      scheme.error.withValues(alpha: 0.38),
+                      scheme.error.withValues(alpha: 0.12),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(AppRadii.control),
                   ),
@@ -509,54 +510,6 @@ class _SaveStatusBar extends StatelessWidget {
                 ],
               ),
             ),
-    );
-  }
-}
-
-class _SettingsNavRow extends StatelessWidget {
-  const _SettingsNavRow({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 52),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.md,
-              vertical: AppSpacing.sm,
-            ),
-            child: Row(
-              children: [
-                Icon(icon, color: scheme.primary),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: Text(
-                    label,
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                ),
-                Icon(
-                  Icons.chevron_right_rounded,
-                  color: scheme.onSurfaceVariant,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
     );
   }
 }
@@ -742,14 +695,15 @@ class _ThemeSwatch extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ink = _inkOnPreview(theme.preview);
+    final fill = _themeSwatchFill(theme.preview);
+    final ink = _themeSwatchInk(theme.preview);
     final radius = BorderRadius.circular(AppRadii.control);
     return Semantics(
       button: onTap != null,
       selected: selected || (showsChevron && !open),
       label: '${theme.label}主题',
       child: Material(
-        color: theme.preview,
+        color: fill,
         borderRadius: radius,
         clipBehavior: Clip.antiAlias,
         child: InkWell(
@@ -789,18 +743,19 @@ class _ThemeSwatch extends StatelessWidget {
   }
 }
 
-/// 色块上的字跟底色比，谁更清楚用谁。
-Color _inkOnPreview(Color background) {
-  const dark = Color(0xFF2C241C);
-  final onLight = _contrast(background, Colors.white);
-  final onDark = _contrast(background, dark);
-  return onLight >= onDark ? Colors.white : dark;
+/// 色块用主题色的深底浅字，不用黑白。
+Color _themeSwatchFill(Color preview) {
+  final hsl = HSLColor.fromColor(preview);
+  return hsl
+      .withLightness(0.28)
+      .withSaturation(hsl.saturation.clamp(0.32, 0.62))
+      .toColor();
 }
 
-double _contrast(Color a, Color b) {
-  final l1 = a.computeLuminance();
-  final l2 = b.computeLuminance();
-  final lighter = l1 > l2 ? l1 : l2;
-  final darker = l1 > l2 ? l2 : l1;
-  return (lighter + 0.05) / (darker + 0.05);
+Color _themeSwatchInk(Color preview) {
+  final hsl = HSLColor.fromColor(preview);
+  return hsl
+      .withLightness(0.86)
+      .withSaturation((hsl.saturation * 0.45).clamp(0.18, 0.42))
+      .toColor();
 }

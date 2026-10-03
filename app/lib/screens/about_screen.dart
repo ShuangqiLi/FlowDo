@@ -8,20 +8,20 @@ import '../models/about.dart';
 import '../platform/open_url.dart';
 import '../providers.dart';
 import '../theme.dart';
-import '../ui/flowdo_card.dart';
-import '../ui/flowdo_logo.dart';
 
-class AboutScreen extends ConsumerStatefulWidget {
-  const AboutScreen({super.key});
+/// 设置里的关于：当前版本，以及检查新版并更新。
+class AboutUpdatePanel extends ConsumerStatefulWidget {
+  const AboutUpdatePanel({super.key});
 
   @override
-  ConsumerState<AboutScreen> createState() => _AboutScreenState();
+  ConsumerState<AboutUpdatePanel> createState() => _AboutUpdatePanelState();
 }
 
-class _AboutScreenState extends ConsumerState<AboutScreen> {
+class _AboutUpdatePanelState extends ConsumerState<AboutUpdatePanel> {
   AboutInfo? _info;
   String? _error;
   bool _updating = false;
+  bool _checking = false;
   String? _target;
   Timer? _poll;
   DateTime? _pollStarted;
@@ -67,6 +67,46 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
     }
   }
 
+  Future<void> _checkAndUpdate() async {
+    if (_updating) {
+      return;
+    }
+    setState(() {
+      _checking = true;
+      _error = null;
+    });
+    try {
+      final info = await ref.read(apiProvider).about();
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _info = info;
+        _checking = false;
+      });
+      if (info.updateAvailable && info.canUpdate) {
+        await _update();
+        return;
+      }
+    } on ApiException catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _checking = false;
+        _error = error.message;
+      });
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _checking = false;
+        _error = '没能检查更新，稍后再试';
+      });
+    }
+  }
+
   Future<void> _update() async {
     setState(() {
       _updating = true;
@@ -82,7 +122,8 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
       _poll?.cancel();
       _poll = Timer.periodic(const Duration(seconds: 2), (_) async {
         if (_pollStarted != null &&
-            DateTime.now().difference(_pollStarted!) > const Duration(minutes: 3)) {
+            DateTime.now().difference(_pollStarted!) >
+                const Duration(minutes: 3)) {
           _poll?.cancel();
           if (mounted) {
             setState(() {
@@ -118,84 +159,59 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final info = _info;
-    final status = _status(info);
+    final busy = _updating || _checking;
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('关于')),
-      body: ResponsiveContent(
-        child: ListView(
-          padding: const EdgeInsets.all(AppSpacing.md),
-          children: [
-            const SizedBox(height: AppSpacing.lg),
-            const Center(child: FlowDoLogo(size: 72)),
-            const SizedBox(height: AppSpacing.md),
-            Text(
-              '随随办办',
-              style: Theme.of(context).textTheme.headlineSmall,
-              textAlign: TextAlign.center,
-            ),
-            Text(
-              'FlowDo',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: scheme.primary,
-                    fontWeight: FontWeight.w600,
-                  ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            FlowDoCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    info == null ? '当前版本' : '当前版本 ${info.version}',
-                    key: const ValueKey('about-version'),
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: AppSpacing.xs),
-                  Semantics(
-                    liveRegion: true,
-                    child: Text(
-                      status,
-                      key: const ValueKey('about-status'),
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: scheme.onSurfaceVariant,
-                            height: 1.5,
-                          ),
-                    ),
-                  ),
-                  if (_updating) ...[
-                    const SizedBox(height: AppSpacing.md),
-                    const LinearProgressIndicator(),
-                  ],
-                  if (info != null && info.updateAvailable && info.canUpdate) ...[
-                    const SizedBox(height: AppSpacing.md),
-                    FilledButton.icon(
-                      key: const ValueKey('about-update'),
-                      onPressed: _updating ? null : _update,
-                      icon: const Icon(Icons.system_update_alt_rounded),
-                      label: Text(_updating ? '正在更新' : '更新到 ${info.latest}'),
-                    ),
-                  ],
-                  const SizedBox(height: AppSpacing.sm),
-                  TextButton.icon(
-                    key: const ValueKey('about-release-notes'),
-                    onPressed: () {
-                      final tag = info?.latest ?? info?.version;
-                      final url = tag == null
-                          ? 'https://github.com/ShuangqiLi/FlowDo/releases'
-                          : 'https://github.com/ShuangqiLi/FlowDo/releases/tag/v$tag';
-                      openExternalUrl(url);
-                    },
-                    icon: const Icon(Icons.open_in_new_rounded, size: 18),
-                    label: const Text('发行说明'),
-                  ),
-                ],
-              ),
-            ),
-          ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          info == null ? '当前版本' : '当前版本 ${info.version}',
+          key: const ValueKey('about-version'),
+          style: Theme.of(context).textTheme.titleMedium,
         ),
-      ),
+        const SizedBox(height: AppSpacing.xs),
+        Semantics(
+          liveRegion: true,
+          child: Text(
+            _status(info),
+            key: const ValueKey('about-status'),
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                  height: 1.5,
+                ),
+          ),
+        ),
+        if (_updating) ...[
+          const SizedBox(height: AppSpacing.md),
+          const LinearProgressIndicator(),
+        ],
+        const SizedBox(height: AppSpacing.md),
+        FilledButton.tonalIcon(
+          key: const ValueKey('about-update'),
+          onPressed: busy ? null : _checkAndUpdate,
+          icon: const Icon(Icons.system_update_alt_rounded),
+          label: Text(
+            _updating
+                ? '正在更新'
+                : _checking
+                    ? '正在检查…'
+                    : '检查新版并更新',
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        TextButton.icon(
+          key: const ValueKey('about-release-notes'),
+          onPressed: () {
+            final tag = info?.latest ?? info?.version;
+            final url = tag == null
+                ? 'https://github.com/ShuangqiLi/FlowDo/releases'
+                : 'https://github.com/ShuangqiLi/FlowDo/releases/tag/v$tag';
+            openExternalUrl(url);
+          },
+          icon: const Icon(Icons.open_in_new_rounded, size: 18),
+          label: const Text('发行说明'),
+        ),
+      ],
     );
   }
 
@@ -222,7 +238,7 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
       if (!info.canUpdate) {
         return '有新版本 ${info.latest}。这台部署没把 Docker 交给服务端，请在部署目录重新运行启动脚本。';
       }
-      return '有新版本 ${info.latest}，可以在这里换上。数据库不会动。';
+      return '有新版本 ${info.latest}，点下面即可换上。数据库不会动。';
     }
     return '已经是最新的。';
   }

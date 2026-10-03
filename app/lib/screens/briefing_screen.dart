@@ -5,6 +5,7 @@ import '../models/briefing.dart';
 import '../models/task.dart';
 import '../providers.dart';
 import '../theme.dart';
+import '../ui/briefing_clock_button.dart';
 import '../ui/empty_state.dart';
 import '../ui/flowdo_card.dart';
 import '../ui/flowdo_page_route.dart';
@@ -52,12 +53,7 @@ class BriefingScreen extends ConsumerWidget {
                   AppSpacing.lg,
                 ),
                 children: [
-                  Text(
-                    _prettyDate(data.date),
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                        ),
-                  ),
+                  const BriefingNowRow(),
                   const SizedBox(height: AppSpacing.lg),
                   const SectionHeader('可以先做这些', caption: '挑一件顺手的，就算开始。'),
                   if (data.suggestedFocus.isEmpty)
@@ -151,28 +147,6 @@ class BriefingScreen extends ConsumerWidget {
   String _todayKey() {
     final now = DateTime.now();
     return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-  }
-
-  String _prettyDate(String date) {
-    // 今日看看抬头优先用本地今天，避免旧接口 UTC 串日。
-    final local = DateTime.now();
-    final match = RegExp(r'^(\d{4})-(\d{2})-(\d{2})$').firstMatch(date);
-    final DateTime dt;
-    if (match != null) {
-      final parsed = DateTime(
-        int.parse(match.group(1)!),
-        int.parse(match.group(2)!),
-        int.parse(match.group(3)!),
-      );
-      final sameDay = parsed.year == local.year &&
-          parsed.month == local.month &&
-          parsed.day == local.day;
-      dt = sameDay ? parsed : local;
-    } else {
-      dt = local;
-    }
-    const weekdays = ['星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日'];
-    return '${dt.year}年${dt.month}月${dt.day}日 ${weekdays[dt.weekday - 1]}';
   }
 
   Widget _taskTile(

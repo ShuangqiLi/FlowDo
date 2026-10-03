@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../platform/location.dart';
 import '../providers.dart';
+import '../theme.dart';
 
 class WeatherSnapshot {
   const WeatherSnapshot({
@@ -26,8 +27,8 @@ class WeatherSnapshot {
   String get rangeLabel => '$minC~$maxC°';
 }
 
-/// 右上角：实时日期时间和天气，点开今日看看。
-class BriefingClockButton extends ConsumerStatefulWidget {
+/// 右上角：天气进今日看看；打开后换成叉。
+class BriefingClockButton extends ConsumerWidget {
   const BriefingClockButton({
     super.key,
     required this.open,
@@ -41,11 +42,46 @@ class BriefingClockButton extends ConsumerStatefulWidget {
   static bool tick = true;
 
   @override
-  ConsumerState<BriefingClockButton> createState() =>
-      _BriefingClockButtonState();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final scheme = Theme.of(context).colorScheme;
+    final snap = ref.watch(weatherProvider).asData?.value;
+    final tooltip = open ? '关掉今日看看' : '今日看看';
+
+    return IconButton(
+        onPressed: onPressed,
+        tooltip: tooltip,
+        style: const ButtonStyle(
+          overlayColor: WidgetStatePropertyAll(Colors.transparent),
+          splashFactory: NoSplash.splashFactory,
+          minimumSize: WidgetStatePropertyAll(Size(44, 44)),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        ),
+        icon: open
+            ? Icon(
+                Icons.close_rounded,
+                color: scheme.onSurface,
+                semanticLabel: tooltip,
+              )
+            : Icon(
+                snap?.icon ?? Icons.wb_cloudy_outlined,
+                color: scheme.onSurface,
+                semanticLabel: snap == null
+                    ? tooltip
+                    : '${snap.label} ${snap.rangeLabel}',
+              ),
+      );
+  }
 }
 
-class _BriefingClockButtonState extends ConsumerState<BriefingClockButton> {
+/// 今日看看第一行：左边时间，右边天气和温度。
+class BriefingNowRow extends ConsumerStatefulWidget {
+  const BriefingNowRow({super.key});
+
+  @override
+  ConsumerState<BriefingNowRow> createState() => _BriefingNowRowState();
+}
+
+class _BriefingNowRowState extends ConsumerState<BriefingNowRow> {
   late DateTime _now;
   Timer? _tick;
 
@@ -71,58 +107,42 @@ class _BriefingClockButtonState extends ConsumerState<BriefingClockButton> {
 
   @override
   Widget build(BuildContext context) {
-    final weather = ref.watch(weatherProvider);
     final scheme = Theme.of(context).colorScheme;
+    final snap = ref.watch(weatherProvider).asData?.value;
     final stamp = DateFormat('yyyy-MM-dd HH:mm:ss').format(_now);
-    final snap = weather.asData?.value;
-    final textStyle = Theme.of(context).textTheme.titleSmall?.copyWith(
+    final style = Theme.of(context).textTheme.titleSmall?.copyWith(
           fontFeatures: const [FontFeature.tabularFigures()],
           fontWeight: FontWeight.w600,
           color: scheme.onSurface,
-          height: 1.1,
+          height: 1.2,
         );
 
-    return Tooltip(
-      message: widget.open ? '关掉今日看看' : '今日看看',
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: widget.onPressed,
-          borderRadius: BorderRadius.circular(12),
-          splashFactory: NoSplash.splashFactory,
-          overlayColor: const WidgetStatePropertyAll(Colors.transparent),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 44, minWidth: 44),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                alignment: Alignment.centerRight,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(stamp, style: textStyle),
-                    if (snap != null) ...[
-                      const SizedBox(width: 10),
-                      Icon(
-                        snap.icon,
-                        size: 20,
-                        color: scheme.onSurface,
-                        semanticLabel: '${snap.label} ${snap.rangeLabel}',
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '${snap.label} ${snap.rangeLabel}',
-                        style: textStyle,
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Expanded(
+          child: Text(
+            stamp,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: style,
           ),
         ),
-      ),
+        if (snap != null) ...[
+          const SizedBox(width: AppSpacing.sm),
+          Icon(
+            snap.icon,
+            size: 20,
+            color: scheme.onSurface,
+            semanticLabel: '${snap.label} ${snap.rangeLabel}',
+          ),
+          const SizedBox(width: 4),
+          Text(
+            '${snap.label} ${snap.rangeLabel}',
+            style: style,
+          ),
+        ],
+      ],
     );
   }
 }

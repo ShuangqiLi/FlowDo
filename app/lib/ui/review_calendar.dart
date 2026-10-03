@@ -29,7 +29,6 @@ class MonthReviewCalendar extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final byDate = {for (final d in days) d.date: d};
-    final maxCount = days.fold<int>(0, (m, d) => d.count > m ? d.count : m);
     final first = DateTime(year, month, 1);
     final leading = (first.weekday + 6) % 7;
     final daysInMonth = DateTime(year, month + 1, 0).day;
@@ -67,7 +66,6 @@ class MonthReviewCalendar extends StatelessWidget {
                         leading: leading,
                         daysInMonth: daysInMonth,
                         byDate: byDate,
-                        maxCount: maxCount,
                       ),
                     ),
                 ],
@@ -84,11 +82,10 @@ class MonthReviewCalendar extends StatelessWidget {
     required int leading,
     required int daysInMonth,
     required Map<String, ReviewDay> byDate,
-    required int maxCount,
   }) {
     final day = index - leading + 1;
     if (day < 1 || day > daysInMonth) {
-      return const SizedBox(height: 52);
+      return const SizedBox(height: 64);
     }
     final key =
         '$year-${month.toString().padLeft(2, '0')}-${day.toString().padLeft(2, '0')}';
@@ -97,7 +94,6 @@ class MonthReviewCalendar extends StatelessWidget {
       builder: (cellContext) => _DayCell(
         dayNumber: '$day',
         count: review.count,
-        maxCount: maxCount,
         isToday: key == todayKey,
         scheme: scheme,
         onTap: onDayTap == null ? null : () => onDayTap!(cellContext, review),
@@ -140,30 +136,25 @@ class _DayCell extends StatelessWidget {
   const _DayCell({
     required this.dayNumber,
     required this.count,
-    required this.maxCount,
     required this.isToday,
     required this.scheme,
     this.onTap,
   });
 
+  static const maxMarks = 5;
+
   final String dayNumber;
   final int count;
-  final int maxCount;
   final bool isToday;
   final ColorScheme scheme;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    final intensity = maxCount <= 0 || count <= 0
-        ? 0.0
-        : (0.22 + 0.78 * (count / maxCount)).clamp(0.22, 1.0);
-    final fill = count == 0
-        ? scheme.surfaceContainerHighest.withValues(alpha: 0.45)
-        : scheme.primary.withValues(alpha: intensity);
-    final onFill = count == 0
-        ? scheme.onSurfaceVariant
-        : (intensity > 0.55 ? scheme.onPrimary : scheme.primary);
+    final shown = count.clamp(0, maxMarks);
+    final fill = isToday
+        ? scheme.primary.withValues(alpha: 0.12)
+        : scheme.surfaceContainerHighest.withValues(alpha: 0.35);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 2),
@@ -172,28 +163,54 @@ class _DayCell extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(AppRadii.control),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 2),
-            child: AnimatedContainer(
-              duration: AppMotion.quick,
-              curve: AppMotion.curve,
-              height: 52,
-              width: double.infinity,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: fill,
-                borderRadius: BorderRadius.circular(AppRadii.control),
-                border: isToday
-                    ? Border.all(color: scheme.primary, width: 1.6)
-                    : null,
-              ),
-              child: Text(
-                dayNumber,
-                style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      color: onFill,
-                      fontWeight: isToday ? FontWeight.w700 : FontWeight.w500,
-                      height: 1.05,
+          child: Semantics(
+            button: onTap != null,
+            label: count == 0
+                ? '$dayNumber日'
+                : '$dayNumber日，完成 $count 件',
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: AnimatedContainer(
+                duration: AppMotion.quick,
+                curve: AppMotion.curve,
+                height: 64,
+                width: double.infinity,
+                padding: const EdgeInsets.fromLTRB(6, 4, 4, 6),
+                decoration: BoxDecoration(
+                  color: fill,
+                  borderRadius: BorderRadius.circular(AppRadii.control),
+                  border: isToday
+                      ? Border.all(color: scheme.primary, width: 1.6)
+                      : null,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      dayNumber,
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                            color: scheme.onSurface,
+                            fontWeight:
+                                isToday ? FontWeight.w700 : FontWeight.w600,
+                            height: 1.05,
+                          ),
                     ),
+                    const Spacer(),
+                    if (shown > 0)
+                      Wrap(
+                        spacing: 2,
+                        runSpacing: 2,
+                        children: [
+                          for (var i = 0; i < shown; i++)
+                            Icon(
+                              Icons.circle,
+                              size: 6,
+                              color: scheme.primary,
+                            ),
+                        ],
+                      ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -562,7 +579,7 @@ class _SwipeMonthCalendarState extends State<SwipeMonthCalendar> {
           ],
         ),
         SizedBox(
-          height: 360,
+          height: 430,
           child: PageView.builder(
             controller: _pages,
             onPageChanged: (page) {

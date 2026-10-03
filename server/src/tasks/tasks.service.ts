@@ -126,11 +126,11 @@ export class TasksService {
         ? `那边聚焦已经满了（${limit} 件），先腾出位子再搬过去。`
         : `手头这 ${limit} 件先盯紧啦。搞定或先放回任务池，再接新的。`;
     // 锁住空间这一行，慢网下同时送进来的几条才会按顺序占名额。
+    // id 在库里是文本，不能转成 uuid，否则 Postgres 直接 500。
     return this.prisma.$transaction(async (tx) => {
-      await tx.$queryRawUnsafe(
-        'SELECT "id" FROM "Space" WHERE "id" = $1::uuid FOR UPDATE',
-        nextSpaceId,
-      );
+      await tx.$queryRaw`
+        SELECT "id" FROM "Space" WHERE "id" = ${nextSpaceId} FOR UPDATE
+      `;
       const focused = await tx.task.count({
         where: { spaceId: nextSpaceId, status: TaskStatus.FOCUS },
       });

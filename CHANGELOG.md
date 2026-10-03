@@ -14,6 +14,18 @@
 
 ## [Unreleased]
 
+## [0.8.7] - 2026-10-03
+
+### Fixed
+
+- 任务从任务池送进聚焦时不再因为行锁 SQL 类型不对而返回 500
+
+### Changed
+
+- 右上角只留天气入口，今日看看里第一行左边时间、右边天气；打开后天气按钮换成叉
+- 月度回顾格子左上角放日期，完成件数用圆点表示，最多 5 个
+- 设置外观色块改成主题深底浅字；账户改成关于，检查更新直接在设置里；修改密码和退出登录同一层，退出登录红色更柔和
+
 ## [0.8.6] - 2026-10-03
 
 ### Fixed
@@ -332,7 +344,8 @@
 - 通过 GitHub Releases 发版（推送 `v*.*.*` 标签）
 - 账号级设置（聚焦上限、归档天数、是否显示归档页）
 
-[Unreleased]: https://github.com/ShuangqiLi/FlowDo/compare/v0.8.6...HEAD
+[Unreleased]: https://github.com/ShuangqiLi/FlowDo/compare/v0.8.7...HEAD
+[0.8.7]: https://github.com/ShuangqiLi/FlowDo/compare/v0.8.6...v0.8.7
 [0.8.6]: https://github.com/ShuangqiLi/FlowDo/compare/v0.8.5...v0.8.6
 [0.8.5]: https://github.com/ShuangqiLi/FlowDo/compare/v0.8.4...v0.8.5
 [0.8.4]: https://github.com/ShuangqiLi/FlowDo/compare/v0.8.3...v0.8.4
