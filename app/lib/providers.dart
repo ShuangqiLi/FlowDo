@@ -692,7 +692,7 @@ class NoticesController extends AsyncNotifier<List<Notice>> {
       return;
     }
     final holds = ref.read(pendingTaskWritesProvider);
-    final spaceId = ref.read(meProvider).asData?.value?.activeSpaceId;
+    final spaceId = ref.read(meProvider).asData?.value.activeSpaceId;
     final focusProvider = tasksProvider('FOCUS');
     final focusReady =
         ref.exists(focusProvider) && ref.read(focusProvider).hasValue;

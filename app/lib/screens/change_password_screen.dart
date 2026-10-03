@@ -47,12 +47,12 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
       _error = null;
     });
     try {
-      await widget.fromSettings
+      await (widget.fromSettings
           ? ref.read(apiProvider).changePassword(
                 currentPassword: _current.text,
                 newPassword: _next.text,
               )
-          : ref.read(apiProvider).setupPassword(_next.text);
+          : ref.read(apiProvider).setupPassword(_next.text));
       if (widget.fromSettings) {
         ref.invalidate(meProvider);
         if (mounted) {
