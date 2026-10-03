@@ -7,8 +7,8 @@ import { Prisma } from '@prisma/client';
 import { InstanceService } from '../instance/instance.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateTaskDto, UpdateTaskDto } from './dto/task.dto';
-import { TaskPriority, TaskStatus } from './task.enums';
-import { parseReminderInstant } from './reminder-time';
+import { RemindRepeat, TaskPriority, TaskStatus } from './task.enums';
+import { asRemindRepeat, parseReminderInstant } from './reminder-time';
 import { canTransition } from './task-status';
 
 const PRIORITY_ORDER: Record<TaskPriority, number> = {
@@ -27,8 +27,8 @@ export class TasksService {
   ) {}
 
   async list(status?: TaskStatus) {
-    const spaceId = await this.instance.spaceId();
-    const where: Prisma.TaskWhereInput = { spaceId };
+    const space = await this.instance.activeSpace();
+    const where: Prisma.TaskWhereInput = { spaceId: space.id };
     if (status) {
       where.status = status;
     }
@@ -36,7 +36,15 @@ export class TasksService {
       where,
       orderBy: [{ updatedAt: 'desc' }],
     });
-    return [...tasks].sort((a, b) => {
+    const visible =
+      status === TaskStatus.TODO && !space.showRecurringReminders
+        ? tasks.filter(
+            (task) =>
+              task.priority !== TaskPriority.REMINDER ||
+              task.remindRepeat === RemindRepeat.ONCE,
+          )
+        : tasks;
+    return [...visible].sort((a, b) => {
       const p = PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority];
       if (p !== 0) {
         return p;
@@ -54,6 +62,10 @@ export class TasksService {
         body: dto.body?.trim() ? dto.body.trim() : null,
         priority: dto.priority ?? TaskPriority.NONE,
         remindAt: reminderForCreate(dto.priority, dto.remindAt),
+        remindRepeat:
+          dto.priority === TaskPriority.REMINDER
+            ? asRemindRepeat(dto.remindRepeat)
+            : RemindRepeat.ONCE,
         status: TaskStatus.TODO,
       },
     });
@@ -93,6 +105,18 @@ export class TasksService {
       nextSpaceId = target.id;
     }
 
+    if (
+      dto.status === TaskStatus.DONE &&
+      task.priority === TaskPriority.REMINDER &&
+      dto.status !== task.status
+    ) {
+      if (!canTransition(task.status, TaskStatus.DONE)) {
+        throw new BadRequestException('这条任务现在不能改成那个状态');
+      }
+      await this.prisma.task.delete({ where: { id } });
+      return { ...task, deleted: true };
+    }
+
     if (dto.status !== undefined && dto.status !== task.status) {
       if (!canTransition(task.status, dto.status)) {
         throw new BadRequestException('这条任务现在不能改成那个状态');
@@ -129,7 +153,7 @@ export class TasksService {
     const fullMessage =
       movingWhileFocused && !enteringFocus
         ? `那边聚焦已经满了（${limit} 件），先腾出位子再搬过去。`
-        : `手头这 ${limit} 件先盯紧啦。搞定或先放回任务池，再接新的。`;
+        : `手头这 ${limit} 件先盯紧啦。完成或先放回任务池，再接新的。`;
     // 锁住空间这一行，慢网下同时送进来的几条才会按顺序占名额。
     // id 在库里是文本，不能转成 uuid，否则 Postgres 直接 500。
     return this.prisma.$transaction(async (tx) => {
@@ -189,8 +213,12 @@ function applyReminder(
     if (dto.priority !== undefined || dto.remindAt === null) {
       data.remindAt = null;
       data.remindedAt = null;
+      data.remindRepeat = RemindRepeat.ONCE;
     }
     return;
+  }
+  if (dto.remindRepeat !== undefined) {
+    data.remindRepeat = dto.remindRepeat;
   }
   if (typeof dto.remindAt === 'string') {
     data.remindAt = parseReminderInstant(dto.remindAt, new Date());

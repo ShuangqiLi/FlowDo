@@ -48,7 +48,7 @@ void main() {
         createdAt: DateTime(2026, 9, 1),
         completedAt: DateTime(2026, 9, 20),
       ).listDateLabel(now),
-      '9月20日搞定',
+      '9月20日完成',
     );
     expect(
       _task(

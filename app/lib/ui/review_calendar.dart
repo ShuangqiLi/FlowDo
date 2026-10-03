@@ -356,10 +356,10 @@ Future<void> showReviewDayPopover(
       if (task.remindAt != null && task.remindAt!.isAfter(DateTime.now())) task,
   ];
   final summary = switch ((reminders.length, tasks.length)) {
-    (0, 0) => '这一天还没有搞定的事',
-    (0, _) => '搞定了 ${tasks.length} 件',
+    (0, 0) => '这一天还没有完成的事',
+    (0, _) => '完成了 ${tasks.length} 件',
     (_, 0) => '有 ${reminders.length} 个提醒',
-    _ => '提醒 ${reminders.length} 件 · 搞定了 ${tasks.length} 件',
+    _ => '提醒 ${reminders.length} 件 · 完成了 ${tasks.length} 件',
   };
 
   final selected = await showMenu<Task>(
@@ -623,7 +623,7 @@ class _SwipeMonthCalendarState extends State<SwipeMonthCalendar> {
     return Column(
       children: [
         ReviewSummaryRow(
-          completedLabel: '本月搞定',
+          completedLabel: '本月完成',
           completedCount: current.completedCount,
           activeLabel: '活跃天数',
           activeDays: current.activeDays,

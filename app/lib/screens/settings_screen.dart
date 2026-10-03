@@ -176,6 +176,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     int? focusLimit,
     int? deleteArchivedAfterDays,
     bool? showArchiveTab,
+    bool? showRecurringReminders,
     String? themeKey,
     bool? voiceInputEnabled,
   }) async {
@@ -192,6 +193,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             focusLimit: focusLimit,
             deleteArchivedAfterDays: deleteArchivedAfterDays,
             showArchiveTab: showArchiveTab,
+            showRecurringReminders: showRecurringReminders,
             themeKey: themeKey,
             voiceInputEnabled: voiceInputEnabled,
           );
@@ -278,7 +280,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Text(
-                    '一次抓太多容易手忙脚乱。到上限后，先搞定或先放回任务池再继续。',
+                    '一次抓太多容易手忙脚乱。到上限后，先完成或先放回任务池再继续。',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: scheme.onSurfaceVariant,
                           height: 1.45,
@@ -301,6 +303,23 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ),
                   ),
                 ],
+              ),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            const SectionHeader('提醒', caption: '当前任务空间 · 改完自动保存'),
+            FlowDoCard(
+              padding: EdgeInsets.zero,
+              child: SwitchListTile(
+                contentPadding: const EdgeInsets.fromLTRB(
+                  AppSpacing.md,
+                  AppSpacing.xs,
+                  AppSpacing.sm,
+                  AppSpacing.xs,
+                ),
+                title: const Text('在任务池显示循环提醒'),
+                subtitle: const Text('关掉后仍会到点提醒，只是不列在任务池里'),
+                value: me.value?.showRecurringReminders ?? true,
+                onChanged: (v) => _saveMe(showRecurringReminders: v),
               ),
             ),
             const SizedBox(height: AppSpacing.lg),

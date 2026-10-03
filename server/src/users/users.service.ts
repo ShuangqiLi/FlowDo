@@ -47,6 +47,9 @@ export class UsersService {
       ...(dto.showArchiveTab !== undefined
         ? { showArchiveTab: dto.showArchiveTab }
         : {}),
+      ...(dto.showRecurringReminders !== undefined
+        ? { showRecurringReminders: dto.showRecurringReminders }
+        : {}),
       ...(dto.themeKey !== undefined ? { themeKey: dto.themeKey } : {}),
     };
     if (Object.keys(spacePatch).length > 0) {
@@ -87,6 +90,7 @@ export class UsersService {
       focusLimit: space.focusLimit,
       deleteArchivedAfterDays: space.deleteArchivedAfterDays,
       showArchiveTab: space.showArchiveTab,
+      showRecurringReminders: space.showRecurringReminders,
       themeKey: space.themeKey,
       createdAt: instance.createdAt,
     };

@@ -12,3 +12,11 @@ export enum TaskPriority {
   NONE = 'NONE',
   REMINDER = 'REMINDER',
 }
+
+export enum RemindRepeat {
+  ONCE = 'ONCE',
+  DAILY = 'DAILY',
+  WEEKLY = 'WEEKLY',
+  MONTHLY = 'MONTHLY',
+  YEARLY = 'YEARLY',
+}

@@ -23,10 +23,32 @@ String priorityLabel(String priority) {
   };
 }
 
-/// 选一个比现在晚的分钟。取消或时间不晚于现在时返回 null。
-Future<DateTime?> showReminderTimePicker(
+class ReminderPlan {
+  const ReminderPlan({required this.at, required this.repeat});
+
+  final DateTime at;
+
+  /// ONCE、DAILY、WEEKLY、MONTHLY、YEARLY。
+  final String repeat;
+}
+
+const remindRepeatOrder = ['ONCE', 'DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY'];
+
+String remindRepeatLabel(String repeat) {
+  return switch (repeat) {
+    'DAILY' => '每天',
+    'WEEKLY' => '每周',
+    'MONTHLY' => '每月',
+    'YEARLY' => '每年',
+    _ => '仅一次',
+  };
+}
+
+/// 选一个比现在晚的分钟，以及是否按天/周/月/年重复。取消时返回 null。
+Future<ReminderPlan?> showReminderTimePicker(
   BuildContext context, {
   DateTime? initial,
+  String repeat = 'ONCE',
 }) async {
   final now = DateTime.now();
   final start = initial != null && initial.isAfter(now)
@@ -61,7 +83,45 @@ Future<DateTime?> showReminderTimePicker(
     );
     return null;
   }
-  return picked;
+  if (!context.mounted) {
+    return null;
+  }
+  final chosen = await showDialog<String>(
+    context: context,
+    builder: (dialogContext) {
+      return AlertDialog(
+        title: const Text('多久重复'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final item in remindRepeatOrder)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                minTileHeight: 48,
+                title: Text(remindRepeatLabel(item)),
+                trailing: item == repeat
+                    ? Icon(
+                        Icons.check_rounded,
+                        color: Theme.of(dialogContext).colorScheme.primary,
+                      )
+                    : null,
+                onTap: () => Navigator.of(dialogContext).pop(item),
+              ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('取消'),
+          ),
+        ],
+      );
+    },
+  );
+  if (chosen == null) {
+    return null;
+  }
+  return ReminderPlan(at: picked, repeat: chosen);
 }
 
 /// 贴着被点的优先级图标弹出的小菜单。

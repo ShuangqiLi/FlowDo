@@ -1,7 +1,8 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InstanceService } from '../instance/instance.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { TaskPriority, TaskStatus } from '../tasks/task.enums';
+import { reminderMarks } from '../tasks/reminder-time';
+import { RemindRepeat, TaskPriority, TaskStatus } from '../tasks/task.enums';
 
 const PRIORITY_ORDER: Record<TaskPriority, number> = {
   HIGH: 0,
@@ -108,7 +109,7 @@ export class BriefingService {
     const start = new Date(year, month - 1, 1);
     const end = new Date(year, month, 0, 23, 59, 59, 999);
     const now = new Date();
-    const [completed, reminders] = await Promise.all([
+    const [completed, repeating, once] = await Promise.all([
       this.prisma.task.findMany({
         where: { spaceId, completedAt: { gte: start, lte: end } },
         orderBy: { completedAt: 'desc' },
@@ -118,6 +119,18 @@ export class BriefingService {
           spaceId,
           priority: TaskPriority.REMINDER,
           remindedAt: null,
+          remindRepeat: { not: RemindRepeat.ONCE },
+          status: { in: [TaskStatus.TODO, TaskStatus.FOCUS] },
+          remindAt: { lte: end },
+        },
+        orderBy: { remindAt: 'asc' },
+      }),
+      this.prisma.task.findMany({
+        where: {
+          spaceId,
+          priority: TaskPriority.REMINDER,
+          remindedAt: null,
+          remindRepeat: RemindRepeat.ONCE,
           status: { in: [TaskStatus.TODO, TaskStatus.FOCUS] },
           remindAt: { gt: now, lte: end },
         },
@@ -138,18 +151,34 @@ export class BriefingService {
       dayTasks.set(key, list);
     }
 
-    const dayReminders = new Map<string, typeof reminders>();
-    for (const row of reminders) {
-      if (!row.remindAt || row.remindAt <= now) {
-        continue;
-      }
-      const key = toDateKey(row.remindAt);
+    const dayReminders = new Map<string, Array<(typeof once)[number]>>();
+    const putReminder = (row: (typeof once)[number], at: Date) => {
+      const key = toDateKey(at);
       if (key < toDateKey(start) || key > toDateKey(end)) {
-        continue;
+        return;
       }
       const list = dayReminders.get(key) ?? [];
-      list.push(row);
+      list.push({ ...row, remindAt: at });
       dayReminders.set(key, list);
+    };
+    for (const row of once) {
+      if (row.remindAt) {
+        putReminder(row, row.remindAt);
+      }
+    }
+    for (const row of repeating) {
+      if (!row.remindAt) {
+        continue;
+      }
+      for (const at of reminderMarks(
+        row.remindAt,
+        row.remindRepeat as RemindRepeat,
+        start,
+        end,
+        now,
+      )) {
+        putReminder(row, at);
+      }
     }
 
     const length = end.getDate();

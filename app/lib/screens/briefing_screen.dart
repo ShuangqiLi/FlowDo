@@ -102,7 +102,7 @@ class BriefingScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: AppSpacing.xs),
                   Text(
-                    '今天搞定 ${data.completedToday.length} · 昨天搞定 ${data.completedYesterday.length}',
+                    '今天完成 ${data.completedToday.length} · 昨天完成 ${data.completedYesterday.length}',
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: scheme.onSurfaceVariant,

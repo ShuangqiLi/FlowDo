@@ -45,6 +45,7 @@ class _FakeApi extends ApiClient {
     String? priority,
     DateTime? remindAt,
     bool clearRemindAt = false,
+    String? remindRepeat,
     String? status,
     String? spaceId,
   }) async {

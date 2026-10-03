@@ -32,6 +32,10 @@ export class UpdateMeDto {
   showArchiveTab?: boolean;
 
   @IsOptional()
+  @IsBoolean({ message: '显示循环提醒请用开或关' })
+  showRecurringReminders?: boolean;
+
+  @IsOptional()
   @IsIn(['mint', 'hazeBlue', 'warmOrange', 'lightPurple'], {
     message: '还没有这个主题哦',
   })

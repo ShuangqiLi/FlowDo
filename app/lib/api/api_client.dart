@@ -180,6 +180,7 @@ class ApiClient {
     int? focusLimit,
     int? deleteArchivedAfterDays,
     bool? showArchiveTab,
+    bool? showRecurringReminders,
     String? themeKey,
     bool? voiceInputEnabled,
     String? activeSpaceId,
@@ -196,6 +197,9 @@ class ApiClient {
     }
     if (showArchiveTab != null) {
       body['showArchiveTab'] = showArchiveTab;
+    }
+    if (showRecurringReminders != null) {
+      body['showRecurringReminders'] = showRecurringReminders;
     }
     if (themeKey != null) {
       body['themeKey'] = themeKey;
@@ -242,6 +246,7 @@ class ApiClient {
     String? priority,
     DateTime? remindAt,
     bool clearRemindAt = false,
+    String? remindRepeat,
     String? status,
     String? spaceId,
   }) async {
@@ -254,6 +259,7 @@ class ApiClient {
     } else if (remindAt != null) {
       payload['remindAt'] = remindAt.toUtc().toIso8601String();
     }
+    if (remindRepeat != null) payload['remindRepeat'] = remindRepeat;
     if (status != null) payload['status'] = status;
     if (spaceId != null) payload['spaceId'] = spaceId;
     final json = await _request('PATCH', '/tasks/$id', body: payload);

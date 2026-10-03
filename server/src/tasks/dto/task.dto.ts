@@ -1,4 +1,4 @@
-import { TaskPriority, TaskStatus } from '../task.enums';
+import { RemindRepeat, TaskPriority, TaskStatus } from '../task.enums';
 import {
   IsEnum,
   IsISO8601,
@@ -29,6 +29,10 @@ export class CreateTaskDto {
   @ValidateIf((_, value) => value !== null)
   @IsISO8601({}, { message: '提醒时间不太对' })
   remindAt?: string | null;
+
+  @IsOptional()
+  @IsEnum(RemindRepeat, { message: '这种重复方式还不认识' })
+  remindRepeat?: RemindRepeat;
 }
 
 export class UpdateTaskDto {
@@ -51,6 +55,10 @@ export class UpdateTaskDto {
   @ValidateIf((_, value) => value !== null)
   @IsISO8601({}, { message: '提醒时间不太对' })
   remindAt?: string | null;
+
+  @IsOptional()
+  @IsEnum(RemindRepeat, { message: '这种重复方式还不认识' })
+  remindRepeat?: RemindRepeat;
 
   @IsOptional()
   @IsEnum(TaskStatus, { message: '这个状态我还不认识' })

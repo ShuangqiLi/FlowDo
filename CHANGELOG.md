@@ -14,6 +14,23 @@
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-10-03
+
+### Added
+
+- 提醒可以按每天、每周、每月或每年的固定时间循环。到点后复制一份放进聚焦，原来的循环继续留着
+- 设置里可以关掉「在任务池显示循环提醒」。关掉后循环仍会到点，只是不列在任务池
+
+### Changed
+
+- 提醒任务完成后直接删除，不再进入完成列表
+- 点开任务的「随手记」改成「任务详情」：顶部一行显示状态、优先级和日期；提醒任务多一张卡片，写明什么时候响、多久一次、还有多久，可以直接改时间
+- 界面里的「搞定」改成「完成」
+
+### Fixed
+
+- 刚进聚焦又马上完成时，不再过几秒被提示「不能改成那个状态」又退回聚焦。同一条任务的写请求现在按顺序发出
+
 ## [0.9.0] - 2026-10-03
 
 ### Added
@@ -369,7 +386,8 @@
 - 通过 GitHub Releases 发版（推送 `v*.*.*` 标签）
 - 账号级设置（聚焦上限、归档天数、是否显示归档页）
 
-[Unreleased]: https://github.com/ShuangqiLi/FlowDo/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/ShuangqiLi/FlowDo/compare/v0.9.1...HEAD
+[0.9.1]: https://github.com/ShuangqiLi/FlowDo/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/ShuangqiLi/FlowDo/compare/v0.8.8...v0.9.0
 [0.8.8]: https://github.com/ShuangqiLi/FlowDo/compare/v0.8.7...v0.8.8
 [0.8.7]: https://github.com/ShuangqiLi/FlowDo/compare/v0.8.6...v0.8.7

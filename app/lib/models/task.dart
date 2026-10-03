@@ -6,6 +6,8 @@ class Task {
     required this.status,
     required this.priority,
     this.remindAt,
+    this.remindRepeat = 'ONCE',
+    this.deleted = false,
     this.completedAt,
     this.archivedAt,
     required this.createdAt,
@@ -18,6 +20,8 @@ class Task {
   final String status;
   final String priority;
   final DateTime? remindAt;
+  final String remindRepeat;
+  final bool deleted;
   final DateTime? completedAt;
   final DateTime? archivedAt;
   final DateTime createdAt;
@@ -33,6 +37,8 @@ class Task {
       remindAt: json['remindAt'] == null
           ? null
           : DateTime.parse(json['remindAt'] as String),
+      remindRepeat: (json['remindRepeat'] as String?) ?? 'ONCE',
+      deleted: json['deleted'] == true,
       completedAt:
           json['completedAt'] == null ? null : DateTime.parse(json['completedAt'] as String),
       archivedAt: json['archivedAt'] == null ? null : DateTime.parse(json['archivedAt'] as String),
@@ -50,6 +56,8 @@ class Task {
     String? priority,
     DateTime? remindAt,
     bool clearRemindAt = false,
+    String? remindRepeat,
+    bool? deleted,
     DateTime? completedAt,
     bool clearCompletedAt = false,
     DateTime? archivedAt,
@@ -64,6 +72,8 @@ class Task {
       status: status ?? this.status,
       priority: priority ?? this.priority,
       remindAt: clearRemindAt ? null : (remindAt ?? this.remindAt),
+      remindRepeat: clearRemindAt ? 'ONCE' : (remindRepeat ?? this.remindRepeat),
+      deleted: deleted ?? this.deleted,
       completedAt:
           clearCompletedAt ? null : (completedAt ?? this.completedAt),
       archivedAt: clearArchivedAt ? null : (archivedAt ?? this.archivedAt),
@@ -85,7 +95,7 @@ class Task {
   /// 任务池用创建日，完成页用完成日，归档页用归档日。
   String listDateLabel([DateTime? now]) {
     return switch (status) {
-      'DONE' => '${_dayLabel(completedAt ?? updatedAt, now)}搞定',
+      'DONE' => '${_dayLabel(completedAt ?? updatedAt, now)}完成',
       'ARCHIVED' => '${_dayLabel(archivedAt ?? updatedAt, now)}归档',
       _ => '${_dayLabel(createdAt, now)}加入',
     };

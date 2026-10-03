@@ -22,6 +22,14 @@ enum TaskPriority {
   REMINDER
 }
 
+enum RemindRepeat {
+  ONCE
+  DAILY
+  WEEKLY
+  MONTHLY
+  YEARLY
+}
+
 /// 一台部署只有一行：登录密码、语音开关和当前空间。
 model Instance {
   id                 String   @id
@@ -43,6 +51,8 @@ model Space {
   focusLimit              Int        @default(3)
   deleteArchivedAfterDays Int        @default(30)
   showArchiveTab          Boolean    @default(false)
+  /// 关掉后，循环提醒仍会到点，只是不出现在任务池。
+  showRecurringReminders  Boolean    @default(true)
   themeKey                String     @default("mint")
   createdAt               DateTime   @default(now())
   updatedAt               DateTime   @updatedAt
@@ -59,9 +69,10 @@ model Task {
   body        String?
   status      TaskStatus   @default(TODO)
   priority    TaskPriority @default(NONE)
-  /// 优先级是提醒时，到这一分钟就送进聚焦。
+  /// 优先级是提醒时，到这一分钟就送进聚焦。循环则到点复制一份。
   remindAt    DateTime?
-  /// 已经响过，避免到点后反复送进聚焦。
+  remindRepeat RemindRepeat @default(ONCE)
+  /// 单次提醒响过之后设上，避免反复送进聚焦。
   remindedAt  DateTime?
   completedAt DateTime?
   archivedAt  DateTime?

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import '../api/api_client.dart';
 import '../models/task.dart';
@@ -134,6 +135,10 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
     ref.read(lazySyncProvider.notifier).schedule();
   }
 
+  Future<T> _queued<T>(String id, Future<T> Function() job) {
+    return ref.read(taskWriteQueueProvider).run(id, job);
+  }
+
   Future<List<String>> _focusedIds() async {
     final current = ref.read(tasksProvider('FOCUS'));
     if (current.hasValue) {
@@ -159,10 +164,46 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
       );
       if (!heldFocus) {
         _goFocusWithHint(
-          '手头这 $limit 件先盯紧啦。搞定或先放回任务池，再接新的。',
+          '手头这 $limit 件先盯紧啦。完成或先放回任务池，再接新的。',
         );
         return;
       }
+    }
+
+    if (status == 'DONE' && task.priority == 'REMINDER') {
+      final gen = _hold(task.id, null);
+      ref.read(tasksProvider(widget.status).notifier).removeById(task.id);
+      if (mounted) {
+        showFlowDoCelebration(context);
+      }
+      try {
+        await _queued(
+          task.id,
+          () => ref.read(apiProvider).updateTask(task.id, status: status),
+        );
+        for (final listStatus in taskListStatuses) {
+          if (ref.exists(tasksProvider(listStatus))) {
+            ref.read(tasksProvider(listStatus).notifier).removeById(task.id);
+          }
+        }
+        _finishWrite(task.id, gen);
+      } on ApiException catch (e) {
+        _finishWrite(task.id, gen);
+        if (ref.exists(tasksProvider(widget.status))) {
+          ref.read(tasksProvider(widget.status).notifier).upsert(task);
+        }
+        if (!mounted) {
+          return;
+        }
+        setState(() {
+          _dismissing.remove(task.id);
+          _swipeGeneration[task.id] = (_swipeGeneration[task.id] ?? 0) + 1;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.message)),
+        );
+      }
+      return;
     }
 
     final now = DateTime.now();
@@ -181,8 +222,10 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
     }
 
     try {
-      final updated =
-          await ref.read(apiProvider).updateTask(task.id, status: status);
+      final updated = await _queued(
+        task.id,
+        () => ref.read(apiProvider).updateTask(task.id, status: status),
+      );
       final dest = tasksProvider(updated.status);
       if (ref.exists(dest) && ref.read(dest).hasValue) {
         ref.read(dest.notifier).upsert(updated);
@@ -245,31 +288,37 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
     if (chosen == current && chosen != 'REMINDER') {
       return;
     }
-    DateTime? remindAt;
+    ReminderPlan? plan;
     if (chosen == 'REMINDER') {
-      remindAt = await showReminderTimePicker(
+      plan = await showReminderTimePicker(
         anchorContext,
         initial: task.remindAt,
+        repeat: task.remindRepeat,
       );
-      if (remindAt == null || !anchorContext.mounted) {
+      if (plan == null || !anchorContext.mounted) {
         return;
       }
     }
     final optimistic = task.copyWith(
       priority: chosen,
-      remindAt: remindAt,
+      remindAt: plan?.at,
+      remindRepeat: plan?.repeat,
       clearRemindAt: chosen != 'REMINDER',
       updatedAt: DateTime.now(),
     );
     final gen = _hold(id, optimistic);
     ref.read(tasksProvider(widget.status).notifier).upsert(optimistic);
     try {
-      final updated = await ref.read(apiProvider).updateTask(
-            id,
-            priority: chosen,
-            remindAt: remindAt,
-            clearRemindAt: chosen != 'REMINDER',
-          );
+      final updated = await _queued(
+        id,
+        () => ref.read(apiProvider).updateTask(
+              id,
+              priority: chosen,
+              remindAt: plan?.at,
+              remindRepeat: plan?.repeat,
+              clearRemindAt: chosen != 'REMINDER',
+            ),
+      );
       ref.read(tasksProvider(widget.status).notifier).upsert(updated);
       _finishWrite(id, gen);
     } on ApiException catch (e) {
@@ -374,9 +423,16 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
           ),
         ),
         data: (all) {
+          final showSeries = me.value?.showRecurringReminders ?? true;
+          final visible = all.where((task) {
+            if (widget.status != 'TODO' || showSeries) {
+              return true;
+            }
+            return task.priority != 'REMINDER' || task.remindRepeat == 'ONCE';
+          });
           final tasks = _dismissing.isEmpty
-              ? all
-              : all.where((t) => !_dismissing.contains(t.id)).toList();
+              ? visible.toList()
+              : visible.where((t) => !_dismissing.contains(t.id)).toList();
           _scrollToPending(tasks);
           if (tasks.isEmpty) {
             return RefreshIndicator(
@@ -429,6 +485,11 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
   Widget? _subtitle(Task task, int archiveDays, int deleteDays) {
     switch (widget.status) {
       case 'TODO':
+        if (task.priority == 'REMINDER' && task.remindAt != null) {
+          final when = DateFormat('M月d日 HH:mm').format(task.remindAt!.toLocal());
+          final repeat = remindRepeatLabel(task.remindRepeat);
+          return Text(repeat == '仅一次' ? '提醒 $when' : '$repeat · $when');
+        }
         return Text(task.listDateLabel());
       case 'DONE':
         final days = task.daysUntilArchive(archiveDays);
@@ -445,7 +506,7 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
     return switch (status) {
       'TODO' => '任务池空空的。\n点加号，想到什么就丢进来。',
       'FOCUS' => '还没在盯什么。\n从任务池挑一件开始。',
-      'DONE' => '还没有搞定的事，慢慢来。',
+      'DONE' => '还没有完成的事，慢慢来。',
       'ARCHIVED' => '归档柜空着，挺清爽。',
       _ => '暂时没有任务',
     };

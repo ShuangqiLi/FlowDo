@@ -6,6 +6,7 @@ class Me {
     required this.focusLimit,
     required this.deleteArchivedAfterDays,
     required this.showArchiveTab,
+    this.showRecurringReminders = true,
     required this.themeKey,
     this.voiceInputEnabled = true,
     this.mustChangePassword = false,
@@ -20,6 +21,7 @@ class Me {
   final int focusLimit;
   final int deleteArchivedAfterDays;
   final bool showArchiveTab;
+  final bool showRecurringReminders;
   final String themeKey;
   final bool voiceInputEnabled;
 
@@ -31,6 +33,8 @@ class Me {
       focusLimit: (json['focusLimit'] as int?) ?? 3,
       deleteArchivedAfterDays: (json['deleteArchivedAfterDays'] as int?) ?? 30,
       showArchiveTab: (json['showArchiveTab'] as bool?) ?? false,
+      showRecurringReminders:
+          (json['showRecurringReminders'] as bool?) ?? true,
       themeKey: (json['themeKey'] as String?) ?? 'mint',
       voiceInputEnabled: (json['voiceInputEnabled'] as bool?) ?? true,
       mustChangePassword: (json['mustChangePassword'] as bool?) ?? false,
@@ -45,6 +49,7 @@ class Me {
     int? focusLimit,
     int? deleteArchivedAfterDays,
     bool? showArchiveTab,
+    bool? showRecurringReminders,
     String? themeKey,
     bool? voiceInputEnabled,
     bool? mustChangePassword,
@@ -58,6 +63,8 @@ class Me {
       deleteArchivedAfterDays:
           deleteArchivedAfterDays ?? this.deleteArchivedAfterDays,
       showArchiveTab: showArchiveTab ?? this.showArchiveTab,
+      showRecurringReminders:
+          showRecurringReminders ?? this.showRecurringReminders,
       themeKey: themeKey ?? this.themeKey,
       voiceInputEnabled: voiceInputEnabled ?? this.voiceInputEnabled,
       mustChangePassword: mustChangePassword ?? this.mustChangePassword,

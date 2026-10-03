@@ -60,6 +60,7 @@ class MeController extends AsyncNotifier<Me> {
     int? focusLimit,
     int? deleteArchivedAfterDays,
     bool? showArchiveTab,
+    bool? showRecurringReminders,
     String? themeKey,
     bool? voiceInputEnabled,
     String? activeSpaceId,
@@ -69,6 +70,7 @@ class MeController extends AsyncNotifier<Me> {
           focusLimit: focusLimit,
           deleteArchivedAfterDays: deleteArchivedAfterDays,
           showArchiveTab: showArchiveTab,
+          showRecurringReminders: showRecurringReminders,
           themeKey: themeKey,
           voiceInputEnabled: voiceInputEnabled,
           activeSpaceId: activeSpaceId,
@@ -190,6 +192,28 @@ int _byPriorityThenRecent(Task a, Task b) {
 }
 
 const taskListStatuses = ['TODO', 'FOCUS', 'DONE', 'ARCHIVED'];
+
+/// 同一条任务的写请求排队发出。
+/// 否则「进聚焦」还在路上时又「完成」，第二条先到服务端会被当成 TODO→DONE 拒掉。
+final taskWriteQueueProvider = Provider<TaskWriteQueue>((ref) {
+  return TaskWriteQueue();
+});
+
+class TaskWriteQueue {
+  final Map<String, Future<void>> _tails = {};
+
+  Future<T> run<T>(String id, Future<T> Function() job) {
+    final previous = _tails[id] ?? Future<void>.value();
+    final done = Completer<void>();
+    _tails[id] = done.future;
+    return previous.then((_) => job(), onError: (_) => job()).whenComplete(() {
+      done.complete();
+      if (identical(_tails[id], done.future)) {
+        _tails.remove(id);
+      }
+    });
+  }
+}
 
 /// 还没跟服务器对上的任务。刷新回来的旧列表不能把它们盖回去。
 final pendingTaskWritesProvider = Provider<PendingTaskWrites>((ref) {
