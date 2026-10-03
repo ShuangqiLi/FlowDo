@@ -33,7 +33,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    final showArchive = ref.read(meProvider).value?.showArchiveTab ?? true;
+    final showArchive = ref.read(meProvider).value?.showArchiveTab ?? false;
     _tabs = homeTabsFor(showArchive: showArchive);
     final initial = ref.read(homeTabProvider);
     final index = _tabs.indexOf(initial);
@@ -143,7 +143,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final showArchive = ref.watch(meProvider).value?.showArchiveTab ?? true;
+    final showArchive = ref.watch(meProvider).value?.showArchiveTab ?? false;
     final tabs = homeTabsFor(showArchive: showArchive);
     final selected = ref.watch(homeTabProvider);
     final effectiveSelected =

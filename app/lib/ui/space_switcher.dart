@@ -212,10 +212,17 @@ class SpaceSwitcher extends ConsumerWidget {
         if (current == null) {
           return;
         }
+        final count = await api.spaceTaskCount(current.id);
+        if (!context.mounted) {
+          return;
+        }
+        final taskLine = count == 0
+            ? '当前空间里没有任务'
+            : '当前空间里有 $count 件任务';
         final ok = await showFlowDoConfirmDialog(
           context,
           title: '删掉「${current.name}」？',
-          message: '这个空间里的任务会一起删掉，回不来。',
+          message: '$taskLine，删除后无法找回。',
           confirmLabel: '删掉',
           destructive: true,
         );

@@ -30,7 +30,7 @@ class Me {
       archiveAfterDays: json['archiveAfterDays'] as int,
       focusLimit: (json['focusLimit'] as int?) ?? 3,
       deleteArchivedAfterDays: (json['deleteArchivedAfterDays'] as int?) ?? 30,
-      showArchiveTab: (json['showArchiveTab'] as bool?) ?? true,
+      showArchiveTab: (json['showArchiveTab'] as bool?) ?? false,
       themeKey: (json['themeKey'] as String?) ?? 'mint',
       voiceInputEnabled: (json['voiceInputEnabled'] as bool?) ?? true,
       mustChangePassword: (json['mustChangePassword'] as bool?) ?? false,

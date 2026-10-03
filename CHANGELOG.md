@@ -14,6 +14,19 @@
 
 ## [Unreleased]
 
+## [0.8.8] - 2026-10-03
+
+### Fixed
+
+- 底栏切页或切换任务空间时，原来选中的胶囊不再闪一下。选中底只淡出透明度，换空间带来的主题色马上换上
+
+### Changed
+
+- 设置关于打开时只显示当前版本和这一版的发行说明；点「检查新版」才查一次，没有新版提示已经是最新的，有新版则显示版本号并把按钮改成「更新」、发行说明改到新版本
+- 退出登录改回正常的红色；外观色块直接用主题本色、字仍是浅色；新空间默认不在底栏显示归档
+- 今日看看第一行日期改成「2026年10月3日 14:53」，不再显示秒；温度带 ℃；时间和天气字号放大并改用主题展示字体
+- 删除任务空间前会说明当前空间里有多少件任务，并提示删除后无法找回
+
 ## [0.8.7] - 2026-10-03
 
 ### Fixed
@@ -344,7 +357,8 @@
 - 通过 GitHub Releases 发版（推送 `v*.*.*` 标签）
 - 账号级设置（聚焦上限、归档天数、是否显示归档页）
 
-[Unreleased]: https://github.com/ShuangqiLi/FlowDo/compare/v0.8.7...HEAD
+[Unreleased]: https://github.com/ShuangqiLi/FlowDo/compare/v0.8.8...HEAD
+[0.8.8]: https://github.com/ShuangqiLi/FlowDo/compare/v0.8.7...v0.8.8
 [0.8.7]: https://github.com/ShuangqiLi/FlowDo/compare/v0.8.6...v0.8.7
 [0.8.6]: https://github.com/ShuangqiLi/FlowDo/compare/v0.8.5...v0.8.6
 [0.8.5]: https://github.com/ShuangqiLi/FlowDo/compare/v0.8.4...v0.8.5

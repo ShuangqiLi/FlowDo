@@ -24,7 +24,7 @@ class WeatherSnapshot {
   final int minC;
   final int maxC;
 
-  String get rangeLabel => '$minC~$maxC°';
+  String get rangeLabel => '$minC~$maxC℃';
 }
 
 /// 右上角：天气进今日看看；打开后换成叉。
@@ -90,11 +90,15 @@ class _BriefingNowRowState extends ConsumerState<BriefingNowRow> {
     super.initState();
     _now = DateTime.now();
     if (BriefingClockButton.tick) {
+      // 只显示到分钟，所以每秒看一眼，分钟变了才重画。
       _tick = Timer.periodic(const Duration(seconds: 1), (_) {
         if (!mounted) {
           return;
         }
-        setState(() => _now = DateTime.now());
+        final next = DateTime.now();
+        if (next.minute != _now.minute || next.hour != _now.hour) {
+          setState(() => _now = next);
+        }
       });
     }
   }
@@ -109,10 +113,12 @@ class _BriefingNowRowState extends ConsumerState<BriefingNowRow> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final snap = ref.watch(weatherProvider).asData?.value;
-    final stamp = DateFormat('yyyy-MM-dd HH:mm:ss').format(_now);
-    final style = Theme.of(context).textTheme.titleSmall?.copyWith(
-          fontFeatures: const [FontFeature.tabularFigures()],
-          fontWeight: FontWeight.w600,
+    final stamp = DateFormat('yyyy年M月d日 HH:mm').format(_now);
+    // 和空状态文案一样用主题的展示字体。
+    final style = Theme.of(context).textTheme.titleMedium?.copyWith(
+          fontFamily: 'ZCOOLKuaiLe',
+          fontSize: 18,
+          fontWeight: FontWeight.w400,
           color: scheme.onSurface,
           height: 1.2,
         );
@@ -132,7 +138,7 @@ class _BriefingNowRowState extends ConsumerState<BriefingNowRow> {
           const SizedBox(width: AppSpacing.sm),
           Icon(
             snap.icon,
-            size: 20,
+            size: 22,
             color: scheme.onSurface,
             semanticLabel: '${snap.label} ${snap.rangeLabel}',
           ),

@@ -74,7 +74,8 @@ class FocusDock extends StatelessWidget {
         decoration: BoxDecoration(
           color: flow.card,
           borderRadius: BorderRadius.circular(28),
-          border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.7)),
+          border:
+              Border.all(color: scheme.outlineVariant.withValues(alpha: 0.7)),
           boxShadow: [
             BoxShadow(
               color: scheme.shadow.withValues(alpha: 0.12),
@@ -90,6 +91,7 @@ class FocusDock extends StatelessWidget {
               for (final tab in tabs)
                 Expanded(
                   child: _DockItem(
+                    key: ValueKey(tab),
                     tab: tab,
                     selected: tab == selected,
                     onTap: () => onSelected(tab),
@@ -103,8 +105,9 @@ class FocusDock extends StatelessWidget {
   }
 }
 
-class _DockItem extends StatelessWidget {
+class _DockItem extends StatefulWidget {
   const _DockItem({
+    super.key,
     required this.tab,
     required this.selected,
     required this.onTap,
@@ -115,53 +118,114 @@ class _DockItem extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final motion = MediaQuery.disableAnimationsOf(context)
+  State<_DockItem> createState() => _DockItemState();
+}
+
+class _DockItemState extends State<_DockItem>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _highlight;
+
+  @override
+  void initState() {
+    super.initState();
+    _highlight = AnimationController(
+      vsync: this,
+      duration: AppMotion.quick,
+      value: widget.selected ? 1 : 0,
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _highlight.duration = MediaQuery.disableAnimationsOf(context)
         ? Duration.zero
         : AppMotion.quick;
-    final fg = selected ? scheme.primary : scheme.onSurfaceVariant;
+  }
+
+  @override
+  void didUpdateWidget(_DockItem oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.selected == oldWidget.selected) {
+      return;
+    }
+    if (widget.selected) {
+      _highlight.forward();
+    } else {
+      _highlight.reverse();
+    }
+  }
+
+  @override
+  void dispose() {
+    _highlight.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final tab = widget.tab;
 
     return Semantics(
       button: true,
-      selected: selected,
+      selected: widget.selected,
       label: tab.label,
       child: Tooltip(
         message: tab.label,
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
-          onTap: onTap,
+          onTap: widget.onTap,
           child: Center(
-            child: AnimatedContainer(
-              duration: motion,
-              curve: AppMotion.curve,
+            child: SizedBox(
               width: double.infinity,
-              margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              decoration: BoxDecoration(
-                color: selected ? scheme.primaryContainer : Colors.transparent,
-                borderRadius: BorderRadius.circular(AppRadii.pill),
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    selected ? tab.selectedIcon : tab.icon,
-                    size: 22,
-                    color: fg,
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    tab.label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: fg,
-                          fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                child: AnimatedBuilder(
+                  animation: _highlight,
+                  builder: (context, child) {
+                    final t = _highlight.value;
+                    final fg = Color.lerp(
+                      scheme.onSurfaceVariant,
+                      scheme.primary,
+                      t,
+                    )!;
+                    return DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: scheme.primaryContainer.withValues(alpha: t),
+                        borderRadius: BorderRadius.circular(AppRadii.pill),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: IconTheme(
+                          data: IconThemeData(color: fg, size: 22),
+                          child: DefaultTextStyle.merge(
+                            style: TextStyle(color: fg),
+                            child: child!,
+                          ),
                         ),
+                      ),
+                    );
+                  },
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(widget.selected ? tab.selectedIcon : tab.icon),
+                      const SizedBox(height: 2),
+                      Text(
+                        tab.label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                              fontWeight: widget.selected
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
+                            ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
           ),

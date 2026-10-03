@@ -28,6 +28,11 @@ export class SpacesController {
     return this.spaces.create(dto);
   }
 
+  @Get(':id/task-count')
+  taskCount(@Param('id', ParseUUIDPipe) id: string) {
+    return this.spaces.taskCount(id);
+  }
+
   @Patch(':id')
   rename(@Param('id', ParseUUIDPipe) id: string, @Body() dto: SpaceNameDto) {
     return this.spaces.rename(id, dto);

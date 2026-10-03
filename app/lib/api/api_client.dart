@@ -287,12 +287,19 @@ class ApiClient {
     return Space.fromJson(json as Map<String, dynamic>);
   }
 
+  Future<int> spaceTaskCount(String id) async {
+    final json = await _request('GET', '/spaces/$id/task-count') as Map<String, dynamic>;
+    return (json['count'] as num?)?.toInt() ?? 0;
+  }
+
   Future<void> deleteSpace(String id) async {
     await _request('DELETE', '/spaces/$id');
   }
 
-  Future<AboutInfo> about() async {
-    final json = await _request('GET', '/system/about');
+  /// [check] 为 true 时向 GitHub 查一次有没有新版本；否则只返回当前版本。
+  Future<AboutInfo> about({bool check = false}) async {
+    final path = check ? '/system/about?check=1' : '/system/about';
+    final json = await _request('GET', path);
     return AboutInfo.fromJson(json as Map<String, dynamic>);
   }
 

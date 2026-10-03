@@ -242,7 +242,7 @@ void main() {
       find.descendant(of: find.byTooltip('任务池'), matching: find.text('任务池')),
     );
     final boxes = find
-        .descendant(of: find.byTooltip('任务池'), matching: find.byType(AnimatedContainer))
+        .descendant(of: find.byTooltip('任务池'), matching: find.byType(DecoratedBox))
         .evaluate();
     expect(boxes, isNotEmpty);
     final selected = tester.getRect(find.byWidget(boxes.first.widget));

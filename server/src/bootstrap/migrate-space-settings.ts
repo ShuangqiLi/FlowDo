@@ -38,7 +38,7 @@ export async function migrateSpaceSettings(prisma: PrismaClient): Promise<void> 
       ADD COLUMN IF NOT EXISTS "archiveAfterDays" INTEGER NOT NULL DEFAULT 7,
       ADD COLUMN IF NOT EXISTS "focusLimit" INTEGER NOT NULL DEFAULT 3,
       ADD COLUMN IF NOT EXISTS "deleteArchivedAfterDays" INTEGER NOT NULL DEFAULT 30,
-      ADD COLUMN IF NOT EXISTS "showArchiveTab" BOOLEAN NOT NULL DEFAULT true,
+      ADD COLUMN IF NOT EXISTS "showArchiveTab" BOOLEAN NOT NULL DEFAULT false,
       ADD COLUMN IF NOT EXISTS "themeKey" TEXT NOT NULL DEFAULT 'mint'
   `);
 

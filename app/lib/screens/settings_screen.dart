@@ -319,7 +319,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ),
                     title: const Text('在底栏显示归档'),
                     subtitle: const Text('关掉后仍会按天数自动归档'),
-                    value: me.value?.showArchiveTab ?? true,
+                    value: me.value?.showArchiveTab ?? false,
                     onChanged: (v) => _saveMe(showArchiveTab: v),
                   ),
                   Divider(height: 1, color: scheme.outlineVariant),
@@ -426,18 +426,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               height: 48,
               child: FilledButton(
                 style: FilledButton.styleFrom(
-                  backgroundColor: Color.lerp(
-                    scheme.surface,
-                    scheme.error,
-                    0.18,
-                  ),
-                  foregroundColor: Color.lerp(
-                    scheme.error,
-                    scheme.onSurface,
-                    0.28,
-                  ),
+                  backgroundColor: scheme.error,
+                  foregroundColor: scheme.onError,
                   disabledBackgroundColor:
-                      scheme.error.withValues(alpha: 0.12),
+                      scheme.error.withValues(alpha: 0.38),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(AppRadii.control),
                   ),
@@ -743,14 +735,8 @@ class _ThemeSwatch extends StatelessWidget {
   }
 }
 
-/// 色块用主题色的深底浅字，不用黑白。
-Color _themeSwatchFill(Color preview) {
-  final hsl = HSLColor.fromColor(preview);
-  return hsl
-      .withLightness(0.28)
-      .withSaturation(hsl.saturation.clamp(0.32, 0.62))
-      .toColor();
-}
+/// 色块直接用主题本色，字用同色系的浅色，不用黑白。
+Color _themeSwatchFill(Color preview) => preview;
 
 Color _themeSwatchInk(Color preview) {
   final hsl = HSLColor.fromColor(preview);

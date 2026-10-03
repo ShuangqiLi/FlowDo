@@ -72,23 +72,34 @@ export class SystemUpdateService {
     downloadUrl: string | null;
   } | null = null;
 
-  async about(): Promise<AboutSnapshot> {
+  async about(check = false): Promise<AboutSnapshot> {
     const version = currentVersion();
     const failure = readFailure();
-    const remote = await this.latest();
+    const local = {
+      version,
+      canUpdate: existsSync(dockerSock),
+      phase: failure?.phase ?? this.phase,
+      message: failure?.message ?? this.message,
+      target: failure?.target ?? this.target,
+    };
+    if (!check) {
+      return {
+        ...local,
+        latest: null,
+        updateAvailable: false,
+        reachable: true,
+      };
+    }
+    const remote = await this.latest(true);
     const updateAvailable =
       remote.reachable &&
       remote.latest != null &&
       compareVersions(version, remote.latest) < 0;
     return {
-      version,
+      ...local,
       latest: remote.latest,
       updateAvailable,
       reachable: remote.reachable,
-      canUpdate: existsSync(dockerSock),
-      phase: failure?.phase ?? this.phase,
-      message: failure?.message ?? this.message,
-      target: failure?.target ?? this.target,
     };
   }
 
@@ -157,14 +168,14 @@ export class SystemUpdateService {
     rmSync(root, { recursive: true, force: true });
   }
 
-  private async latest(): Promise<{
+  private async latest(force = false): Promise<{
     latest: string | null;
     reachable: boolean;
     downloadUrl: string | null;
   }> {
     const now = Date.now();
     const ttl = this.latestCache?.reachable ? 5 * 60 * 1000 : 20 * 1000;
-    if (this.latestCache && now - this.latestCache.at < ttl) {
+    if (!force && this.latestCache && now - this.latestCache.at < ttl) {
       return this.latestCache;
     }
     try {

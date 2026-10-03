@@ -30,6 +30,15 @@ export class SpacesService {
     });
   }
 
+  async taskCount(id: string) {
+    const space = await this.prisma.space.findUnique({ where: { id } });
+    if (!space) {
+      throw new NotFoundException('这个任务空间找不到了');
+    }
+    const count = await this.prisma.task.count({ where: { spaceId: id } });
+    return { count };
+  }
+
   async remove(id: string) {
     const spaces = await this.prisma.space.findMany({
       orderBy: { createdAt: 'asc' },

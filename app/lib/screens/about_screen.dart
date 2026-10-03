@@ -9,7 +9,7 @@ import '../platform/open_url.dart';
 import '../providers.dart';
 import '../theme.dart';
 
-/// 设置里的关于：当前版本，以及检查新版并更新。
+/// 设置里的关于：当前版本和这一版的发行说明；点按钮才检查新版。
 class AboutUpdatePanel extends ConsumerStatefulWidget {
   const AboutUpdatePanel({super.key});
 
@@ -22,6 +22,8 @@ class _AboutUpdatePanelState extends ConsumerState<AboutUpdatePanel> {
   String? _error;
   bool _updating = false;
   bool _checking = false;
+  bool _checked = false;
+  String? _offer;
   String? _target;
   Timer? _poll;
   DateTime? _pollStarted;
@@ -52,6 +54,10 @@ class _AboutUpdatePanelState extends ConsumerState<AboutUpdatePanel> {
         if (arrived || failed) {
           _updating = false;
           _poll?.cancel();
+          if (arrived) {
+            _offer = null;
+            _checked = false;
+          }
         }
       });
     } on ApiException catch (error) {
@@ -67,7 +73,12 @@ class _AboutUpdatePanelState extends ConsumerState<AboutUpdatePanel> {
     }
   }
 
-  Future<void> _checkAndUpdate() async {
+  bool get _readyToUpdate {
+    final info = _info;
+    return _offer != null && info != null && info.version != _offer;
+  }
+
+  Future<void> _check() async {
     if (_updating) {
       return;
     }
@@ -76,18 +87,16 @@ class _AboutUpdatePanelState extends ConsumerState<AboutUpdatePanel> {
       _error = null;
     });
     try {
-      final info = await ref.read(apiProvider).about();
+      final info = await ref.read(apiProvider).about(check: true);
       if (!mounted) {
         return;
       }
       setState(() {
         _info = info;
         _checking = false;
+        _checked = true;
+        _offer = info.updateAvailable ? info.latest : null;
       });
-      if (info.updateAvailable && info.canUpdate) {
-        await _update();
-        return;
-      }
     } on ApiException catch (error) {
       if (!mounted) {
         return;
@@ -170,17 +179,18 @@ class _AboutUpdatePanelState extends ConsumerState<AboutUpdatePanel> {
           style: Theme.of(context).textTheme.titleMedium,
         ),
         const SizedBox(height: AppSpacing.xs),
-        Semantics(
-          liveRegion: true,
-          child: Text(
-            _status(info),
-            key: const ValueKey('about-status'),
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                  height: 1.5,
-                ),
+        if (_status(info).isNotEmpty)
+          Semantics(
+            liveRegion: true,
+            child: Text(
+              _status(info),
+              key: const ValueKey('about-status'),
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                    height: 1.5,
+                  ),
+            ),
           ),
-        ),
         if (_updating) ...[
           const SizedBox(height: AppSpacing.md),
           const LinearProgressIndicator(),
@@ -188,31 +198,47 @@ class _AboutUpdatePanelState extends ConsumerState<AboutUpdatePanel> {
         const SizedBox(height: AppSpacing.md),
         FilledButton.tonalIcon(
           key: const ValueKey('about-update'),
-          onPressed: busy ? null : _checkAndUpdate,
-          icon: const Icon(Icons.system_update_alt_rounded),
+          onPressed: busy ? null : (_readyToUpdate ? _update : _check),
+          icon: Icon(
+            _readyToUpdate
+                ? Icons.download_rounded
+                : Icons.system_update_alt_rounded,
+          ),
           label: Text(
             _updating
                 ? '正在更新'
                 : _checking
                     ? '正在检查…'
-                    : '检查新版并更新',
+                    : _readyToUpdate
+                        ? '更新'
+                        : '检查新版',
           ),
         ),
         const SizedBox(height: AppSpacing.xs),
-        TextButton.icon(
+        Semantics(
           key: const ValueKey('about-release-notes'),
-          onPressed: () {
-            final tag = info?.latest ?? info?.version;
-            final url = tag == null
-                ? 'https://github.com/ShuangqiLi/FlowDo/releases'
-                : 'https://github.com/ShuangqiLi/FlowDo/releases/tag/v$tag';
-            openExternalUrl(url);
-          },
-          icon: const Icon(Icons.open_in_new_rounded, size: 18),
-          label: const Text('发行说明'),
+          link: true,
+          label: '发行说明',
+          value: _notesUrl(info),
+          button: true,
+          child: ExcludeSemantics(
+            child: TextButton.icon(
+              onPressed: () => openExternalUrl(_notesUrl(info)),
+              icon: const Icon(Icons.open_in_new_rounded, size: 18),
+              label: const Text('发行说明'),
+            ),
+          ),
         ),
       ],
     );
+  }
+
+  String _notesUrl(AboutInfo? info) {
+    final tag = _offer ?? info?.version;
+    if (tag == null) {
+      return 'https://github.com/ShuangqiLi/FlowDo/releases';
+    }
+    return 'https://github.com/ShuangqiLi/FlowDo/releases/tag/v$tag';
   }
 
   String _status(AboutInfo? info) {
@@ -220,7 +246,7 @@ class _AboutUpdatePanelState extends ConsumerState<AboutUpdatePanel> {
       return _error!;
     }
     if (info == null) {
-      return '正在看有没有新版本…';
+      return '正在读取当前版本…';
     }
     if (_target != null && info.version == _target) {
       return '已经换上 $_target。';
@@ -231,14 +257,17 @@ class _AboutUpdatePanelState extends ConsumerState<AboutUpdatePanel> {
     if (info.phase == 'failed' && info.message != null) {
       return info.message!;
     }
+    if (!_checked) {
+      return '';
+    }
     if (!info.reachable) {
       return '现在连不上 GitHub，查不了有没有新版本。当前是 ${info.version}。';
     }
-    if (info.updateAvailable) {
+    if (_offer != null) {
       if (!info.canUpdate) {
-        return '有新版本 ${info.latest}。这台部署没把 Docker 交给服务端，请在部署目录重新运行启动脚本。';
+        return '有新版本 $_offer。这台部署没把 Docker 交给服务端，请在部署目录重新运行启动脚本。';
       }
-      return '有新版本 ${info.latest}，点下面即可换上。数据库不会动。';
+      return '有新版本 $_offer。';
     }
     return '已经是最新的。';
   }
