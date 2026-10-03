@@ -26,6 +26,7 @@ class FlowDoColors extends ThemeExtension<FlowDoColors> {
     required this.card,
     required this.softFill,
     required this.success,
+    required this.themeAccent,
     required this.highPriority,
     required this.mediumPriority,
     required this.lowPriority,
@@ -35,14 +36,16 @@ class FlowDoColors extends ThemeExtension<FlowDoColors> {
   final Color card;
   final Color softFill;
   final Color success;
+  final Color themeAccent;
   final Color highPriority;
   final Color mediumPriority;
   final Color lowPriority;
 
   Color priority(String priority) => switch (priority) {
         'HIGH' => highPriority,
+        'MEDIUM' => mediumPriority,
         'LOW' => lowPriority,
-        _ => mediumPriority,
+        _ => themeAccent,
       };
 
   @override
@@ -51,6 +54,7 @@ class FlowDoColors extends ThemeExtension<FlowDoColors> {
     Color? card,
     Color? softFill,
     Color? success,
+    Color? themeAccent,
     Color? highPriority,
     Color? mediumPriority,
     Color? lowPriority,
@@ -60,6 +64,7 @@ class FlowDoColors extends ThemeExtension<FlowDoColors> {
       card: card ?? this.card,
       softFill: softFill ?? this.softFill,
       success: success ?? this.success,
+      themeAccent: themeAccent ?? this.themeAccent,
       highPriority: highPriority ?? this.highPriority,
       mediumPriority: mediumPriority ?? this.mediumPriority,
       lowPriority: lowPriority ?? this.lowPriority,
@@ -74,6 +79,7 @@ class FlowDoColors extends ThemeExtension<FlowDoColors> {
       card: Color.lerp(card, other.card, t)!,
       softFill: Color.lerp(softFill, other.softFill, t)!,
       success: Color.lerp(success, other.success, t)!,
+      themeAccent: Color.lerp(themeAccent, other.themeAccent, t)!,
       highPriority: Color.lerp(highPriority, other.highPriority, t)!,
       mediumPriority: Color.lerp(mediumPriority, other.mediumPriority, t)!,
       lowPriority: Color.lerp(lowPriority, other.lowPriority, t)!,

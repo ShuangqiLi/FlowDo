@@ -194,7 +194,11 @@ class SpaceSwitcher extends ConsumerWidget {
         if (name == null || name.isEmpty || name == current.name) {
           return;
         }
-        final renamed = Space(id: current.id, name: name);
+        final renamed = Space(
+          id: current.id,
+          name: name,
+          themeKey: current.themeKey,
+        );
         ref.read(spacesProvider.notifier).upsert(renamed);
         try {
           await api.renameSpace(current.id, name);

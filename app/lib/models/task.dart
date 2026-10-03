@@ -5,6 +5,7 @@ class Task {
     this.body,
     required this.status,
     required this.priority,
+    this.spaceId,
     this.remindAt,
     this.remindRepeat = 'ONCE',
     this.deleted = false,
@@ -19,6 +20,7 @@ class Task {
   final String? body;
   final String status;
   final String priority;
+  final String? spaceId;
   final DateTime? remindAt;
   final String remindRepeat;
   final bool deleted;
@@ -34,14 +36,18 @@ class Task {
       body: json['body'] as String?,
       status: json['status'] as String,
       priority: json['priority'] as String,
+      spaceId: json['spaceId'] as String?,
       remindAt: json['remindAt'] == null
           ? null
           : DateTime.parse(json['remindAt'] as String),
       remindRepeat: (json['remindRepeat'] as String?) ?? 'ONCE',
       deleted: json['deleted'] == true,
-      completedAt:
-          json['completedAt'] == null ? null : DateTime.parse(json['completedAt'] as String),
-      archivedAt: json['archivedAt'] == null ? null : DateTime.parse(json['archivedAt'] as String),
+      completedAt: json['completedAt'] == null
+          ? null
+          : DateTime.parse(json['completedAt'] as String),
+      archivedAt: json['archivedAt'] == null
+          ? null
+          : DateTime.parse(json['archivedAt'] as String),
       createdAt: DateTime.parse(json['createdAt'] as String),
       updatedAt: DateTime.parse(json['updatedAt'] as String),
     );
@@ -54,6 +60,7 @@ class Task {
     bool clearBody = false,
     String? status,
     String? priority,
+    String? spaceId,
     DateTime? remindAt,
     bool clearRemindAt = false,
     String? remindRepeat,
@@ -71,11 +78,12 @@ class Task {
       body: clearBody ? null : (body ?? this.body),
       status: status ?? this.status,
       priority: priority ?? this.priority,
+      spaceId: spaceId ?? this.spaceId,
       remindAt: clearRemindAt ? null : (remindAt ?? this.remindAt),
-      remindRepeat: clearRemindAt ? 'ONCE' : (remindRepeat ?? this.remindRepeat),
+      remindRepeat:
+          clearRemindAt ? 'ONCE' : (remindRepeat ?? this.remindRepeat),
       deleted: deleted ?? this.deleted,
-      completedAt:
-          clearCompletedAt ? null : (completedAt ?? this.completedAt),
+      completedAt: clearCompletedAt ? null : (completedAt ?? this.completedAt),
       archivedAt: clearArchivedAt ? null : (archivedAt ?? this.archivedAt),
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,

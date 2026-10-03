@@ -11,12 +11,14 @@ import 'package:flowdo/ui/swipe_away.dart';
 import 'provider_overrides.dart';
 
 void main() {
-  testWidgets('dragging across the note selects instead of swiping the page', (tester) async {
+  testWidgets('dragging across the note selects instead of swiping the page',
+      (tester) async {
     await _pumpDetail(tester);
     final title = find.text('任务详情');
     final before = tester.getTopLeft(title);
 
-    final gesture = await tester.startGesture(tester.getCenter(find.byType(TextField).last));
+    final gesture = await tester
+        .startGesture(tester.getCenter(find.byType(TextField).last));
     await gesture.moveBy(const Offset(160, 0));
     await tester.pump();
 
@@ -24,7 +26,8 @@ void main() {
     await gesture.up();
   });
 
-  testWidgets('dragging the blank title bar still swipes the note closed', (tester) async {
+  testWidgets('dragging the blank title bar still swipes the note closed',
+      (tester) async {
     await _pumpDetail(tester);
     final title = find.text('任务详情');
     final before = tester.getTopLeft(title);
@@ -37,7 +40,8 @@ void main() {
     await gesture.up();
   });
 
-  testWidgets('a reminder task shows when it rings and how often', (tester) async {
+  testWidgets('a reminder task shows when it rings and how often',
+      (tester) async {
     final when = DateTime.now().add(const Duration(days: 2, hours: 3));
     await _pumpDetail(
       tester,
@@ -60,6 +64,20 @@ void main() {
     expect(find.textContaining('每月'), findsOneWidget);
     expect(find.textContaining('还有 2 天'), findsOneWidget);
     expect(find.text('改时间'), findsOneWidget);
+    expect(find.text('过程小记'), findsNothing);
+    expect(
+      tester.getTopLeft(find.text('在任务池')).dy,
+      lessThan(tester.getTopLeft(find.text('交房租')).dy),
+    );
+  });
+
+  testWidgets('ordinary tasks keep notes under the status row', (tester) async {
+    await _pumpDetail(tester);
+    expect(find.text('过程小记'), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text('在任务池')).dy,
+      lessThan(tester.getTopLeft(find.text('写方案')).dy),
+    );
   });
 }
 

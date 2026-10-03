@@ -14,6 +14,21 @@
 
 ## [Unreleased]
 
+## [0.9.2] - 2026-10-03
+
+### Changed
+
+- 设提醒改成一页完成：中文月历从周一起，时分用加减，不再转盘选时间
+- 任务详情最上面一行是状态、优先级和日期；提醒任务只看提醒详情，不再显示过程小记
+- 无优先级和提醒任务卡片跟当前主题走渐变，和其他任务卡片同一套画法
+- 今日看看月历更省地方：提醒只显示小旗（最多三面再加 +），完成数 3 个点合成星、3 个星合成皇冠
+- 今日看看的统计和月历改成看所有任务空间；「可以先做这些」仍只推荐当前空间。日历里每个空间单独一行，颜色跟该空间主题走，完成件数不跨空间合成
+- 底部统计更细：全部空间的任务池、聚焦、完成、归档、待提醒和今昨完成，多空间时再按空间列出
+
+### Fixed
+
+- 服务端和客户端时区不一致时，不再把明天早上的提醒算到今天
+
 ## [0.9.1] - 2026-10-03
 
 ### Added
@@ -386,7 +401,8 @@
 - 通过 GitHub Releases 发版（推送 `v*.*.*` 标签）
 - 账号级设置（聚焦上限、归档天数、是否显示归档页）
 
-[Unreleased]: https://github.com/ShuangqiLi/FlowDo/compare/v0.9.1...HEAD
+[Unreleased]: https://github.com/ShuangqiLi/FlowDo/compare/v0.9.2...HEAD
+[0.9.2]: https://github.com/ShuangqiLi/FlowDo/compare/v0.9.1...v0.9.2
 [0.9.1]: https://github.com/ShuangqiLi/FlowDo/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/ShuangqiLi/FlowDo/compare/v0.8.8...v0.9.0
 [0.8.8]: https://github.com/ShuangqiLi/FlowDo/compare/v0.8.7...v0.8.8

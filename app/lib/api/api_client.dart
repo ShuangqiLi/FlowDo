@@ -220,7 +220,9 @@ class ApiClient {
       '/tasks',
       query: status == null ? null : {'status': status, 'sort': 'priority'},
     );
-    return (json as List<dynamic>).map((e) => Task.fromJson(e as Map<String, dynamic>)).toList();
+    return (json as List<dynamic>)
+        .map((e) => Task.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
   Future<Task> createTask({
@@ -281,8 +283,15 @@ class ApiClient {
     await _request('POST', '/notices/read');
   }
 
+  Map<String, String> _tzQuery([Map<String, String>? extra]) {
+    return {
+      'tzOffset': '${DateTime.now().timeZoneOffset.inMinutes}',
+      ...?extra,
+    };
+  }
+
   Future<Briefing> todayBriefing() async {
-    final json = await _request('GET', '/briefing/today');
+    final json = await _request('GET', '/briefing/today', query: _tzQuery());
     return Briefing.fromJson(json as Map<String, dynamic>);
   }
 
@@ -290,7 +299,7 @@ class ApiClient {
     final json = await _request(
       'GET',
       '/briefing/month',
-      query: {'year': '$year', 'month': '$month'},
+      query: _tzQuery({'year': '$year', 'month': '$month'}),
     );
     return MonthReview.fromJson(json as Map<String, dynamic>);
   }
@@ -313,7 +322,8 @@ class ApiClient {
   }
 
   Future<int> spaceTaskCount(String id) async {
-    final json = await _request('GET', '/spaces/$id/task-count') as Map<String, dynamic>;
+    final json =
+        await _request('GET', '/spaces/$id/task-count') as Map<String, dynamic>;
     return (json['count'] as num?)?.toInt() ?? 0;
   }
 
@@ -330,7 +340,8 @@ class ApiClient {
 
   /// 开始把网页和接口换成 GitHub 上的新版本。返回要换到的版本号。
   Future<String> startUpdate() async {
-    final json = await _request('POST', '/system/update') as Map<String, dynamic>;
+    final json =
+        await _request('POST', '/system/update') as Map<String, dynamic>;
     return json['target'] as String;
   }
 

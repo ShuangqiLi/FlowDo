@@ -78,7 +78,8 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
       ref.read(lazySyncProvider.notifier).schedule();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('$e')));
       }
     } finally {
       _saving = false;
@@ -103,7 +104,9 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
           task: null,
         );
     if (ref.exists(tasksProvider(widget.task.status))) {
-      ref.read(tasksProvider(widget.task.status).notifier).removeById(widget.task.id);
+      ref
+          .read(tasksProvider(widget.task.status).notifier)
+          .removeById(widget.task.id);
     }
     try {
       await _saveIfNeeded();
@@ -121,18 +124,24 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
     } on ApiException catch (e) {
       ref.read(lazySyncProvider.notifier).settleWrite(widget.task.id, gen);
       if (ref.exists(tasksProvider(widget.task.status))) {
-        ref.read(tasksProvider(widget.task.status).notifier).upsert(widget.task);
+        ref
+            .read(tasksProvider(widget.task.status).notifier)
+            .upsert(widget.task);
       }
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
       }
     } catch (e) {
       ref.read(lazySyncProvider.notifier).settleWrite(widget.task.id, gen);
       if (ref.exists(tasksProvider(widget.task.status))) {
-        ref.read(tasksProvider(widget.task.status).notifier).upsert(widget.task);
+        ref
+            .read(tasksProvider(widget.task.status).notifier)
+            .upsert(widget.task);
       }
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('$e')));
       }
     } finally {
       if (mounted) {
@@ -174,11 +183,13 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
       }
     } on ApiException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('$e')));
       }
     } finally {
       if (mounted) {
@@ -247,7 +258,10 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
           child: Padding(
             padding: const EdgeInsets.all(AppSpacing.md),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                _TaskFactsRow(task: _task),
+                const SizedBox(height: AppSpacing.sm),
                 FlowDoCard(
                   child: TextField(
                     controller: _title,
@@ -257,8 +271,6 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(height: AppSpacing.sm),
-                _TaskFactsRow(task: _task),
                 const SizedBox(height: AppSpacing.sm),
                 if (_task.priority == 'REMINDER') ...[
                   _ReminderCard(
@@ -278,23 +290,24 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                   ),
                   const SizedBox(height: AppSpacing.sm),
                 ],
-                Expanded(
-                  child: FlowDoCard(
-                    child: TextField(
-                      controller: _body,
-                      readOnly: _archived,
-                      expands: true,
-                      minLines: null,
-                      maxLines: null,
-                      textAlignVertical: TextAlignVertical.top,
-                      decoration: InputDecoration(
-                        labelText: '过程小记',
-                        hintText: _archived ? null : '想到什么就记一笔（可选）',
-                        alignLabelWithHint: true,
+                if (_task.priority != 'REMINDER')
+                  Expanded(
+                    child: FlowDoCard(
+                      child: TextField(
+                        controller: _body,
+                        readOnly: _archived,
+                        expands: true,
+                        minLines: null,
+                        maxLines: null,
+                        textAlignVertical: TextAlignVertical.top,
+                        decoration: InputDecoration(
+                          labelText: '过程小记',
+                          hintText: _archived ? null : '想到什么就记一笔（可选）',
+                          alignLabelWithHint: true,
+                        ),
                       ),
                     ),
                   ),
-                ),
               ],
             ),
           ),
@@ -328,9 +341,7 @@ class _TaskFactsRow extends StatelessWidget {
           icon: task.priority == 'REMINDER'
               ? Icons.flag_rounded
               : Icons.label_important_outline_rounded,
-          text: task.priority == 'REMINDER'
-              ? '提醒'
-              : '${task.priorityLabel}优先级',
+          text: task.priority == 'REMINDER' ? '提醒' : '${task.priorityLabel}优先级',
           color: priorityColor(context, task.priority),
         ),
         _Fact(
@@ -399,7 +410,8 @@ class _ReminderCard extends StatelessWidget {
     final at = task.remindAt?.toLocal();
     final repeat = remindRepeatLabel(task.remindRepeat);
     final recurring = task.remindRepeat != 'ONCE';
-    final when = at == null ? '还没定时间' : DateFormat('yyyy年M月d日 HH:mm').format(at);
+    final when =
+        at == null ? '还没定时间' : DateFormat('yyyy年M月d日 HH:mm').format(at);
     final countdown = at == null ? null : _countdown(at, DateTime.now());
     final note = recurring
         ? '到点会复制一份放进聚焦，做完那一份就删掉；这条循环会继续排下一次。'

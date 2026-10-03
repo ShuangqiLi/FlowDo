@@ -1,4 +1,12 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  daysInMonth,
+  DEFAULT_TZ_OFFSET_MINUTES,
+  monthDateKey,
+  monthRange,
+  startOfZonedDay,
+  toDateKey,
+} from '../clock/zone';
 import { InstanceService } from '../instance/instance.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { reminderMarks } from '../tasks/reminder-time';
@@ -16,7 +24,10 @@ const DEFAULT_SUGGEST_LIMIT = 3;
 
 type RankedTask = { priority: string; updatedAt: Date };
 
-export function comparePriorityThenRecent(a: RankedTask, b: RankedTask): number {
+export function comparePriorityThenRecent(
+  a: RankedTask,
+  b: RankedTask,
+): number {
   const p =
     (PRIORITY_ORDER[a.priority as TaskPriority] ?? 9) -
     (PRIORITY_ORDER[b.priority as TaskPriority] ?? 9);
@@ -38,6 +49,106 @@ export function pickSuggestedFocus<T extends RankedTask>(
   return [...inboxHigh].sort(comparePriorityThenRecent).slice(0, limit);
 }
 
+export type SpaceRow = { id: string; name: string; themeKey: string };
+
+export type SpaceStats = SpaceRow & {
+  todo: number;
+  focus: number;
+  done: number;
+  archived: number;
+  reminders: number;
+  completedToday: number;
+  completedYesterday: number;
+};
+
+export function buildSpaceStats(
+  spaces: SpaceRow[],
+  statusCounts: Array<{ spaceId: string; status: string; count: number }>,
+  completedTodaySpaceIds: string[],
+  completedYesterdaySpaceIds: string[],
+  reminderCounts: Array<{ spaceId: string; count: number }>,
+): SpaceStats[] {
+  const byStatus = new Map<string, Record<string, number>>();
+  for (const row of statusCounts) {
+    const cur = byStatus.get(row.spaceId) ?? {};
+    cur[row.status] = row.count;
+    byStatus.set(row.spaceId, cur);
+  }
+  const today = countKeys(completedTodaySpaceIds);
+  const yesterday = countKeys(completedYesterdaySpaceIds);
+  const reminders = new Map(
+    reminderCounts.map((row) => [row.spaceId, row.count]),
+  );
+  return spaces.map((space) => {
+    const st = byStatus.get(space.id) ?? {};
+    return {
+      ...space,
+      todo: st.TODO ?? 0,
+      focus: st.FOCUS ?? 0,
+      done: st.DONE ?? 0,
+      archived: st.ARCHIVED ?? 0,
+      reminders: reminders.get(space.id) ?? 0,
+      completedToday: today.get(space.id) ?? 0,
+      completedYesterday: yesterday.get(space.id) ?? 0,
+    };
+  });
+}
+
+export function sumSpaceStats(rows: SpaceStats[]) {
+  return rows.reduce(
+    (acc, row) => ({
+      todo: acc.todo + row.todo,
+      focus: acc.focus + row.focus,
+      done: acc.done + row.done,
+      archived: acc.archived + row.archived,
+      reminders: acc.reminders + row.reminders,
+      completedToday: acc.completedToday + row.completedToday,
+      completedYesterday: acc.completedYesterday + row.completedYesterday,
+    }),
+    {
+      todo: 0,
+      focus: 0,
+      done: 0,
+      archived: 0,
+      reminders: 0,
+      completedToday: 0,
+      completedYesterday: 0,
+    },
+  );
+}
+
+export function monthSpaceRollup(
+  spaces: SpaceRow[],
+  completed: Array<{ spaceId: string; dateKey: string }>,
+) {
+  const bySpace = new Map<string, { count: number; days: Set<string> }>();
+  for (const row of completed) {
+    const cur = bySpace.get(row.spaceId) ?? {
+      count: 0,
+      days: new Set<string>(),
+    };
+    cur.count += 1;
+    cur.days.add(row.dateKey);
+    bySpace.set(row.spaceId, cur);
+  }
+  return spaces.map((space) => {
+    const cur = bySpace.get(space.id);
+    return {
+      ...space,
+      completedCount: cur?.count ?? 0,
+      activeDays: cur?.days.size ?? 0,
+    };
+  });
+}
+
+function countKeys(ids: string[]): Map<string, number> {
+  const map = new Map<string, number>();
+  for (const id of ids) {
+    map.set(id, (map.get(id) ?? 0) + 1);
+  }
+  return map;
+}
+
 @Injectable()
 export class BriefingService {
   constructor(
@@ -45,39 +156,79 @@ export class BriefingService {
     private readonly instance: InstanceService,
   ) {}
 
-  async today() {
+  async today(tzOffset = DEFAULT_TZ_OFFSET_MINUTES) {
     const now = new Date();
-    const startOfToday = startOfDay(now);
+    const startOfToday = startOfZonedDay(now, tzOffset);
     const space = await this.instance.activeSpace();
-    const spaceId = space.id;
-    const startOfYesterday = addDays(startOfToday, -1);
+    const startOfYesterday = new Date(
+      startOfToday.getTime() - 24 * 60 * 60 * 1000,
+    );
 
-    const [todo, focus, done, archived, completedToday, completedYesterday, inboxHigh] =
-      await Promise.all([
-        this.prisma.task.count({ where: { spaceId, status: TaskStatus.TODO } }),
-        this.prisma.task.findMany({ where: { spaceId, status: TaskStatus.FOCUS } }),
-        this.prisma.task.count({ where: { spaceId, status: TaskStatus.DONE } }),
-        this.prisma.task.count({ where: { spaceId, status: TaskStatus.ARCHIVED } }),
-        this.prisma.task.findMany({
-          where: { spaceId, completedAt: { gte: startOfToday } },
-          orderBy: { completedAt: 'desc' },
-        }),
-        this.prisma.task.findMany({
-          where: {
-            spaceId,
-            completedAt: { gte: startOfYesterday, lt: startOfToday },
-          },
-          orderBy: { completedAt: 'desc' },
-        }),
-        this.prisma.task.findMany({
-          where: {
-            spaceId,
-            status: TaskStatus.TODO,
-            priority: TaskPriority.HIGH,
-          },
-        }),
-      ]);
+    const [
+      spaces,
+      statusGroups,
+      reminderGroups,
+      completedToday,
+      completedYesterday,
+      focus,
+      inboxHigh,
+    ] = await Promise.all([
+      this.prisma.space.findMany({ orderBy: { createdAt: 'asc' } }),
+      this.prisma.task.groupBy({
+        by: ['spaceId', 'status'],
+        _count: { _all: true },
+      }),
+      this.prisma.task.groupBy({
+        by: ['spaceId'],
+        where: {
+          priority: TaskPriority.REMINDER,
+          remindedAt: null,
+          status: { in: [TaskStatus.TODO, TaskStatus.FOCUS] },
+          remindAt: { gt: now },
+        },
+        _count: { _all: true },
+      }),
+      this.prisma.task.findMany({
+        where: { completedAt: { gte: startOfToday } },
+        orderBy: { completedAt: 'desc' },
+      }),
+      this.prisma.task.findMany({
+        where: {
+          completedAt: { gte: startOfYesterday, lt: startOfToday },
+        },
+        orderBy: { completedAt: 'desc' },
+      }),
+      this.prisma.task.findMany({
+        where: { spaceId: space.id, status: TaskStatus.FOCUS },
+      }),
+      this.prisma.task.findMany({
+        where: {
+          spaceId: space.id,
+          status: TaskStatus.TODO,
+          priority: TaskPriority.HIGH,
+        },
+      }),
+    ]);
 
+    const spaceStats = buildSpaceStats(
+      spaces.map((row) => ({
+        id: row.id,
+        name: row.name,
+        themeKey: row.themeKey,
+      })),
+      statusGroups.map((row) => ({
+        spaceId: row.spaceId,
+        status: row.status,
+        count: row._count._all,
+      })),
+      completedToday.map((row) => row.spaceId),
+      completedYesterday.map((row) => row.spaceId),
+      reminderGroups.map((row) => ({
+        spaceId: row.spaceId,
+        count: row._count._all,
+      })),
+    );
+    const totals = sumSpaceStats(spaceStats);
     const focusedTasks = [...focus].sort(comparePriorityThenRecent);
     const suggestedFocus = pickSuggestedFocus(
       focusedTasks,
@@ -86,37 +237,51 @@ export class BriefingService {
     );
 
     return {
-      date: toDateKey(startOfToday),
+      date: toDateKey(now, tzOffset),
       counts: {
-        todo,
-        focus: focusedTasks.length,
-        done,
-        archived,
+        todo: totals.todo,
+        focus: totals.focus,
+        done: totals.done,
+        archived: totals.archived,
+        reminders: totals.reminders,
+        completedToday: totals.completedToday,
+        completedYesterday: totals.completedYesterday,
+        total: totals.todo + totals.focus + totals.done + totals.archived,
       },
+      spaces: spaceStats,
       focusedTasks,
       suggestedFocus,
       completedToday,
       completedYesterday,
-      pendingArchive: done,
+      pendingArchive: totals.done,
     };
   }
 
-  async month(year: number, month: number) {
-    if (!Number.isInteger(year) || !Number.isInteger(month) || month < 1 || month > 12) {
+  async month(
+    year: number,
+    month: number,
+    tzOffset = DEFAULT_TZ_OFFSET_MINUTES,
+  ) {
+    if (
+      !Number.isInteger(year) ||
+      !Number.isInteger(month) ||
+      month < 1 ||
+      month > 12
+    ) {
       throw new BadRequestException('这个月份不太对');
     }
-    const spaceId = await this.instance.spaceId();
-    const start = new Date(year, month - 1, 1);
-    const end = new Date(year, month, 0, 23, 59, 59, 999);
+    const { start, end } = monthRange(year, month, tzOffset);
     const now = new Date();
-    const [completed, repeating, once] = await Promise.all([
+    const startKey = monthDateKey(year, month, 1);
+    const endKey = monthDateKey(year, month, daysInMonth(year, month));
+    const [spaces, completed, repeating, once] = await Promise.all([
+      this.prisma.space.findMany({ orderBy: { createdAt: 'asc' } }),
       this.prisma.task.findMany({
-        where: { spaceId, completedAt: { gte: start, lte: end } },
+        where: { completedAt: { gte: start, lte: end } },
         orderBy: { completedAt: 'desc' },
       }),
       this.prisma.task.findMany({
         where: {
-          spaceId,
           priority: TaskPriority.REMINDER,
           remindedAt: null,
           remindRepeat: { not: RemindRepeat.ONCE },
@@ -127,7 +292,6 @@ export class BriefingService {
       }),
       this.prisma.task.findMany({
         where: {
-          spaceId,
           priority: TaskPriority.REMINDER,
           remindedAt: null,
           remindRepeat: RemindRepeat.ONCE,
@@ -144,7 +308,7 @@ export class BriefingService {
       if (!row.completedAt) {
         continue;
       }
-      const key = toDateKey(row.completedAt);
+      const key = toDateKey(row.completedAt, tzOffset);
       dayCounts.set(key, (dayCounts.get(key) ?? 0) + 1);
       const list = dayTasks.get(key) ?? [];
       list.push(row);
@@ -153,8 +317,8 @@ export class BriefingService {
 
     const dayReminders = new Map<string, Array<(typeof once)[number]>>();
     const putReminder = (row: (typeof once)[number], at: Date) => {
-      const key = toDateKey(at);
-      if (key < toDateKey(start) || key > toDateKey(end)) {
+      const key = toDateKey(at, tzOffset);
+      if (key < startKey || key > endKey) {
         return;
       }
       const list = dayReminders.get(key) ?? [];
@@ -181,10 +345,9 @@ export class BriefingService {
       }
     }
 
-    const length = end.getDate();
+    const length = daysInMonth(year, month);
     const days = Array.from({ length }, (_, i) => {
-      const day = addDays(start, i);
-      const key = toDateKey(day);
+      const key = monthDateKey(year, month, i + 1);
       return {
         date: key,
         count: dayCounts.get(key) ?? 0,
@@ -193,29 +356,31 @@ export class BriefingService {
       };
     });
 
+    const spaceRows = spaces.map((row) => ({
+      id: row.id,
+      name: row.name,
+      themeKey: row.themeKey,
+    }));
+
     return {
       year,
       month,
       completedCount: days.reduce((sum, day) => sum + day.count, 0),
       activeDays: days.filter((day) => day.count > 0).length,
+      spaces: monthSpaceRollup(
+        spaceRows,
+        completed.flatMap((row) =>
+          row.completedAt
+            ? [
+                {
+                  spaceId: row.spaceId,
+                  dateKey: toDateKey(row.completedAt, tzOffset),
+                },
+              ]
+            : [],
+        ),
+      ),
       days,
     };
   }
-}
-
-function startOfDay(date: Date): Date {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
-}
-
-function toDateKey(date: Date): string {
-  const y = date.getFullYear();
-  const m = `${date.getMonth() + 1}`.padStart(2, '0');
-  const d = `${date.getDate()}`.padStart(2, '0');
-  return `${y}-${m}-${d}`;
-}
-
-function addDays(date: Date, days: number): Date {
-  const next = new Date(date);
-  next.setDate(next.getDate() + days);
-  return next;
 }

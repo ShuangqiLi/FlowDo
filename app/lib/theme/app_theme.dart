@@ -70,6 +70,7 @@ ThemeData buildAppTheme([AppThemeKey themeKey = AppThemeKey.mint]) {
         card: palette.card,
         softFill: palette.softFill,
         success: palette.success,
+        themeAccent: palette.primary,
         highPriority: const Color(0xFFB86B6B),
         mediumPriority: const Color(0xFFC4895A),
         lowPriority: const Color(0xFF7A8694),
@@ -118,7 +119,8 @@ ThemeData buildAppTheme([AppThemeKey themeKey = AppThemeKey.mint]) {
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(AppRadii.control),
-        borderSide: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.85)),
+        borderSide:
+            BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.85)),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(AppRadii.control),
