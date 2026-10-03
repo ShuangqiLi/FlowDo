@@ -1,17 +1,35 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 
 import '../theme.dart';
+import '../utils/cron.dart';
+import '../utils/lunar.dart';
 
 class ReminderPlan {
-  const ReminderPlan({required this.at, required this.repeat});
+  const ReminderPlan({
+    required this.at,
+    required this.repeat,
+    this.cron,
+    this.lunar = false,
+  });
 
   final DateTime at;
 
-  /// ONCE、DAILY、WEEKLY、MONTHLY、YEARLY。
+  /// ONCE、DAILY、WEEKLY、MONTHLY、YEARLY、CRON。
   final String repeat;
+  final String? cron;
+  final bool lunar;
 }
 
-const remindRepeatOrder = ['ONCE', 'DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY'];
+const remindRepeatOrder = [
+  'ONCE',
+  'DAILY',
+  'WEEKLY',
+  'MONTHLY',
+  'YEARLY',
+  'CRON',
+];
 
 String remindRepeatLabel(String repeat) {
   return switch (repeat) {
@@ -19,19 +37,45 @@ String remindRepeatLabel(String repeat) {
     'WEEKLY' => '每周',
     'MONTHLY' => '每月',
     'YEARLY' => '每年',
+    'CRON' => 'crontab',
     _ => '仅一次',
   };
 }
 
-/// 日历加点按加减选时刻，不要转盘。取消时返回 null。
+/// 卡片和详情上的提醒时刻。仅一次不写「提醒」；勾了农历就用农历日期。
+String reminderWhenText(
+  DateTime at, {
+  required bool lunar,
+  bool withYear = false,
+}) {
+  final local = at.toLocal();
+  final clock = DateFormat('HH:mm').format(local);
+  if (lunar) {
+    final name = lunarCellLabel(local.year, local.month, local.day);
+    if (name.isNotEmpty) {
+      return '农历$name $clock';
+    }
+  }
+  final pattern = withYear ? 'yyyy年M月d日' : 'M月d日';
+  return '${DateFormat(pattern).format(local)} $clock';
+}
+
+bool remindRepeatUsesLunar(String repeat) {
+  return repeat == 'ONCE' || repeat == 'MONTHLY' || repeat == 'YEARLY';
+}
+
+/// 日历加点按加减选时刻，也可以点数字用键盘输入。取消时返回 null。
 Future<ReminderPlan?> showReminderTimePicker(
   BuildContext context, {
   DateTime? initial,
   String repeat = 'ONCE',
+  String? cron,
+  bool lunar = false,
 }) {
   final now = DateTime.now();
-  final start = initial != null && initial.isAfter(now)
-      ? initial
+  final localInitial = initial?.toLocal();
+  final start = localInitial != null && localInitial.isAfter(now)
+      ? localInitial
       : now.add(const Duration(hours: 1));
   return showDialog<ReminderPlan>(
     context: context,
@@ -39,6 +83,8 @@ Future<ReminderPlan?> showReminderTimePicker(
       return _ReminderPickerDialog(
         initial: start,
         repeat: remindRepeatOrder.contains(repeat) ? repeat : 'ONCE',
+        cron: cron,
+        lunar: lunar,
       );
     },
   );
@@ -48,10 +94,14 @@ class _ReminderPickerDialog extends StatefulWidget {
   const _ReminderPickerDialog({
     required this.initial,
     required this.repeat,
+    this.cron,
+    this.lunar = false,
   });
 
   final DateTime initial;
   final String repeat;
+  final String? cron;
+  final bool lunar;
 
   @override
   State<_ReminderPickerDialog> createState() => _ReminderPickerDialogState();
@@ -65,7 +115,11 @@ class _ReminderPickerDialogState extends State<_ReminderPickerDialog> {
   late int _hour;
   late int _minute;
   late String _repeat;
+  late bool _lunar;
+  late final TextEditingController _cron;
   String? _error;
+  final _hourField = GlobalKey<_StepFieldState>();
+  final _minuteField = GlobalKey<_StepFieldState>();
 
   @override
   void initState() {
@@ -76,6 +130,14 @@ class _ReminderPickerDialogState extends State<_ReminderPickerDialog> {
     _hour = start.hour;
     _minute = start.minute;
     _repeat = widget.repeat;
+    _lunar = widget.lunar && remindRepeatUsesLunar(widget.repeat);
+    _cron = TextEditingController(text: widget.cron ?? '0 9 * * *');
+  }
+
+  @override
+  void dispose() {
+    _cron.dispose();
+    super.dispose();
   }
 
   DateTime get _picked => DateTime(
@@ -90,6 +152,8 @@ class _ReminderPickerDialogState extends State<_ReminderPickerDialog> {
     final now = DateTime.now();
     return DateTime(now.year, now.month, now.day);
   }
+
+  bool get _isCron => _repeat == 'CRON';
 
   bool _isPastDay(DateTime day) => day.isBefore(_today);
 
@@ -106,17 +170,48 @@ class _ReminderPickerDialogState extends State<_ReminderPickerDialog> {
   }
 
   void _confirm() {
+    if (_isCron) {
+      try {
+        final expr = normalizeCron(_cron.text);
+        final next = nextCronOccurrence(expr, DateTime.now());
+        Navigator.of(context).pop(
+          ReminderPlan(at: next, repeat: 'CRON', cron: expr),
+        );
+      } on CronParseException catch (error) {
+        setState(() => _error = error.message);
+      }
+      return;
+    }
+    final hourOk = _hourField.currentState?.commit() ?? true;
+    final minuteOk = _minuteField.currentState?.commit() ?? true;
+    if (!hourOk || !minuteOk) {
+      setState(() {
+        _error = !hourOk ? '小时是 0 到 23' : '分钟是 0 到 59';
+      });
+      return;
+    }
     final picked = _picked;
     if (!picked.isAfter(DateTime.now())) {
       setState(() => _error = '提醒时间要比现在晚');
       return;
     }
-    Navigator.of(context).pop(ReminderPlan(at: picked, repeat: _repeat));
+    Navigator.of(context).pop(
+      ReminderPlan(
+        at: picked,
+        repeat: _repeat,
+        lunar: _lunar && remindRepeatUsesLunar(_repeat),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final lunarLabel = lunarCellLabel(
+      _selected.year,
+      _selected.month,
+      _selected.day,
+    );
     return AlertDialog(
       scrollable: true,
       title: const Text('设个提醒'),
@@ -126,40 +221,60 @@ class _ReminderPickerDialogState extends State<_ReminderPickerDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _monthHeader(context, scheme),
-            const SizedBox(height: AppSpacing.xs),
-            _calendar(context, scheme),
-            const SizedBox(height: AppSpacing.md),
-            Text('几点', style: Theme.of(context).textTheme.titleSmall),
-            const SizedBox(height: AppSpacing.xs),
-            Row(
-              children: [
-                Expanded(
-                  child: _StepField(
-                    label: '时',
-                    value: _hour,
-                    width: 2,
-                    onChanged: (value) => setState(() {
-                      _hour = (value + 24) % 24;
-                      _error = null;
-                    }),
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: _StepField(
-                    label: '分',
-                    value: _minute,
-                    width: 2,
-                    onChanged: (value) => setState(() {
-                      _minute = (value + 60) % 60;
-                      _error = null;
-                    }),
-                  ),
+            if (!_isCron) ...[
+              _monthHeader(context, scheme),
+              const SizedBox(height: AppSpacing.xs),
+              _calendar(context, scheme),
+              if (_lunar && lunarLabel.isNotEmpty) ...[
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  '农历$lunarLabel',
+                  key: const ValueKey('reminder-lunar-label'),
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: scheme.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
                 ),
               ],
-            ),
-            const SizedBox(height: AppSpacing.md),
+              const SizedBox(height: AppSpacing.md),
+              Text('几点', style: Theme.of(context).textTheme.titleSmall),
+              const SizedBox(height: AppSpacing.xs),
+              Row(
+                children: [
+                  Expanded(
+                    child: _StepField(
+                      key: _hourField,
+                      label: '时',
+                      value: _hour,
+                      max: 23,
+                      fieldKey: const ValueKey('reminder-hour-field'),
+                      onChanged: (value) => setState(() {
+                        _hour = value;
+                        _error = null;
+                      }),
+                      onInvalid: (message) => setState(() => _error = message),
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: _StepField(
+                      key: _minuteField,
+                      label: '分',
+                      value: _minute,
+                      max: 59,
+                      fieldKey: const ValueKey('reminder-minute-field'),
+                      onChanged: (value) => setState(() {
+                        _minute = value;
+                        _error = null;
+                      }),
+                      onInvalid: (message) => setState(() => _error = message),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.md),
+            ],
             Text('多久重复', style: Theme.of(context).textTheme.titleSmall),
             const SizedBox(height: AppSpacing.xs),
             Wrap(
@@ -172,11 +287,44 @@ class _ReminderPickerDialogState extends State<_ReminderPickerDialog> {
                     selected: _repeat == item,
                     onSelected: (_) => setState(() {
                       _repeat = item;
+                      if (!remindRepeatUsesLunar(item)) {
+                        _lunar = false;
+                      }
+                      _error = null;
+                    }),
+                  ),
+                if (remindRepeatUsesLunar(_repeat))
+                  FilterChip(
+                    key: const ValueKey('reminder-lunar-chip'),
+                    label: const Text('农历'),
+                    selected: _lunar,
+                    onSelected: (selected) => setState(() {
+                      _lunar = selected;
                       _error = null;
                     }),
                   ),
               ],
             ),
+            if (_isCron) ...[
+              const SizedBox(height: AppSpacing.md),
+              Text('crontab', style: Theme.of(context).textTheme.titleSmall),
+              const SizedBox(height: AppSpacing.xs),
+              TextField(
+                key: const ValueKey('reminder-cron-field'),
+                controller: _cron,
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      fontFamily: 'monospace',
+                    ),
+                decoration: InputDecoration(
+                  hintText: '分 时 日 月 周',
+                  helperText: '例如工作日早上九点：0 9 * * 1-5',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(AppRadii.control),
+                  ),
+                ),
+                onChanged: (_) => setState(() => _error = null),
+              ),
+            ],
             if (_error != null) ...[
               const SizedBox(height: AppSpacing.sm),
               Text(
@@ -331,25 +479,95 @@ class _ReminderPickerDialogState extends State<_ReminderPickerDialog> {
   }
 }
 
-class _StepField extends StatelessWidget {
+class _StepField extends StatefulWidget {
   const _StepField({
+    super.key,
     required this.label,
     required this.value,
-    required this.width,
+    required this.max,
     required this.onChanged,
+    required this.onInvalid,
+    required this.fieldKey,
   });
 
   final String label;
   final int value;
-  final int width;
+  final int max;
   final ValueChanged<int> onChanged;
+  final ValueChanged<String> onInvalid;
+  final Key fieldKey;
+
+  @override
+  State<_StepField> createState() => _StepFieldState();
+}
+
+class _StepFieldState extends State<_StepField> {
+  late final TextEditingController _controller;
+  late final FocusNode _focus;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: _padded(widget.value));
+    _focus = FocusNode();
+    _focus.addListener(_onFocus);
+  }
+
+  @override
+  void didUpdateWidget(covariant _StepField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.value != widget.value && !_focus.hasFocus) {
+      _controller.text = _padded(widget.value);
+    }
+  }
+
+  @override
+  void dispose() {
+    _focus.removeListener(_onFocus);
+    _focus.dispose();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  String _padded(int value) => value.toString().padLeft(2, '0');
+
+  void _onFocus() {
+    if (_focus.hasFocus) {
+      _controller.selection = TextSelection(
+        baseOffset: 0,
+        extentOffset: _controller.text.length,
+      );
+      return;
+    }
+    commit();
+  }
+
+  bool commit() {
+    final parsed = int.tryParse(_controller.text.trim());
+    if (parsed == null || parsed < 0 || parsed > widget.max) {
+      _controller.text = _padded(widget.value);
+      widget.onInvalid(
+        widget.label == '时' ? '小时是 0 到 23' : '分钟是 0 到 59',
+      );
+      return false;
+    }
+    _controller.text = _padded(parsed);
+    widget.onChanged(parsed);
+    return true;
+  }
+
+  void _step(int delta) {
+    final next = (widget.value + delta) % (widget.max + 1);
+    final wrapped = next < 0 ? widget.max : next;
+    widget.onChanged(wrapped);
+  }
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Semantics(
-      label: label,
-      value: value.toString().padLeft(width, '0'),
+      label: widget.label,
+      value: _padded(widget.value),
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: scheme.surfaceContainerHighest.withValues(alpha: 0.45),
@@ -359,20 +577,34 @@ class _StepField extends StatelessWidget {
         child: Row(
           children: [
             IconButton(
-              tooltip: '减少$label',
-              onPressed: () => onChanged(value - 1),
+              tooltip: '减少${widget.label}',
+              onPressed: () => _step(-1),
               icon: const Icon(Icons.remove_rounded),
             ),
             Expanded(
               child: Column(
                 children: [
-                  Text(
-                    value.toString().padLeft(width, '0'),
+                  TextField(
+                    key: widget.fieldKey,
+                    controller: _controller,
+                    focusNode: _focus,
                     textAlign: TextAlign.center,
+                    keyboardType: TextInputType.number,
                     style: Theme.of(context).textTheme.headlineSmall,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                      LengthLimitingTextInputFormatter(2),
+                    ],
+                    decoration: const InputDecoration(
+                      border: InputBorder.none,
+                      isDense: true,
+                      counterText: '',
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                    onSubmitted: (_) => commit(),
                   ),
                   Text(
-                    label,
+                    widget.label,
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
                           color: scheme.onSurfaceVariant,
                         ),
@@ -381,8 +613,8 @@ class _StepField extends StatelessWidget {
               ),
             ),
             IconButton(
-              tooltip: '增加$label',
-              onPressed: () => onChanged(value + 1),
+              tooltip: '增加${widget.label}',
+              onPressed: () => _step(1),
               icon: const Icon(Icons.add_rounded),
             ),
           ],

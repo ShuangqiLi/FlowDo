@@ -17,4 +17,8 @@ flutter build web --release --no-web-resources-cdn
 
 The client always calls API paths on the current origin. In production,
 `web/nginx.conf` proxies those paths to the API container. The login page only
-asks for the instance password. A fresh database starts with `FlowDo#321Init` and forces a change on first login.
+asks for the instance password. A fresh database has no password until the first
+visit, which asks you to choose one and confirm it.
+
+Reminders, crontab recurrence and lunar dates are implemented in the web client
+(`lib/widgets/reminder_time_picker.dart`, `lib/utils/cron.dart`, `lib/utils/lunar.dart`).

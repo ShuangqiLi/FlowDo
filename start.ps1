@@ -170,5 +170,5 @@ Write-Host "  网页端：http://<本机 IP>:${webPort}"
 Write-Host "  API：   http://<本机 IP>:${apiPort}/health"
 Write-Host '  数据库：只在容器网络内，不对外开放'
 Write-Host ''
-Write-Host '登录只需要密码。全新安装的初始密码是 FlowDo#321Init，第一次登录会要求先换掉。'
+Write-Host '登录只需要密码。全新安装没有初始密码，第一次打开网页时设一个并再确认一次。'
 Write-Host '停止：docker compose down    升级后清掉旧镜像：docker image prune -f'

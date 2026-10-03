@@ -1,5 +1,5 @@
-import { canTransition } from './task-status';
-import { TaskStatus } from './task.enums';
+import { canEnterFocusManually, canTransition } from './task-status';
+import { TaskPriority, TaskStatus } from './task.enums';
 
 describe('canTransition', () => {
   it('sends inbox to focus, not done', () => {
@@ -17,5 +17,16 @@ describe('canTransition', () => {
     expect(canTransition(TaskStatus.ARCHIVED, TaskStatus.TODO)).toBe(false);
     expect(canTransition(TaskStatus.ARCHIVED, TaskStatus.FOCUS)).toBe(false);
     expect(canTransition(TaskStatus.ARCHIVED, TaskStatus.DONE)).toBe(false);
+  });
+});
+
+describe('canEnterFocusManually', () => {
+  it('lets ordinary tasks into focus', () => {
+    expect(canEnterFocusManually(TaskPriority.HIGH)).toBe(true);
+    expect(canEnterFocusManually(TaskPriority.NONE)).toBe(true);
+  });
+
+  it('keeps reminder tasks out until they fire', () => {
+    expect(canEnterFocusManually(TaskPriority.REMINDER)).toBe(false);
   });
 });

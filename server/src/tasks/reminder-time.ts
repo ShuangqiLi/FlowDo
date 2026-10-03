@@ -1,7 +1,20 @@
 import { BadRequestException } from '@nestjs/common';
+import { nextCronOccurrence } from '../clock/cron';
+import {
+  stepLunarMonth,
+  stepLunarYear,
+  type SolarDate,
+} from '../clock/lunar';
+import { DEFAULT_TZ_OFFSET_MINUTES } from '../clock/zone';
 import { RemindRepeat } from './task.enums';
 
 const repeats = new Set<string>(Object.values(RemindRepeat));
+
+export type ReminderStepOptions = {
+  cron?: string | null;
+  lunar?: boolean;
+  tzOffsetMinutes?: number;
+};
 
 /** 提醒精确到分钟，而且必须晚于现在。 */
 export function parseReminderInstant(raw: string, now: Date): Date {
@@ -27,8 +40,63 @@ export function asRemindRepeat(raw: string | undefined): RemindRepeat {
   return raw as RemindRepeat;
 }
 
+function wallParts(instant: Date, offsetMinutes: number) {
+  const shifted = new Date(instant.getTime() + offsetMinutes * 60_000);
+  return {
+    year: shifted.getUTCFullYear(),
+    month: shifted.getUTCMonth() + 1,
+    day: shifted.getUTCDate(),
+    hour: shifted.getUTCHours(),
+    minute: shifted.getUTCMinutes(),
+  };
+}
+
+function fromWall(
+  solar: SolarDate,
+  hour: number,
+  minute: number,
+  offsetMinutes: number,
+): Date {
+  return new Date(
+    Date.UTC(solar.year, solar.month - 1, solar.day, hour, minute, 0, 0) -
+      offsetMinutes * 60_000,
+  );
+}
+
+function stepLunar(
+  from: Date,
+  repeat: RemindRepeat,
+  offsetMinutes: number,
+): Date {
+  const wall = wallParts(from, offsetMinutes);
+  const solar = { year: wall.year, month: wall.month, day: wall.day };
+  const next =
+    repeat === RemindRepeat.YEARLY ? stepLunarYear(solar) : stepLunarMonth(solar);
+  if (next == null) {
+    throw new BadRequestException('这个农历日期走不到下一次');
+  }
+  return fromWall(next, wall.hour, wall.minute, offsetMinutes);
+}
+
 /** 下一次固定时刻。月底、闰日不够时落到当月最后一天。 */
-export function stepReminder(from: Date, repeat: RemindRepeat): Date {
+export function stepReminder(
+  from: Date,
+  repeat: RemindRepeat,
+  options: ReminderStepOptions = {},
+): Date {
+  const offset = options.tzOffsetMinutes ?? DEFAULT_TZ_OFFSET_MINUTES;
+  if (repeat === RemindRepeat.CRON) {
+    if (!options.cron) {
+      throw new BadRequestException('crontab 要写完整');
+    }
+    return nextCronOccurrence(options.cron, from, offset);
+  }
+  if (
+    options.lunar &&
+    (repeat === RemindRepeat.MONTHLY || repeat === RemindRepeat.YEARLY)
+  ) {
+    return stepLunar(from, repeat, offset);
+  }
   const next = new Date(from);
   const day = next.getDate();
   const month = next.getMonth();
@@ -58,10 +126,15 @@ export function stepReminder(from: Date, repeat: RemindRepeat): Date {
 }
 
 /** 至少向前走一次，并且走到严格晚于现在。 */
-export function advanceReminder(from: Date, repeat: RemindRepeat, now: Date): Date {
+export function advanceReminder(
+  from: Date,
+  repeat: RemindRepeat,
+  now: Date,
+  options: ReminderStepOptions = {},
+): Date {
   let cursor = new Date(from);
   for (let i = 0; i < 4000; i++) {
-    cursor = stepReminder(cursor, repeat);
+    cursor = stepReminder(cursor, repeat, options);
     if (cursor.getTime() > now.getTime()) {
       return cursor;
     }
@@ -76,6 +149,7 @@ export function reminderMarks(
   monthStart: Date,
   monthEnd: Date,
   now: Date,
+  options: ReminderStepOptions = {},
 ): Date[] {
   const marks: Date[] = [];
   let cursor = new Date(nextAt);
@@ -86,7 +160,7 @@ export function reminderMarks(
     if (repeat === RemindRepeat.ONCE) {
       break;
     }
-    const stepped = stepReminder(cursor, repeat);
+    const stepped = stepReminder(cursor, repeat, options);
     if (stepped.getTime() <= cursor.getTime()) {
       break;
     }

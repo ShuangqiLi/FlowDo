@@ -1,5 +1,6 @@
 import { RemindRepeat, TaskPriority, TaskStatus } from '../task.enums';
 import {
+  IsBoolean,
   IsEnum,
   IsISO8601,
   IsOptional,
@@ -33,6 +34,16 @@ export class CreateTaskDto {
   @IsOptional()
   @IsEnum(RemindRepeat, { message: '这种重复方式还不认识' })
   remindRepeat?: RemindRepeat;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsString({ message: 'crontab 要写成文字' })
+  @MaxLength(80, { message: 'crontab 太长啦' })
+  remindCron?: string | null;
+
+  @IsOptional()
+  @IsBoolean({ message: '农历请用开或关' })
+  remindLunar?: boolean;
 }
 
 export class UpdateTaskDto {
@@ -59,6 +70,16 @@ export class UpdateTaskDto {
   @IsOptional()
   @IsEnum(RemindRepeat, { message: '这种重复方式还不认识' })
   remindRepeat?: RemindRepeat;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsString({ message: 'crontab 要写成文字' })
+  @MaxLength(80, { message: 'crontab 太长啦' })
+  remindCron?: string | null;
+
+  @IsOptional()
+  @IsBoolean({ message: '农历请用开或关' })
+  remindLunar?: boolean;
 
   @IsOptional()
   @IsEnum(TaskStatus, { message: '这个状态我还不认识' })

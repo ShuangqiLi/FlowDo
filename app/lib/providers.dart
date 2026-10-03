@@ -13,6 +13,7 @@ import 'models/user.dart';
 import 'platform/microphone.dart';
 import 'theme.dart';
 import 'ui/focus_dock.dart';
+import 'ui/task_sort.dart';
 
 final prefsProvider = Provider<SharedPreferences>((ref) {
   throw UnimplementedError('prefs must be overridden');
@@ -29,6 +30,11 @@ final authStateProvider = NotifierProvider<AuthController, bool>(
 class AuthController extends Notifier<bool> {
   @override
   bool build() => ref.watch(apiProvider).isLoggedIn;
+
+  Future<void> setup(String password) async {
+    await ref.read(apiProvider).setupPassword(password);
+    state = true;
+  }
 
   Future<void> login(String password) async {
     await ref.read(apiProvider).login(password);
@@ -138,6 +144,17 @@ class TasksController extends AsyncNotifier<List<Task>> {
     }
   }
 
+  /// 用刚拉到的服务端列表对账。未完成的本地改动仍盖在上面。
+  void applyServer(List<Task> server) {
+    final epoch = ++_epoch;
+    final tasks = _merge(server);
+    if (epoch != _epoch) {
+      return;
+    }
+    state = AsyncData(tasks);
+    _cacheCurrent(tasks);
+  }
+
   List<Task> _merge(List<Task> tasks) {
     final spaceId = ref.read(meProvider).value?.activeSpaceId;
     return ref.read(pendingTaskWritesProvider).merge(status, spaceId, tasks);
@@ -155,7 +172,7 @@ class TasksController extends AsyncNotifier<List<Task>> {
     final current = List<Task>.of(state.value ?? const []);
     current.removeWhere((item) => item.id == task.id);
     current.add(task);
-    current.sort(_byPriorityThenRecent);
+    current.sort((a, b) => compareTasksByPriorityThenRecent(a, b, status));
     state = AsyncData(current);
   }
 
@@ -170,25 +187,6 @@ class TasksController extends AsyncNotifier<List<Task>> {
     }
     ref.read(spaceSnapshotCacheProvider).putTasks(spaceId, status, tasks);
   }
-}
-
-int _priorityRank(String priority) {
-  return switch (priority) {
-    'HIGH' => 0,
-    'MEDIUM' => 1,
-    'LOW' => 2,
-    'REMINDER' => 3,
-    'NONE' => 4,
-    _ => 9,
-  };
-}
-
-int _byPriorityThenRecent(Task a, Task b) {
-  final byPriority = _priorityRank(a.priority) - _priorityRank(b.priority);
-  if (byPriority != 0) {
-    return byPriority;
-  }
-  return b.updatedAt.compareTo(a.updatedAt);
 }
 
 const taskListStatuses = ['TODO', 'FOCUS', 'DONE', 'ARCHIVED'];
@@ -242,6 +240,8 @@ class PendingTaskWrites {
     _holds.remove(id);
   }
 
+  bool isPending(String id) => _holds.containsKey(id);
+
   List<Task> merge(String status, String? spaceId, List<Task> server) {
     if (_holds.isEmpty) {
       return server;
@@ -277,7 +277,7 @@ class PendingTaskWrites {
     if (!changed) {
       return server;
     }
-    result.sort(_byPriorityThenRecent);
+    result.sort((a, b) => compareTasksByPriorityThenRecent(a, b, status));
     return result;
   }
 }
@@ -577,17 +577,32 @@ final noticesProvider =
 
 class NoticesController extends AsyncNotifier<List<Notice>> {
   Timer? _timer;
+  Timer? _dueTimer;
   Set<String> _seen = {};
+
+  /// 仅一次的提醒到点后先本地挪进聚焦，记下这次挂起的代数，等服务端也挪走再放开。
+  final Map<String, int> _holdGens = {};
 
   @override
   Future<List<Notice>> build() async {
     ref.watch(authStateProvider);
+    ref.listen(tasksProvider('TODO'), (_, __) {
+      _scheduleDueCheck();
+    });
     ref.onDispose(() {
       _timer?.cancel();
       _timer = null;
+      _dueTimer?.cancel();
+      _dueTimer = null;
     });
-    _timer ??= Timer.periodic(const Duration(seconds: 20), (_) {
+    _timer ??= Timer.periodic(const Duration(seconds: 5), (_) {
       unawaited(refresh(quiet: true));
+    });
+    scheduleMicrotask(() {
+      if (!ref.mounted) {
+        return;
+      }
+      _scheduleDueCheck();
     });
     try {
       final notices = await _fetch();
@@ -600,23 +615,127 @@ class NoticesController extends AsyncNotifier<List<Notice>> {
 
   Future<void> refresh({bool quiet = true}) async {
     try {
+      _promoteDueLocally();
       final notices = await _fetch();
-      final fresh = notices.where((notice) => !_seen.contains(notice.id));
+      final fresh =
+          notices.where((notice) => !_seen.contains(notice.id)).toList();
       _seen = notices.map((notice) => notice.id).toSet();
       state = AsyncData(notices);
-      if (fresh.isNotEmpty) {
-        for (final status in ['TODO', 'FOCUS']) {
-          if (ref.exists(tasksProvider(status))) {
-            unawaited(
-              ref.read(tasksProvider(status).notifier).reload(quiet: true),
-            );
-          }
-        }
+      if (fresh.isNotEmpty || _holdGens.isNotEmpty) {
+        await _reconcileTaskLists();
       }
     } catch (error, stack) {
       if (!quiet || state.value == null) {
         state = AsyncError(error, stack);
       }
+    }
+  }
+
+  void _scheduleDueCheck() {
+    _dueTimer?.cancel();
+    _promoteDueLocally();
+    final todoProvider = tasksProvider('TODO');
+    if (!ref.exists(todoProvider)) {
+      return;
+    }
+    final todo = ref.read(todoProvider).asData?.value;
+    if (todo == null) {
+      return;
+    }
+    final now = DateTime.now();
+    DateTime? next;
+    for (final task in todo) {
+      final at = task.remindAt;
+      if (task.priority != 'REMINDER' ||
+          task.remindRepeat != 'ONCE' ||
+          at == null ||
+          !at.isAfter(now)) {
+        continue;
+      }
+      if (next == null || at.isBefore(next)) {
+        next = at;
+      }
+    }
+    if (next == null) {
+      return;
+    }
+    var delay = next.difference(now);
+    if (delay < const Duration(milliseconds: 200)) {
+      delay = const Duration(milliseconds: 200);
+    }
+    _dueTimer = Timer(delay, () {
+      _promoteDueLocally();
+      unawaited(refresh(quiet: true));
+    });
+  }
+
+  /// 到点的仅一次提醒先从任务池拿掉，放进聚焦。循环提醒留在任务池，等服务端克隆。
+  void _promoteDueLocally() {
+    final todoProvider = tasksProvider('TODO');
+    if (!ref.exists(todoProvider)) {
+      return;
+    }
+    final todo = ref.read(todoProvider).asData?.value;
+    if (todo == null || todo.isEmpty) {
+      return;
+    }
+    final now = DateTime.now();
+    final due = [
+      for (final task in todo)
+        if (task.priority == 'REMINDER' &&
+            task.remindRepeat == 'ONCE' &&
+            task.remindAt != null &&
+            !task.remindAt!.isAfter(now))
+          task,
+    ];
+    if (due.isEmpty) {
+      return;
+    }
+    final holds = ref.read(pendingTaskWritesProvider);
+    final spaceId = ref.read(meProvider).asData?.value?.activeSpaceId;
+    final focusProvider = tasksProvider('FOCUS');
+    final focusReady =
+        ref.exists(focusProvider) && ref.read(focusProvider).hasValue;
+    for (final task in due) {
+      if (holds.isPending(task.id)) {
+        if (_holdGens.containsKey(task.id)) {
+          ref.read(todoProvider.notifier).removeById(task.id);
+        }
+        continue;
+      }
+      final moved = task.copyWith(status: 'FOCUS');
+      _holdGens[task.id] = holds.begin(
+        id: task.id,
+        spaceId: spaceId,
+        task: moved,
+      );
+      ref.read(todoProvider.notifier).removeById(task.id);
+      if (focusReady) {
+        ref.read(focusProvider.notifier).upsert(moved);
+      }
+    }
+  }
+
+  Future<void> _reconcileTaskLists() async {
+    final api = ref.read(apiProvider);
+    final serverTodo = await api.listTasks(status: 'TODO');
+    final serverFocus = await api.listTasks(status: 'FOCUS');
+    final stillPooling = serverTodo.map((task) => task.id).toSet();
+    final holds = ref.read(pendingTaskWritesProvider);
+    for (final entry in _holdGens.entries.toList()) {
+      if (stillPooling.contains(entry.key)) {
+        continue;
+      }
+      holds.settle(entry.key, entry.value);
+      _holdGens.remove(entry.key);
+    }
+    final todoProvider = tasksProvider('TODO');
+    if (ref.exists(todoProvider)) {
+      ref.read(todoProvider.notifier).applyServer(serverTodo);
+    }
+    final focusProvider = tasksProvider('FOCUS');
+    if (ref.exists(focusProvider)) {
+      ref.read(focusProvider.notifier).applyServer(serverFocus);
     }
   }
 
@@ -641,6 +760,16 @@ class NoticesController extends AsyncNotifier<List<Notice>> {
     ]);
     try {
       await ref.read(apiProvider).markNoticesRead();
+    } catch (_) {
+      unawaited(refresh());
+    }
+  }
+
+  Future<void> clear() async {
+    state = const AsyncData([]);
+    _seen = {};
+    try {
+      await ref.read(apiProvider).clearNotices();
     } catch (_) {
       unawaited(refresh());
     }

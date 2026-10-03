@@ -1,6 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import * as bcrypt from 'bcryptjs';
-import { DEFAULT_PASSWORD, DEFAULT_SPACE_NAME, INSTANCE_ID } from './constants';
+import { DEFAULT_SPACE_NAME, INSTANCE_ID } from './constants';
 
 /** 空库补上唯一实例和「默认」空间。已有实例时只保证当前空间还在。 */
 export async function ensureInstance(prisma: PrismaClient): Promise<void> {
@@ -14,12 +13,12 @@ export async function ensureInstance(prisma: PrismaClient): Promise<void> {
     await prisma.instance.create({
       data: {
         id: INSTANCE_ID,
-        passwordHash: await bcrypt.hash(DEFAULT_PASSWORD, 10),
+        passwordHash: '',
         mustChangePassword: true,
         activeSpaceId: space.id,
       },
     });
-    console.log('[flowdo] 已创建实例，使用初始密码登录后会要求立刻修改');
+    console.log('[flowdo] 已创建实例，打开网页设一个密码即可');
     return;
   }
 

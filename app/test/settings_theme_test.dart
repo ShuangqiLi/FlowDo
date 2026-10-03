@@ -45,6 +45,9 @@ void main() {
     expect(find.text('远山'), findsWidgets);
     expect(find.text('归途'), findsOneWidget);
     expect(find.text('微光'), findsOneWidget);
+    expect(find.text('柳烟'), findsOneWidget);
+    expect(find.text('夜泊'), findsOneWidget);
+    expect(find.text('雾梅'), findsOneWidget);
     await tester.scrollUntilVisible(
       find.text('修改密码'),
       200,

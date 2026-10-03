@@ -15,7 +15,7 @@ class Me {
   final String id;
   final String? activeSpaceId;
 
-  /// 还在用初始密码，进首页前得先换掉。
+  /// 还没设过密码，进首页前先设一个。
   final bool mustChangePassword;
   final int archiveAfterDays;
   final int focusLimit;

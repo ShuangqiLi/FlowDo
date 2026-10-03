@@ -47,10 +47,12 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
       _error = null;
     });
     try {
-      await ref.read(apiProvider).changePassword(
-            currentPassword: _current.text,
-            newPassword: _next.text,
-          );
+      await widget.fromSettings
+          ? ref.read(apiProvider).changePassword(
+                currentPassword: _current.text,
+                newPassword: _next.text,
+              )
+          : ref.read(apiProvider).setupPassword(_next.text);
       if (widget.fromSettings) {
         ref.invalidate(meProvider);
         if (mounted) {
@@ -96,7 +98,7 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                     ),
                     const SizedBox(height: AppSpacing.md),
                     Text(
-                      widget.fromSettings ? '改密码' : '先换个密码',
+                      widget.fromSettings ? '改密码' : '设一个密码',
                       style: Theme.of(context).textTheme.headlineSmall,
                       textAlign: TextAlign.center,
                     ),
@@ -104,7 +106,7 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                     Text(
                       widget.fromSettings
                           ? '改完用新密码登录。'
-                          : '这台 FlowDo 还在用初始密码。换成你自己的，之后就不再问了。',
+                          : '这台 FlowDo 还没有密码。设一个，再输一次确认。',
                       style: Theme.of(context)
                           .textTheme
                           .bodyMedium
@@ -112,11 +114,13 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: AppSpacing.lg),
-                    PasswordField(
-                      controller: _current,
-                      label: widget.fromSettings ? '现在的密码' : '初始密码',
-                    ),
-                    const SizedBox(height: 12),
+                    if (widget.fromSettings) ...[
+                      PasswordField(
+                        controller: _current,
+                        label: '现在的密码',
+                      ),
+                      const SizedBox(height: 12),
+                    ],
                     PasswordField(
                       controller: _next,
                       label: '新密码',
@@ -141,7 +145,7 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                             ? '正在改…'
                             : widget.fromSettings
                                 ? '改好'
-                                : '改好，进去',
+                                : '设好，进去',
                       ),
                     ),
                     if (widget.fromSettings)

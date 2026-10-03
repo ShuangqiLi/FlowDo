@@ -36,9 +36,20 @@ export class UpdateMeDto {
   showRecurringReminders?: boolean;
 
   @IsOptional()
-  @IsIn(['mint', 'hazeBlue', 'warmOrange', 'lightPurple'], {
-    message: '还没有这个主题哦',
-  })
+  @IsIn(
+    [
+      'mint',
+      'hazeBlue',
+      'warmOrange',
+      'lightPurple',
+      'willowOlive',
+      'nightIndigo',
+      'mistPlum',
+    ],
+    {
+      message: '还没有这个主题哦',
+    },
+  )
   themeKey?: string;
 
   @IsOptional()

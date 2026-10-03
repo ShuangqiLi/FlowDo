@@ -81,6 +81,10 @@ export class NoticesService implements OnModuleInit {
                 task.remindAt!,
                 task.remindRepeat as RemindRepeat,
                 now,
+                {
+                  cron: task.remindCron,
+                  lunar: task.remindLunar,
+                },
               ),
               remindedAt: null,
               completedAt: null,
@@ -123,6 +127,12 @@ export class NoticesService implements OnModuleInit {
       where: { spaceId, readAt: null },
       data: { readAt: new Date() },
     });
+    return { ok: true };
+  }
+
+  async clear() {
+    const spaceId = await this.instance.spaceId();
+    await this.prisma.notice.deleteMany({ where: { spaceId } });
     return { ok: true };
   }
 }

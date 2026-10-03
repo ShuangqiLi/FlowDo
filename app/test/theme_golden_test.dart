@@ -3,9 +3,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flowdo/theme.dart';
 
 void main() {
-  testWidgets('four theme palettes remain visually stable', (tester) async {
+  testWidgets('theme palettes remain visually stable', (tester) async {
     tester.view.devicePixelRatio = 1;
-    tester.view.physicalSize = const Size(400, 400);
+    tester.view.physicalSize = const Size(800, 400);
     addTearDown(tester.view.reset);
 
     await tester.pumpWidget(
@@ -28,11 +28,16 @@ void main() {
 class _PalettePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
-    final cell = Size(size.width / 2, size.height / 2);
+    canvas.drawRect(
+      Offset.zero & size,
+      Paint()..color = const Color(0xFFF7F7F7),
+    );
+    const cols = 4;
+    final cell = Size(size.width / cols, size.height / 2);
     for (var i = 0; i < AppThemeKey.values.length; i++) {
       final theme = buildAppTheme(AppThemeKey.values[i]);
       final extra = theme.extension<FlowDoColors>()!;
-      final origin = Offset((i % 2) * cell.width, (i ~/ 2) * cell.height);
+      final origin = Offset((i % cols) * cell.width, (i ~/ cols) * cell.height);
       canvas.drawRect(
         origin & cell,
         Paint()..color = theme.scaffoldBackgroundColor,

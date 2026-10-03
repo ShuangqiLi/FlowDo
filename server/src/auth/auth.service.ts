@@ -5,7 +5,8 @@ import * as bcrypt from 'bcryptjs';
 import type { SignOptions } from 'jsonwebtoken';
 import { INSTANCE_ID } from '../instance/constants';
 import { PrismaService } from '../prisma/prisma.service';
-import { ChangePasswordDto, LoginDto } from './dto/auth.dto';
+import { ChangePasswordDto, LoginDto, SetupPasswordDto } from './dto/auth.dto';
+import { needsPasswordSetup } from './password-setup';
 
 @Injectable()
 export class AuthService {
@@ -15,12 +16,39 @@ export class AuthService {
     private readonly config: ConfigService,
   ) {}
 
+  async status() {
+    const instance = await this.prisma.instance.findUnique({
+      where: { id: INSTANCE_ID },
+    });
+    return { needsSetup: needsPasswordSetup(instance) };
+  }
+
+  async setup(dto: SetupPasswordDto) {
+    const instance = await this.prisma.instance.findUnique({
+      where: { id: INSTANCE_ID },
+    });
+    if (!needsPasswordSetup(instance)) {
+      throw new BadRequestException('密码已经设过了，直接登录就行');
+    }
+    await this.prisma.instance.update({
+      where: { id: INSTANCE_ID },
+      data: {
+        passwordHash: await bcrypt.hash(dto.password, 10),
+        mustChangePassword: false,
+      },
+    });
+    return {
+      ...(await this.issueTokens()),
+      mustChangePassword: false,
+    };
+  }
+
   async login(dto: LoginDto) {
     const instance = await this.prisma.instance.findUnique({
       where: { id: INSTANCE_ID },
     });
-    if (!instance) {
-      throw new UnauthorizedException('密码好像对不上，再试试？');
+    if (!instance || needsPasswordSetup(instance)) {
+      throw new BadRequestException('先设一个密码再进来');
     }
     const ok = await bcrypt.compare(dto.password, instance.passwordHash);
     if (!ok) {

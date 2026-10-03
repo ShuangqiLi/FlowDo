@@ -105,6 +105,17 @@ class _PasswordFieldState extends State<PasswordField> {
       widget.controller.addListener(_pushToDom);
       _pushToDom();
     }
+    final input = _input;
+    if (input == null) {
+      return;
+    }
+    if (oldWidget.label != widget.label) {
+      input.placeholder = widget.label;
+      input.setAttribute('aria-label', widget.label);
+    }
+    if (oldWidget.autofillHint != widget.autofillHint) {
+      input.autocomplete = _autocompleteToken;
+    }
   }
 
   @override

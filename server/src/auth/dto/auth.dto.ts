@@ -11,6 +11,12 @@ export class RefreshDto {
   refreshToken!: string;
 }
 
+export class SetupPasswordDto {
+  @IsString({ message: '密码还没填呢' })
+  @MinLength(1, { message: '密码还没填呢' })
+  password!: string;
+}
+
 export class ChangePasswordDto {
   @IsString({ message: '现在的密码还没填呢' })
   @IsNotEmpty({ message: '现在的密码还没填呢' })

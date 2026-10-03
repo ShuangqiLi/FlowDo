@@ -19,4 +19,5 @@ export enum RemindRepeat {
   WEEKLY = 'WEEKLY',
   MONTHLY = 'MONTHLY',
   YEARLY = 'YEARLY',
+  CRON = 'CRON',
 }

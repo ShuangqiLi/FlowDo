@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flowdo/models/briefing.dart';
-import 'package:flowdo/models/space.dart';
 import 'package:flowdo/models/task.dart';
 import 'package:flowdo/theme.dart';
 import 'package:flowdo/ui/review_calendar.dart';
@@ -30,6 +29,7 @@ void main() {
 
     expect(find.text('15'), findsOneWidget);
     expect(find.text('25'), findsOneWidget);
+    expect(find.text('八月十五'), findsOneWidget);
     expect(find.byType(MonthReviewCalendar), findsOneWidget);
   });
 
@@ -72,7 +72,7 @@ void main() {
     expect(briefing.monthReview.days.first.tasks.single.title, '浇花');
   });
 
-  test('briefing json reads per-space totals', () {
+  test('briefing json reads reminder counts for the current space', () {
     final briefing = Briefing.fromJson({
       'date': '2026-10-03',
       'counts': {
@@ -81,32 +81,15 @@ void main() {
         'done': 5,
         'archived': 1,
         'reminders': 3,
-        'total': 18,
       },
-      'spaces': [
-        {
-          'id': 'work',
-          'name': '工作',
-          'themeKey': 'hazeBlue',
-          'todo': 4,
-          'focus': 1,
-          'done': 2,
-          'archived': 0,
-          'reminders': 2,
-          'completedToday': 1,
-          'completedYesterday': 0,
-        },
-      ],
       'focusedTasks': [],
       'suggestedFocus': [],
       'completedToday': [],
       'completedYesterday': [],
       'pendingArchive': 5,
     });
-    expect(briefing.totalCount, 18);
     expect(briefing.reminderCount, 3);
-    expect(briefing.spaces.single.name, '工作');
-    expect(briefing.spaces.single.total, 7);
+    expect(briefing.todoCount, 10);
   });
 
   testWidgets('tapping a month day opens an anchored day menu', (tester) async {
@@ -153,6 +136,43 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('浇花'), findsOneWidget);
     expect(find.textContaining('星期四'), findsOneWidget);
+  });
+
+  testWidgets('an empty day menu stops after the short summary', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildAppTheme(),
+        home: Scaffold(
+          body: MonthReviewCalendar(
+            year: 2026,
+            month: 9,
+            days: const [],
+            todayKey: '2026-09-24',
+            onDayTap: (anchor, day) {
+              showReviewDayPopover(
+                anchor,
+                day: day,
+                todayKey: '2026-09-24',
+                onOpenTask: (_) {},
+              );
+            },
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('1'));
+    await tester.pumpAndSettle();
+    expect(find.text('这一天没有完成的事'), findsOneWidget);
+    expect(find.textContaining('也挺好'), findsNothing);
+
+    await tester.tapAt(const Offset(8, 8));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('30'));
+    await tester.pumpAndSettle();
+    expect(find.text('这一天还没有提醒'), findsOneWidget);
+    expect(find.textContaining('安排提醒'), findsNothing);
   });
 
   testWidgets('a future reminder shows flags instead of a clock time',
@@ -267,46 +287,62 @@ void main() {
     expect(find.byIcon(Icons.add_rounded), findsOneWidget);
   });
 
-  testWidgets('two spaces keep separate completion tallies', (tester) async {
-    final now = DateTime(2026, 12, 15);
+  testWidgets('today shows reminders above completions', (tester) async {
+    final now = DateTime.now();
+    final key =
+        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    final later = now.add(const Duration(hours: 2));
     await tester.pumpWidget(
       MaterialApp(
         theme: buildAppTheme(),
         home: Scaffold(
           body: MonthReviewCalendar(
-            year: 2026,
-            month: 12,
-            spaces: [
-              Space(id: 'work', name: '工作', themeKey: 'hazeBlue'),
-              Space(id: 'life', name: '生活', themeKey: 'mint'),
-            ],
+            year: now.year,
+            month: now.month,
+            todayKey: key,
             days: [
               ReviewDay(
-                date: '2026-12-15',
-                count: 10,
+                date: key,
+                count: 3,
                 tasks: [
-                  for (var i = 0; i < 5; i++)
-                    Task(
-                      id: 'w$i',
-                      title: '工作$i',
-                      status: 'DONE',
-                      priority: 'MEDIUM',
-                      spaceId: 'work',
-                      createdAt: now,
-                      updatedAt: now,
-                      completedAt: now,
-                    ),
-                  for (var i = 0; i < 5; i++)
-                    Task(
-                      id: 'l$i',
-                      title: '生活$i',
-                      status: 'DONE',
-                      priority: 'MEDIUM',
-                      spaceId: 'life',
-                      createdAt: now,
-                      updatedAt: now,
-                      completedAt: now,
-                    ),
+                  Task(
+                    id: 'd1',
+                    title: '做完了',
+                    status: 'DONE',
+                    priority: 'MEDIUM',
+                    createdAt: now,
+                    updatedAt: now,
+                    completedAt: now,
+                  ),
+                  Task(
+                    id: 'd2',
+                    title: '也做完了',
+                    status: 'DONE',
+                    priority: 'LOW',
+                    createdAt: now,
+                    updatedAt: now,
+                    completedAt: now,
+                  ),
+                  Task(
+                    id: 'd3',
+                    title: '第三件',
+                    status: 'DONE',
+                    priority: 'LOW',
+                    createdAt: now,
+                    updatedAt: now,
+                    completedAt: now,
+                  ),
+                ],
+                reminders: [
+                  Task(
+                    id: 'r1',
+                    title: '晚上提醒',
+                    status: 'TODO',
+                    priority: 'REMINDER',
+                    remindAt: later,
+                    createdAt: now,
+                    updatedAt: now,
+                  ),
                 ],
               ),
             ],
@@ -315,8 +351,85 @@ void main() {
       ),
     );
 
-    expect(find.byIcon(Icons.workspace_premium_rounded), findsNothing);
-    expect(find.byIcon(Icons.star_rounded), findsNWidgets(2));
-    expect(find.byIcon(Icons.circle), findsNWidgets(4));
+    expect(find.byIcon(Icons.flag_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.star_rounded), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.byIcon(Icons.flag_rounded)).dy,
+      lessThan(tester.getTopLeft(find.byIcon(Icons.star_rounded)).dy),
+    );
+  });
+
+  test('past days keep completions and drop reminders', () {
+    final when = DateTime(2026, 10, 10, 9);
+    final tally = tallyForReviewDay(
+      ReviewDay(
+        date: '2026-10-01',
+        count: 4,
+        reminders: [
+          Task(
+            id: 'r',
+            title: '过期提醒',
+            status: 'TODO',
+            priority: 'REMINDER',
+            remindAt: DateTime.now().add(const Duration(days: 2)),
+            createdAt: when,
+            updatedAt: when,
+          ),
+        ],
+      ),
+      todayKey: '2026-10-03',
+    );
+    expect(tally.reminderCount, 0);
+    expect(tally.completedCount, 4);
+  });
+
+  test('today keeps both reminders and completions', () {
+    final later = DateTime.now().add(const Duration(hours: 3));
+    final tally = tallyForReviewDay(
+      ReviewDay(
+        date: '2026-10-03',
+        count: 2,
+        reminders: [
+          Task(
+            id: 'r',
+            title: '今晚',
+            status: 'TODO',
+            priority: 'REMINDER',
+            remindAt: later,
+            createdAt: later,
+            updatedAt: later,
+          ),
+        ],
+      ),
+      todayKey: '2026-10-03',
+    );
+    expect(tally.reminderCount, 1);
+    expect(tally.completedCount, 2);
+  });
+
+  test('future days keep reminders and drop completions', () {
+    final when = DateTime.now().add(const Duration(days: 8));
+    final key =
+        '${when.year}-${when.month.toString().padLeft(2, '0')}-${when.day.toString().padLeft(2, '0')}';
+    final tally = tallyForReviewDay(
+      ReviewDay(
+        date: key,
+        count: 9,
+        reminders: [
+          Task(
+            id: 'r',
+            title: '以后提醒',
+            status: 'TODO',
+            priority: 'REMINDER',
+            remindAt: when,
+            createdAt: when,
+            updatedAt: when,
+          ),
+        ],
+      ),
+      todayKey: '2026-10-03',
+    );
+    expect(tally.reminderCount, 1);
+    expect(tally.completedCount, 0);
   });
 }

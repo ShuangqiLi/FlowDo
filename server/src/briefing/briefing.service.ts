@@ -10,32 +10,14 @@ import {
 import { InstanceService } from '../instance/instance.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { reminderMarks } from '../tasks/reminder-time';
+import { comparePriorityThenRecent } from '../tasks/priority-order';
 import { RemindRepeat, TaskPriority, TaskStatus } from '../tasks/task.enums';
-
-const PRIORITY_ORDER: Record<TaskPriority, number> = {
-  HIGH: 0,
-  MEDIUM: 1,
-  LOW: 2,
-  REMINDER: 3,
-  NONE: 4,
-};
 
 const DEFAULT_SUGGEST_LIMIT = 3;
 
 type RankedTask = { priority: string; updatedAt: Date };
 
-export function comparePriorityThenRecent(
-  a: RankedTask,
-  b: RankedTask,
-): number {
-  const p =
-    (PRIORITY_ORDER[a.priority as TaskPriority] ?? 9) -
-    (PRIORITY_ORDER[b.priority as TaskPriority] ?? 9);
-  if (p !== 0) {
-    return p;
-  }
-  return b.updatedAt.getTime() - a.updatedAt.getTime();
-}
+export { comparePriorityThenRecent };
 
 /** 有聚焦就按优先级推荐聚焦；没有才从任务池里拿几件高优先级；都没有就空。 */
 export function pickSuggestedFocus<T extends RankedTask>(
@@ -44,109 +26,13 @@ export function pickSuggestedFocus<T extends RankedTask>(
   limit = DEFAULT_SUGGEST_LIMIT,
 ): T[] {
   if (focused.length > 0) {
-    return [...focused].sort(comparePriorityThenRecent);
+    return [...focused].sort((a, b) =>
+      comparePriorityThenRecent(a, b, TaskStatus.FOCUS),
+    );
   }
-  return [...inboxHigh].sort(comparePriorityThenRecent).slice(0, limit);
-}
-
-export type SpaceRow = { id: string; name: string; themeKey: string };
-
-export type SpaceStats = SpaceRow & {
-  todo: number;
-  focus: number;
-  done: number;
-  archived: number;
-  reminders: number;
-  completedToday: number;
-  completedYesterday: number;
-};
-
-export function buildSpaceStats(
-  spaces: SpaceRow[],
-  statusCounts: Array<{ spaceId: string; status: string; count: number }>,
-  completedTodaySpaceIds: string[],
-  completedYesterdaySpaceIds: string[],
-  reminderCounts: Array<{ spaceId: string; count: number }>,
-): SpaceStats[] {
-  const byStatus = new Map<string, Record<string, number>>();
-  for (const row of statusCounts) {
-    const cur = byStatus.get(row.spaceId) ?? {};
-    cur[row.status] = row.count;
-    byStatus.set(row.spaceId, cur);
-  }
-  const today = countKeys(completedTodaySpaceIds);
-  const yesterday = countKeys(completedYesterdaySpaceIds);
-  const reminders = new Map(
-    reminderCounts.map((row) => [row.spaceId, row.count]),
-  );
-  return spaces.map((space) => {
-    const st = byStatus.get(space.id) ?? {};
-    return {
-      ...space,
-      todo: st.TODO ?? 0,
-      focus: st.FOCUS ?? 0,
-      done: st.DONE ?? 0,
-      archived: st.ARCHIVED ?? 0,
-      reminders: reminders.get(space.id) ?? 0,
-      completedToday: today.get(space.id) ?? 0,
-      completedYesterday: yesterday.get(space.id) ?? 0,
-    };
-  });
-}
-
-export function sumSpaceStats(rows: SpaceStats[]) {
-  return rows.reduce(
-    (acc, row) => ({
-      todo: acc.todo + row.todo,
-      focus: acc.focus + row.focus,
-      done: acc.done + row.done,
-      archived: acc.archived + row.archived,
-      reminders: acc.reminders + row.reminders,
-      completedToday: acc.completedToday + row.completedToday,
-      completedYesterday: acc.completedYesterday + row.completedYesterday,
-    }),
-    {
-      todo: 0,
-      focus: 0,
-      done: 0,
-      archived: 0,
-      reminders: 0,
-      completedToday: 0,
-      completedYesterday: 0,
-    },
-  );
-}
-
-export function monthSpaceRollup(
-  spaces: SpaceRow[],
-  completed: Array<{ spaceId: string; dateKey: string }>,
-) {
-  const bySpace = new Map<string, { count: number; days: Set<string> }>();
-  for (const row of completed) {
-    const cur = bySpace.get(row.spaceId) ?? {
-      count: 0,
-      days: new Set<string>(),
-    };
-    cur.count += 1;
-    cur.days.add(row.dateKey);
-    bySpace.set(row.spaceId, cur);
-  }
-  return spaces.map((space) => {
-    const cur = bySpace.get(space.id);
-    return {
-      ...space,
-      completedCount: cur?.count ?? 0,
-      activeDays: cur?.days.size ?? 0,
-    };
-  });
-}
-
-function countKeys(ids: string[]): Map<string, number> {
-  const map = new Map<string, number>();
-  for (const id of ids) {
-    map.set(id, (map.get(id) ?? 0) + 1);
-  }
-  return map;
+  return [...inboxHigh]
+    .sort((a, b) => comparePriorityThenRecent(a, b, TaskStatus.TODO))
+    .slice(0, limit);
 }
 
 @Injectable()
@@ -160,76 +46,69 @@ export class BriefingService {
     const now = new Date();
     const startOfToday = startOfZonedDay(now, tzOffset);
     const space = await this.instance.activeSpace();
+    const spaceId = space.id;
     const startOfYesterday = new Date(
       startOfToday.getTime() - 24 * 60 * 60 * 1000,
     );
 
     const [
-      spaces,
-      statusGroups,
-      reminderGroups,
+      todo,
+      focus,
+      done,
+      archived,
+      reminderCount,
       completedToday,
       completedYesterday,
-      focus,
+      focused,
       inboxHigh,
     ] = await Promise.all([
-      this.prisma.space.findMany({ orderBy: { createdAt: 'asc' } }),
-      this.prisma.task.groupBy({
-        by: ['spaceId', 'status'],
-        _count: { _all: true },
+      this.prisma.task.count({
+        where: { spaceId, status: TaskStatus.TODO },
       }),
-      this.prisma.task.groupBy({
-        by: ['spaceId'],
+      this.prisma.task.count({
+        where: { spaceId, status: TaskStatus.FOCUS },
+      }),
+      this.prisma.task.count({
+        where: { spaceId, status: TaskStatus.DONE },
+      }),
+      this.prisma.task.count({
+        where: { spaceId, status: TaskStatus.ARCHIVED },
+      }),
+      this.prisma.task.count({
         where: {
+          spaceId,
           priority: TaskPriority.REMINDER,
           remindedAt: null,
           status: { in: [TaskStatus.TODO, TaskStatus.FOCUS] },
           remindAt: { gt: now },
         },
-        _count: { _all: true },
       }),
       this.prisma.task.findMany({
-        where: { completedAt: { gte: startOfToday } },
+        where: { spaceId, completedAt: { gte: startOfToday } },
         orderBy: { completedAt: 'desc' },
       }),
       this.prisma.task.findMany({
         where: {
+          spaceId,
           completedAt: { gte: startOfYesterday, lt: startOfToday },
         },
         orderBy: { completedAt: 'desc' },
       }),
       this.prisma.task.findMany({
-        where: { spaceId: space.id, status: TaskStatus.FOCUS },
+        where: { spaceId, status: TaskStatus.FOCUS },
       }),
       this.prisma.task.findMany({
         where: {
-          spaceId: space.id,
+          spaceId,
           status: TaskStatus.TODO,
           priority: TaskPriority.HIGH,
         },
       }),
     ]);
 
-    const spaceStats = buildSpaceStats(
-      spaces.map((row) => ({
-        id: row.id,
-        name: row.name,
-        themeKey: row.themeKey,
-      })),
-      statusGroups.map((row) => ({
-        spaceId: row.spaceId,
-        status: row.status,
-        count: row._count._all,
-      })),
-      completedToday.map((row) => row.spaceId),
-      completedYesterday.map((row) => row.spaceId),
-      reminderGroups.map((row) => ({
-        spaceId: row.spaceId,
-        count: row._count._all,
-      })),
+    const focusedTasks = [...focused].sort((a, b) =>
+      comparePriorityThenRecent(a, b, TaskStatus.FOCUS),
     );
-    const totals = sumSpaceStats(spaceStats);
-    const focusedTasks = [...focus].sort(comparePriorityThenRecent);
     const suggestedFocus = pickSuggestedFocus(
       focusedTasks,
       inboxHigh,
@@ -239,21 +118,19 @@ export class BriefingService {
     return {
       date: toDateKey(now, tzOffset),
       counts: {
-        todo: totals.todo,
-        focus: totals.focus,
-        done: totals.done,
-        archived: totals.archived,
-        reminders: totals.reminders,
-        completedToday: totals.completedToday,
-        completedYesterday: totals.completedYesterday,
-        total: totals.todo + totals.focus + totals.done + totals.archived,
+        todo,
+        focus,
+        done,
+        archived,
+        reminders: reminderCount,
+        completedToday: completedToday.length,
+        completedYesterday: completedYesterday.length,
       },
-      spaces: spaceStats,
       focusedTasks,
       suggestedFocus,
       completedToday,
       completedYesterday,
-      pendingArchive: totals.done,
+      pendingArchive: done,
     };
   }
 
@@ -270,18 +147,19 @@ export class BriefingService {
     ) {
       throw new BadRequestException('这个月份不太对');
     }
+    const spaceId = await this.instance.spaceId();
     const { start, end } = monthRange(year, month, tzOffset);
     const now = new Date();
     const startKey = monthDateKey(year, month, 1);
     const endKey = monthDateKey(year, month, daysInMonth(year, month));
-    const [spaces, completed, repeating, once] = await Promise.all([
-      this.prisma.space.findMany({ orderBy: { createdAt: 'asc' } }),
+    const [completed, repeating, once] = await Promise.all([
       this.prisma.task.findMany({
-        where: { completedAt: { gte: start, lte: end } },
+        where: { spaceId, completedAt: { gte: start, lte: end } },
         orderBy: { completedAt: 'desc' },
       }),
       this.prisma.task.findMany({
         where: {
+          spaceId,
           priority: TaskPriority.REMINDER,
           remindedAt: null,
           remindRepeat: { not: RemindRepeat.ONCE },
@@ -292,6 +170,7 @@ export class BriefingService {
       }),
       this.prisma.task.findMany({
         where: {
+          spaceId,
           priority: TaskPriority.REMINDER,
           remindedAt: null,
           remindRepeat: RemindRepeat.ONCE,
@@ -340,6 +219,11 @@ export class BriefingService {
         start,
         end,
         now,
+        {
+          cron: row.remindCron,
+          lunar: row.remindLunar,
+          tzOffsetMinutes: tzOffset,
+        },
       )) {
         putReminder(row, at);
       }
@@ -356,30 +240,11 @@ export class BriefingService {
       };
     });
 
-    const spaceRows = spaces.map((row) => ({
-      id: row.id,
-      name: row.name,
-      themeKey: row.themeKey,
-    }));
-
     return {
       year,
       month,
       completedCount: days.reduce((sum, day) => sum + day.count, 0),
       activeDays: days.filter((day) => day.count > 0).length,
-      spaces: monthSpaceRollup(
-        spaceRows,
-        completed.flatMap((row) =>
-          row.completedAt
-            ? [
-                {
-                  spaceId: row.spaceId,
-                  dateKey: toDateKey(row.completedAt, tzOffset),
-                },
-              ]
-            : [],
-        ),
-      ),
       days,
     };
   }

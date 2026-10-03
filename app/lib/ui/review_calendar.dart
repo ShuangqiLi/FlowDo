@@ -2,57 +2,40 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../models/briefing.dart';
-import '../models/space.dart';
 import '../models/task.dart';
 import '../theme.dart';
+import '../utils/lunar.dart';
 import 'calendar_tally.dart';
 
-List<SpaceDaySlice> slicesForReviewDay(ReviewDay day, List<Space> spaces) {
-  final reminders = <String, int>{};
-  final completed = <String, int>{};
-  final theme = {for (final space in spaces) space.id: space.themeKey};
-  for (final task in day.reminders) {
-    if (task.remindAt == null || !task.remindAt!.isAfter(DateTime.now())) {
-      continue;
+DayTally tallyForReviewDay(ReviewDay day, {String? todayKey}) {
+  final cmp = todayKey == null ? 0 : day.date.compareTo(todayKey);
+  var reminderCount = 0;
+  var completedCount = 0;
+  if (todayKey == null || cmp >= 0) {
+    for (final task in day.reminders) {
+      if (task.remindAt != null && task.remindAt!.isAfter(DateTime.now())) {
+        reminderCount += 1;
+      }
     }
-    final id = task.spaceId ?? '';
-    reminders[id] = (reminders[id] ?? 0) + 1;
   }
-  if (day.tasks.isNotEmpty) {
-    for (final task in day.tasks) {
-      final id = task.spaceId ?? '';
-      completed[id] = (completed[id] ?? 0) + 1;
-    }
-  } else if (day.count > 0) {
-    completed[spaces.isEmpty ? '' : spaces.first.id] = day.count;
+  if (todayKey == null || cmp <= 0) {
+    completedCount = day.tasks.isNotEmpty ? day.tasks.length : day.count;
   }
-  return spaceDaySlices(
-    spaceOrder: [for (final space in spaces) space.id],
-    themeBySpace: theme,
-    reminders: reminders,
-    completed: completed,
+  return DayTally(
+    reminderCount: reminderCount,
+    completedCount: completedCount,
   );
 }
 
-int _maxGlyphRows(List<ReviewDay> days, List<Space> spaces) {
+int _maxGlyphRows(List<ReviewDay> days, {String? todayKey}) {
   var maxRows = 2;
   for (final day in days) {
-    final rows = slicesForReviewDay(day, spaces).fold<int>(
-      0,
-      (sum, slice) => sum + slice.glyphRows,
-    );
+    final rows = tallyForReviewDay(day, todayKey: todayKey).glyphRows;
     if (rows > maxRows) {
       maxRows = rows;
     }
   }
   return maxRows;
-}
-
-Color _spaceColor(String themeKey, Color fallback) {
-  if (themeKey.isEmpty) {
-    return fallback;
-  }
-  return AppThemeKey.fromKey(themeKey).preview;
 }
 
 typedef ReviewDayTap = void Function(BuildContext anchorContext, ReviewDay day);
@@ -64,7 +47,6 @@ class MonthReviewCalendar extends StatelessWidget {
     required this.year,
     required this.month,
     required this.days,
-    this.spaces = const [],
     this.todayKey,
     this.onDayTap,
   });
@@ -72,7 +54,6 @@ class MonthReviewCalendar extends StatelessWidget {
   final int year;
   final int month;
   final List<ReviewDay> days;
-  final List<Space> spaces;
   final String? todayKey;
   final ReviewDayTap? onDayTap;
 
@@ -87,7 +68,9 @@ class MonthReviewCalendar extends StatelessWidget {
     final daysInMonth = DateTime(year, month + 1, 0).day;
     final cells = leading + daysInMonth;
     final rows = ((cells + 6) / 7).floor();
-    final cellHeight = _DayCell.heightFor(_maxGlyphRows(days, spaces));
+    final cellHeight = _DayCell.heightFor(
+      _maxGlyphRows(days, todayKey: todayKey),
+    );
 
     return _CalendarChrome(
       child: Column(
@@ -146,11 +129,12 @@ class MonthReviewCalendar extends StatelessWidget {
     final key =
         '$year-${month.toString().padLeft(2, '0')}-${day.toString().padLeft(2, '0')}';
     final review = byDate[key] ?? ReviewDay(date: key, count: 0);
-    final slices = slicesForReviewDay(review, spaces);
+    final tally = tallyForReviewDay(review, todayKey: todayKey);
     return Builder(
       builder: (cellContext) => _DayCell(
         dayNumber: '$day',
-        slices: slices,
+        lunarLabel: lunarCellLabel(year, month, day),
+        tally: tally,
         height: cellHeight,
         isToday: key == todayKey,
         scheme: scheme,
@@ -193,7 +177,8 @@ class _CalendarChrome extends StatelessWidget {
 class _DayCell extends StatelessWidget {
   const _DayCell({
     required this.dayNumber,
-    required this.slices,
+    required this.lunarLabel,
+    required this.tally,
     required this.height,
     required this.isToday,
     required this.scheme,
@@ -201,12 +186,15 @@ class _DayCell extends StatelessWidget {
   });
 
   static const _glyphRowHeight = 13.0;
+  static const _dateLineHeight = 16.0;
+  static const _lunarLineHeight = 12.0;
 
   static double heightFor(int glyphRows) =>
-      16 + 6 + glyphRows * _glyphRowHeight;
+      _dateLineHeight + _lunarLineHeight + 10 + glyphRows * _glyphRowHeight;
 
   final String dayNumber;
-  final List<SpaceDaySlice> slices;
+  final String lunarLabel;
+  final DayTally tally;
   final double height;
   final bool isToday;
   final ColorScheme scheme;
@@ -214,12 +202,13 @@ class _DayCell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final reminderCount = slices.fold<int>(0, (n, s) => n + s.reminderCount);
-    final completedCount = slices.fold<int>(0, (n, s) => n + s.completedCount);
+    final reminderCount = tally.reminderCount;
+    final completedCount = tally.completedCount;
     final reminderLabel = reminderCount == 0 ? '' : '，提醒 $reminderCount 件';
     final fill = isToday
         ? scheme.primary.withValues(alpha: 0.12)
         : scheme.surfaceContainerHighest.withValues(alpha: 0.35);
+    final markColor = scheme.primary;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 2),
@@ -250,36 +239,55 @@ class _DayCell extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    dayNumber,
-                    maxLines: 1,
-                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                          color: scheme.onSurface,
-                          fontWeight:
-                              isToday ? FontWeight.w700 : FontWeight.w600,
-                          height: 1.05,
-                        ),
+                  SizedBox(
+                    height: _dateLineHeight,
+                    child: Text(
+                      dayNumber,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                            color: scheme.onSurface,
+                            fontWeight:
+                                isToday ? FontWeight.w700 : FontWeight.w600,
+                            height: 1.05,
+                          ),
+                    ),
                   ),
-                  for (final slice in slices) ...[
-                    if (slice.flags.isNotEmpty)
-                      SizedBox(
-                        height: _glyphRowHeight,
-                        width: double.infinity,
-                        child: _TallyRow(
-                          marks: slice.flags,
-                          color: _spaceColor(slice.themeKey, scheme.primary),
-                        ),
+                  SizedBox(
+                    height: _lunarLineHeight,
+                    width: double.infinity,
+                    child: Text(
+                      lunarLabel,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            color: isToday
+                                ? scheme.primary
+                                : scheme.onSurfaceVariant,
+                            fontSize: 9,
+                            height: 1.1,
+                            fontWeight: FontWeight.w500,
+                          ),
+                    ),
+                  ),
+                  if (tally.flags.isNotEmpty)
+                    SizedBox(
+                      height: _glyphRowHeight,
+                      width: double.infinity,
+                      child: _TallyRow(
+                        marks: tally.flags,
+                        color: markColor,
                       ),
-                    if (slice.completions.isNotEmpty)
-                      SizedBox(
-                        height: _glyphRowHeight,
-                        width: double.infinity,
-                        child: _TallyRow(
-                          marks: slice.completions,
-                          color: _spaceColor(slice.themeKey, scheme.primary),
-                        ),
+                    ),
+                  if (tally.completions.isNotEmpty)
+                    SizedBox(
+                      height: _glyphRowHeight,
+                      width: double.infinity,
+                      child: _TallyRow(
+                        marks: tally.completions,
+                        color: markColor,
                       ),
-                  ],
+                    ),
                 ],
               ),
             ),
@@ -338,14 +346,12 @@ class ReviewSummaryRow extends StatelessWidget {
     required this.completedCount,
     required this.activeLabel,
     required this.activeDays,
-    this.spaces = const [],
   });
 
   final String completedLabel;
   final int completedCount;
   final String activeLabel;
   final int activeDays;
-  final List<MonthSpaceReview> spaces;
 
   @override
   Widget build(BuildContext context) {
@@ -364,57 +370,13 @@ class ReviewSummaryRow extends StatelessWidget {
           AppSpacing.xs,
           AppSpacing.sm,
         ),
-        child: Column(
+        child: Row(
           children: [
-            Row(
-              children: [
-                _stat(context, scheme, completedLabel, completedCount),
-                _stat(context, scheme, activeLabel, activeDays),
-              ],
-            ),
-            if (spaces.length > 1) ...[
-              const SizedBox(height: AppSpacing.sm),
-              Wrap(
-                spacing: AppSpacing.sm,
-                runSpacing: AppSpacing.xs,
-                alignment: WrapAlignment.center,
-                children: [
-                  for (final space in spaces)
-                    if (space.completedCount > 0)
-                      _spaceChip(
-                        context,
-                        space.name,
-                        '${space.completedCount}件/${space.activeDays}天',
-                        AppThemeKey.fromKey(space.themeKey).preview,
-                      ),
-                ],
-              ),
-            ],
+            _stat(context, scheme, completedLabel, completedCount),
+            _stat(context, scheme, activeLabel, activeDays),
           ],
         ),
       ),
-    );
-  }
-
-  Widget _spaceChip(
-    BuildContext context,
-    String name,
-    String detail,
-    Color color,
-  ) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(Icons.circle, size: 8, color: color),
-        const SizedBox(width: 4),
-        Text(
-          '$name $detail',
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: color,
-                fontWeight: FontWeight.w600,
-              ),
-        ),
-      ],
     );
   }
 
@@ -451,7 +413,7 @@ Future<void> showReviewDayPopover(
   BuildContext anchorContext, {
   required ReviewDay day,
   required ValueChanged<Task> onOpenTask,
-  List<Space> spaces = const [],
+  String? todayKey,
 }) async {
   final anchor = anchorContext.findRenderObject() as RenderBox?;
   final overlay =
@@ -468,21 +430,21 @@ Future<void> showReviewDayPopover(
     ancestor: overlay,
   );
   final title = prettyReviewDayTitle(day.date);
-  final themeBySpace = {for (final space in spaces) space.id: space.themeKey};
-  final nameBySpace = {for (final space in spaces) space.id: space.name};
-  final tasks = day.tasks;
+  final lunar = _lunarTitle(day.date);
+  final cmp = todayKey == null ? 0 : day.date.compareTo(todayKey);
+  final tasks = cmp > 0 ? const <Task>[] : day.tasks;
   final reminders = [
-    for (final task in day.reminders)
-      if (task.remindAt != null && task.remindAt!.isAfter(DateTime.now())) task,
+    if (cmp >= 0)
+      for (final task in day.reminders)
+        if (task.remindAt != null && task.remindAt!.isAfter(DateTime.now()))
+          task,
   ];
-  Color colorOf(Task task) =>
-      _spaceColor(themeBySpace[task.spaceId] ?? '', scheme.primary);
-  final summary = switch ((reminders.length, tasks.length)) {
-    (0, 0) => '这一天还没有完成的事',
-    (0, _) => '完成了 ${tasks.length} 件',
-    (_, 0) => '有 ${reminders.length} 个提醒',
-    _ => '提醒 ${reminders.length} 件 · 完成了 ${tasks.length} 件',
-  };
+  final markColor = scheme.primary;
+  final summary = _reviewDaySummary(
+    reminderCount: reminders.length,
+    completedCount: tasks.length,
+    cmp: cmp,
+  );
 
   final selected = await showMenu<Task>(
     context: anchorContext,
@@ -508,7 +470,7 @@ Future<void> showReviewDayPopover(
     items: [
       PopupMenuItem<Task>(
         enabled: false,
-        height: 56,
+        height: lunar.isEmpty ? 56 : 72,
         padding: const EdgeInsets.fromLTRB(
           AppSpacing.md,
           AppSpacing.sm,
@@ -519,6 +481,15 @@ Future<void> showReviewDayPopover(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(title, style: theme.textTheme.titleSmall),
+            if (lunar.isNotEmpty) ...[
+              const SizedBox(height: 2),
+              Text(
+                '农历$lunar',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: scheme.primary,
+                ),
+              ),
+            ],
             const SizedBox(height: 2),
             Text(
               summary,
@@ -536,11 +507,11 @@ Future<void> showReviewDayPopover(
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
           child: Row(
             children: [
-              Icon(Icons.flag_rounded, size: 18, color: colorOf(task)),
+              Icon(Icons.flag_rounded, size: 18, color: markColor),
               const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: Text(
-                  _taskLabel(task, spaces, nameBySpace),
+                  task.title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -548,26 +519,14 @@ Future<void> showReviewDayPopover(
               Text(
                 DateFormat('HH:mm').format(task.remindAt!.toLocal()),
                 style: theme.textTheme.labelMedium?.copyWith(
-                  color: colorOf(task),
+                  color: markColor,
                   fontWeight: FontWeight.w700,
                 ),
               ),
             ],
           ),
         ),
-      if (tasks.isEmpty && reminders.isEmpty)
-        PopupMenuItem<Task>(
-          enabled: false,
-          height: 44,
-          child: Text(
-            '空空的一天，也挺好。',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: scheme.onSurfaceVariant,
-            ),
-          ),
-        )
-      else
-        for (final task in tasks.take(8))
+      for (final task in tasks.take(8))
           PopupMenuItem<Task>(
             value: task,
             height: 48,
@@ -577,12 +536,12 @@ Future<void> showReviewDayPopover(
                 Icon(
                   Icons.check_circle_rounded,
                   size: 18,
-                  color: colorOf(task),
+                  color: markColor,
                 ),
                 const SizedBox(width: AppSpacing.sm),
                 Expanded(
                   child: Text(
-                    _taskLabel(task, spaces, nameBySpace),
+                    task.title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -614,16 +573,39 @@ Future<void> showReviewDayPopover(
   }
 }
 
-String _taskLabel(
-  Task task,
-  List<Space> spaces,
-  Map<String, String> nameBySpace,
-) {
-  final spaceName = nameBySpace[task.spaceId ?? ''];
-  if (spaces.length <= 1 || spaceName == null || spaceName.isEmpty) {
-    return task.title;
+String _lunarTitle(String iso) {
+  final match = RegExp(r'^(\d{4})-(\d{2})-(\d{2})$').firstMatch(iso);
+  if (match == null) {
+    return '';
   }
-  return '${task.title} · $spaceName';
+  return lunarCellLabel(
+    int.parse(match.group(1)!),
+    int.parse(match.group(2)!),
+    int.parse(match.group(3)!),
+  );
+}
+
+String _reviewDaySummary({
+  required int reminderCount,
+  required int completedCount,
+  required int cmp,
+}) {
+  if (cmp < 0) {
+    return completedCount == 0
+        ? '这一天没有完成的事'
+        : '完成了 $completedCount 件';
+  }
+  if (cmp > 0) {
+    return reminderCount == 0
+        ? '这一天还没有提醒'
+        : '有 $reminderCount 个提醒';
+  }
+  return switch ((reminderCount, completedCount)) {
+    (0, 0) => '今天还空着',
+    (0, _) => '完成了 $completedCount 件',
+    (_, 0) => '有 $reminderCount 个提醒',
+    _ => '提醒 $reminderCount 件 · 完成了 $completedCount 件',
+  };
 }
 
 String prettyReviewDayTitle(String iso) {
@@ -647,14 +629,12 @@ class SwipeMonthCalendar extends StatefulWidget {
     required this.loadMonth,
     this.todayKey,
     this.onDayTap,
-    this.spaces = const [],
   });
 
   final MonthReview initial;
   final Future<MonthReview> Function(int year, int month) loadMonth;
   final String? todayKey;
   final ReviewDayTap? onDayTap;
-  final List<Space> spaces;
 
   @override
   State<SwipeMonthCalendar> createState() => _SwipeMonthCalendarState();
@@ -720,19 +700,10 @@ class _SwipeMonthCalendarState extends State<SwipeMonthCalendar> {
     );
   }
 
-  List<Space> _spacesOf(MonthReview review) {
-    if (review.spaces.isNotEmpty) {
-      return [
-        for (final space in review.spaces)
-          Space(id: space.id, name: space.name, themeKey: space.themeKey),
-      ];
-    }
-    return widget.spaces;
-  }
-
   double _pageHeight(MonthReview review) {
-    final spaces = _spacesOf(review);
-    final cell = _DayCell.heightFor(_maxGlyphRows(review.days, spaces));
+    final cell = _DayCell.heightFor(
+      _maxGlyphRows(review.days, todayKey: widget.todayKey),
+    );
     final first = DateTime(review.year, review.month, 1);
     final leading = (first.weekday + 6) % 7;
     final days = DateTime(review.year, review.month + 1, 0).day;
@@ -787,7 +758,6 @@ class _SwipeMonthCalendarState extends State<SwipeMonthCalendar> {
           completedCount: current.completedCount,
           activeLabel: '活跃天数',
           activeDays: current.activeDays,
-          spaces: current.spaces,
         ),
         const SizedBox(height: AppSpacing.xs),
         Row(
@@ -832,7 +802,6 @@ class _SwipeMonthCalendarState extends State<SwipeMonthCalendar> {
                 year: review.year,
                 month: review.month,
                 days: review.days,
-                spaces: _spacesOf(review),
                 todayKey: widget.todayKey,
                 onDayTap: widget.onDayTap,
               );

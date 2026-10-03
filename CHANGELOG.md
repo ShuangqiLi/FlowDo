@@ -2,7 +2,7 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/) 与 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
-版本号格式为 `MAJOR.MINOR.PATCH`（发布标签带 `v` 前缀，例如 `v0.0.1`）。`0.y.z` 表示初期，API 与界面仍可能调整。
+版本号格式为 `MAJOR.MINOR.PATCH`（发布标签带 `v` 前缀，例如 `v1.0.0`）。
 
 版本号写在：
 
@@ -13,6 +13,30 @@
 发版时同步改这三处，并在本文件新增一节。
 
 ## [Unreleased]
+
+## [1.0.0] - 2026-10-03
+
+### Added
+
+- 提醒支持五段 crontab，以及按农历走的每月 / 每年循环；今日看看格子在公历日号下面另起一行写农历
+- 时分除了加减，也可以点数字用键盘输入，并校验小时 0–23、分钟 0–59
+- 主题新增柳烟、夜泊、雾梅
+
+### Changed
+
+- 提醒任务进聚焦后排在最上面，在任务池里排在最底下
+- 今日看看只看当前任务空间；月历过去看完成，今天提醒在上、完成在下，往后看提醒
+- 今日看看点开没有完成、也没有提醒的日子，只留日期、农历和一句短提示
+- 提醒任务不能从任务池滑进聚焦，到点后自动进入
+- 仅一次的提醒到点后马上离开任务池，聚焦里出现同一件，不用再手动刷新
+- 设提醒时按客户端当地时间填默认时刻，不再把 UTC 时刻直接显示出来
+- 通知弹出层只列任务标题和触发时间，空状态写「暂无通知」，清空按钮用退出登录那一档红色
+- 今日看看去掉「挑一件顺手的」和月度回顾那两句说明
+- 五种任务卡片改用固定低饱和色：高玫红、中杏橙、低青绿、无灰白、提醒浅橙黄；无优先级不再跟主题主色走
+- 归途改成可可褐，避免和中优先级杏橙撞色
+- 网页端把 `/notices` 转给接口，到点后右上角能收到通知
+- 不再发放初始密码。第一次打开直接设密码并再输一次确认；还停在初始密码上的实例，打开后也走这一页
+
 
 ## [0.9.2] - 2026-10-03
 
@@ -401,7 +425,8 @@
 - 通过 GitHub Releases 发版（推送 `v*.*.*` 标签）
 - 账号级设置（聚焦上限、归档天数、是否显示归档页）
 
-[Unreleased]: https://github.com/ShuangqiLi/FlowDo/compare/v0.9.2...HEAD
+[Unreleased]: https://github.com/ShuangqiLi/FlowDo/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/ShuangqiLi/FlowDo/compare/v0.9.2...v1.0.0
 [0.9.2]: https://github.com/ShuangqiLi/FlowDo/compare/v0.9.1...v0.9.2
 [0.9.1]: https://github.com/ShuangqiLi/FlowDo/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/ShuangqiLi/FlowDo/compare/v0.8.8...v0.9.0

@@ -1,10 +1,5 @@
 import { TaskPriority } from '../tasks/task.enums';
-import {
-  buildSpaceStats,
-  monthSpaceRollup,
-  pickSuggestedFocus,
-  sumSpaceStats,
-} from './briefing.service';
+import { pickSuggestedFocus } from './briefing.service';
 
 function task(title: string, priority: TaskPriority, updatedAt: Date) {
   return { title, priority, updatedAt };
@@ -13,6 +8,19 @@ function task(title: string, priority: TaskPriority, updatedAt: Date) {
 describe('pickSuggestedFocus', () => {
   const older = new Date('2026-09-20');
   const newer = new Date('2026-09-25');
+
+  it('puts reminder tasks first among focused items', () => {
+    const focused = [
+      task('高', TaskPriority.HIGH, newer),
+      task('提醒', TaskPriority.REMINDER, older),
+      task('无', TaskPriority.NONE, newer),
+    ];
+    expect(pickSuggestedFocus(focused, []).map((t) => t.title)).toEqual([
+      '提醒',
+      '高',
+      '无',
+    ]);
+  });
 
   it('uses focused tasks in priority order when any exist', () => {
     const focused = [
@@ -53,71 +61,5 @@ describe('pickSuggestedFocus', () => {
 
   it('is empty when there is nothing in focus and no high inbox tasks', () => {
     expect(pickSuggestedFocus([], [])).toEqual([]);
-  });
-});
-
-describe('all-space briefing rollups', () => {
-  const work = { id: 'work', name: '工作', themeKey: 'hazeBlue' };
-  const life = { id: 'life', name: '生活', themeKey: 'mint' };
-
-  it('keeps each space on its own line and sums totals', () => {
-    const rows = buildSpaceStats(
-      [work, life],
-      [
-        { spaceId: 'work', status: 'TODO', count: 4 },
-        { spaceId: 'work', status: 'FOCUS', count: 1 },
-        { spaceId: 'life', status: 'TODO', count: 6 },
-        { spaceId: 'life', status: 'DONE', count: 2 },
-      ],
-      ['work', 'life', 'life'],
-      ['work'],
-      [
-        { spaceId: 'work', count: 2 },
-        { spaceId: 'life', count: 1 },
-      ],
-    );
-    expect(rows[0]).toMatchObject({
-      id: 'work',
-      todo: 4,
-      focus: 1,
-      completedToday: 1,
-      reminders: 2,
-    });
-    expect(rows[1]).toMatchObject({
-      id: 'life',
-      todo: 6,
-      done: 2,
-      completedToday: 2,
-      completedYesterday: 0,
-    });
-    expect(sumSpaceStats(rows)).toMatchObject({
-      todo: 10,
-      focus: 1,
-      done: 2,
-      completedToday: 3,
-      reminders: 3,
-    });
-  });
-
-  it('counts completed days per space without merging them', () => {
-    const rollup = monthSpaceRollup(
-      [work, life],
-      [
-        { spaceId: 'work', dateKey: '2026-10-01' },
-        { spaceId: 'work', dateKey: '2026-10-01' },
-        { spaceId: 'life', dateKey: '2026-10-01' },
-        { spaceId: 'life', dateKey: '2026-10-02' },
-      ],
-    );
-    expect(rollup[0]).toMatchObject({
-      id: 'work',
-      completedCount: 2,
-      activeDays: 1,
-    });
-    expect(rollup[1]).toMatchObject({
-      id: 'life',
-      completedCount: 2,
-      activeDays: 2,
-    });
   });
 });

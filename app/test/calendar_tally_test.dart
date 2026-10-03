@@ -41,31 +41,4 @@ void main() {
     expect(completionTally(20), [CalendarTallyMark.crown]);
     expect(completionTally(8), hasLength(4));
   });
-
-  test('completions stay on their own space line', () {
-    final slices = spaceDaySlices(
-      spaceOrder: ['work', 'life'],
-      themeBySpace: {'work': 'hazeBlue', 'life': 'mint'},
-      reminders: {'work': 2, 'life': 4},
-      completed: {'work': 5, 'life': 5},
-    );
-    expect(slices, hasLength(2));
-    expect(slices.first.flags, hasLength(2));
-    expect(slices.last.flags, [
-      CalendarTallyMark.flag,
-      CalendarTallyMark.flag,
-      CalendarTallyMark.flag,
-      CalendarTallyMark.plus,
-    ]);
-    expect(slices.first.completions, [
-      CalendarTallyMark.star,
-      CalendarTallyMark.dot,
-      CalendarTallyMark.dot,
-    ]);
-    expect(slices.last.completions, slices.first.completions);
-    expect(
-      slices.expand((slice) => slice.completions),
-      isNot(contains(CalendarTallyMark.crown)),
-    );
-  });
 }

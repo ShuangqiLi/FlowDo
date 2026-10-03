@@ -1,4 +1,4 @@
-import { TaskStatus } from './task.enums';
+import { TaskPriority, TaskStatus } from './task.enums';
 
 const ALLOWED: Record<TaskStatus, TaskStatus[]> = {
   [TaskStatus.TODO]: [TaskStatus.FOCUS],
@@ -12,4 +12,9 @@ export function canTransition(from: string, to: string): boolean {
     return true;
   }
   return (ALLOWED[from as TaskStatus] ?? []).includes(to as TaskStatus);
+}
+
+/** 提醒任务只能到点自动进聚焦，不能手滑或改状态送进去。 */
+export function canEnterFocusManually(priority: string): boolean {
+  return priority !== TaskPriority.REMINDER;
 }

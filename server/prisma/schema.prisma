@@ -28,13 +28,14 @@ enum RemindRepeat {
   WEEKLY
   MONTHLY
   YEARLY
+  CRON
 }
 
 /// 一台部署只有一行：登录密码、语音开关和当前空间。
 model Instance {
   id                 String   @id
   passwordHash       String
-  /// 还在用初始密码时为 true，改过一次就清掉。
+  /// 还没设过密码时为 true，设好之后清掉。
   mustChangePassword Boolean  @default(false)
   activeSpaceId      String?
   activeSpace        Space?   @relation("ActiveSpace", fields: [activeSpaceId], references: [id], onDelete: SetNull)
@@ -72,6 +73,10 @@ model Task {
   /// 优先级是提醒时，到这一分钟就送进聚焦。循环则到点复制一份。
   remindAt    DateTime?
   remindRepeat RemindRepeat @default(ONCE)
+  /// remindRepeat 为 CRON 时用的五段 crontab（分 时 日 月 周）。
+  remindCron  String?
+  /// 按农历走月/年循环；仅一次时只用来展示。
+  remindLunar Boolean      @default(false)
   /// 单次提醒响过之后设上，避免反复送进聚焦。
   remindedAt  DateTime?
   completedAt DateTime?

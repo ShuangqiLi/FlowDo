@@ -7,17 +7,12 @@ import { Prisma } from '@prisma/client';
 import { InstanceService } from '../instance/instance.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateTaskDto, UpdateTaskDto } from './dto/task.dto';
-import { RemindRepeat, TaskPriority, TaskStatus } from './task.enums';
+import { nextCronOccurrence, normalizeCron } from '../clock/cron';
+import { DEFAULT_TZ_OFFSET_MINUTES } from '../clock/zone';
+import { comparePriorityThenRecent } from './priority-order';
 import { asRemindRepeat, parseReminderInstant } from './reminder-time';
-import { canTransition } from './task-status';
-
-const PRIORITY_ORDER: Record<TaskPriority, number> = {
-  HIGH: 0,
-  MEDIUM: 1,
-  LOW: 2,
-  REMINDER: 3,
-  NONE: 4,
-};
+import { RemindRepeat, TaskPriority, TaskStatus } from './task.enums';
+import { canEnterFocusManually, canTransition } from './task-status';
 
 @Injectable()
 export class TasksService {
@@ -44,13 +39,9 @@ export class TasksService {
               task.remindRepeat === RemindRepeat.ONCE,
           )
         : tasks;
-    return [...visible].sort((a, b) => {
-      const p = PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority];
-      if (p !== 0) {
-        return p;
-      }
-      return b.updatedAt.getTime() - a.updatedAt.getTime();
-    });
+    return [...visible].sort((a, b) =>
+      comparePriorityThenRecent(a, b, status),
+    );
   }
 
   async create(dto: CreateTaskDto) {
@@ -61,11 +52,7 @@ export class TasksService {
         title: dto.title.trim(),
         body: dto.body?.trim() ? dto.body.trim() : null,
         priority: dto.priority ?? TaskPriority.NONE,
-        remindAt: reminderForCreate(dto.priority, dto.remindAt),
-        remindRepeat:
-          dto.priority === TaskPriority.REMINDER
-            ? asRemindRepeat(dto.remindRepeat)
-            : RemindRepeat.ONCE,
+        ...reminderForCreate(dto),
         status: TaskStatus.TODO,
       },
     });
@@ -118,6 +105,12 @@ export class TasksService {
     }
 
     if (dto.status !== undefined && dto.status !== task.status) {
+      if (
+        dto.status === TaskStatus.FOCUS &&
+        !canEnterFocusManually(task.priority)
+      ) {
+        throw new BadRequestException('提醒任务到点会自己进聚焦');
+      }
       if (!canTransition(task.status, dto.status)) {
         throw new BadRequestException('这条任务现在不能改成那个状态');
       }
@@ -189,21 +182,36 @@ export class TasksService {
   }
 }
 
-function reminderForCreate(
-  priority: TaskPriority | undefined,
-  remindAt: string | null | undefined,
-): Date | null {
-  if ((priority ?? TaskPriority.NONE) !== TaskPriority.REMINDER) {
-    return null;
+function reminderForCreate(dto: CreateTaskDto): {
+  remindAt: Date | null;
+  remindRepeat: RemindRepeat;
+  remindCron: string | null;
+  remindLunar: boolean;
+} {
+  if ((dto.priority ?? TaskPriority.NONE) !== TaskPriority.REMINDER) {
+    return {
+      remindAt: null,
+      remindRepeat: RemindRepeat.ONCE,
+      remindCron: null,
+      remindLunar: false,
+    };
   }
-  if (!remindAt) {
-    throw new BadRequestException('提醒要选一个时间');
-  }
-  return parseReminderInstant(remindAt, new Date());
+  return resolveReminder({
+    remindAt: dto.remindAt,
+    remindRepeat: dto.remindRepeat,
+    remindCron: dto.remindCron,
+    remindLunar: dto.remindLunar,
+  });
 }
 
 function applyReminder(
-  task: { priority: string; remindAt: Date | null },
+  task: {
+    priority: string;
+    remindAt: Date | null;
+    remindRepeat: string;
+    remindCron: string | null;
+    remindLunar: boolean;
+  },
   dto: UpdateTaskDto,
   data: Prisma.TaskUpdateInput,
 ): void {
@@ -214,21 +222,85 @@ function applyReminder(
       data.remindAt = null;
       data.remindedAt = null;
       data.remindRepeat = RemindRepeat.ONCE;
+      data.remindCron = null;
+      data.remindLunar = false;
     }
     return;
   }
-  if (dto.remindRepeat !== undefined) {
-    data.remindRepeat = dto.remindRepeat;
-  }
-  if (typeof dto.remindAt === 'string') {
-    data.remindAt = parseReminderInstant(dto.remindAt, new Date());
+  const resolved = resolveReminder(
+    {
+      remindAt: dto.remindAt,
+      remindRepeat: dto.remindRepeat ?? (task.remindRepeat as RemindRepeat),
+      remindCron: dto.remindCron === undefined ? task.remindCron : dto.remindCron,
+      remindLunar: dto.remindLunar ?? task.remindLunar,
+    },
+    {
+      existingAt: task.remindAt,
+      turningOn:
+        dto.priority === TaskPriority.REMINDER &&
+        current !== TaskPriority.REMINDER,
+    },
+  );
+  data.remindAt = resolved.remindAt;
+  data.remindRepeat = resolved.remindRepeat;
+  data.remindCron = resolved.remindCron;
+  data.remindLunar = resolved.remindLunar;
+  if (
+    dto.remindAt !== undefined ||
+    dto.remindRepeat !== undefined ||
+    dto.remindCron !== undefined
+  ) {
     data.remindedAt = null;
-    return;
   }
-  const turningOn =
-    dto.priority === TaskPriority.REMINDER &&
-    current !== TaskPriority.REMINDER;
-  if (dto.remindAt === null || task.remindAt == null || turningOn) {
-    throw new BadRequestException('提醒要选一个时间');
+}
+
+function resolveReminder(
+  input: {
+    remindAt?: string | null;
+    remindRepeat?: RemindRepeat;
+    remindCron?: string | null;
+    remindLunar?: boolean;
+  },
+  existing?: { existingAt: Date | null; turningOn: boolean },
+): {
+  remindAt: Date;
+  remindRepeat: RemindRepeat;
+  remindCron: string | null;
+  remindLunar: boolean;
+} {
+  const now = new Date();
+  const repeat = asRemindRepeat(input.remindRepeat);
+  const cron =
+    repeat === RemindRepeat.CRON ? normalizeCron(input.remindCron) : null;
+  const lunar =
+    repeat === RemindRepeat.MONTHLY ||
+    repeat === RemindRepeat.YEARLY ||
+    repeat === RemindRepeat.ONCE
+      ? Boolean(input.remindLunar)
+      : false;
+  if (typeof input.remindAt === 'string') {
+    return {
+      remindAt: parseReminderInstant(input.remindAt, now),
+      remindRepeat: repeat,
+      remindCron: cron,
+      remindLunar: lunar,
+    };
   }
+  if (existing?.existingAt && !existing.turningOn && input.remindAt !== null) {
+    return {
+      remindAt: existing.existingAt,
+      remindRepeat: repeat,
+      remindCron: cron,
+      remindLunar: lunar,
+    };
+  }
+  if (repeat === RemindRepeat.CRON && cron) {
+    return {
+      remindAt: nextCronOccurrence(cron, now, DEFAULT_TZ_OFFSET_MINUTES),
+      remindRepeat: repeat,
+      remindCron: cron,
+      remindLunar: false,
+    };
+  }
+  throw new BadRequestException('提醒要选一个时间');
 }

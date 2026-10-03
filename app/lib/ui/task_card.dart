@@ -42,8 +42,8 @@ class TaskCard extends StatelessWidget {
             begin: Alignment.centerLeft,
             end: Alignment.centerRight,
             colors: [
-              Color.lerp(accent, card, 0.72)!,
-              Color.lerp(accent, card, 0.92)!,
+              Color.lerp(accent, card, 0.64)!,
+              Color.lerp(accent, card, 0.86)!,
               card,
             ],
             stops: const [0, 0.42, 1],

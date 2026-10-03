@@ -1,4 +1,4 @@
-import { Controller, Get, Post, UseGuards } from '@nestjs/common';
+import { Controller, Delete, Get, Post, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { NoticesService } from './notices.service';
 
@@ -15,5 +15,10 @@ export class NoticesController {
   @Post('read')
   markRead() {
     return this.notices.markRead();
+  }
+
+  @Delete()
+  clear() {
+    return this.notices.clear();
   }
 }

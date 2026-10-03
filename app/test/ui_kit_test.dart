@@ -42,76 +42,62 @@ void main() {
     expect(opened, isTrue);
   });
 
-  testWidgets('none and reminder cards keep the same gradient language',
-      (tester) async {
+  testWidgets('each priority card uses a different wash', (tester) async {
     final now = DateTime(2026, 9, 25);
+    const keys = [
+      'HIGH',
+      'MEDIUM',
+      'LOW',
+      'NONE',
+      'REMINDER',
+    ];
     await tester.pumpWidget(
       MaterialApp(
         theme: buildAppTheme(),
         home: Scaffold(
           body: Column(
             children: [
-              TaskCard(
-                key: const ValueKey('none-card'),
-                task: Task(
-                  id: 'n',
-                  title: '无优先级',
-                  status: 'TODO',
-                  priority: 'NONE',
-                  createdAt: now,
-                  updatedAt: now,
+              for (final priority in keys)
+                TaskCard(
+                  key: ValueKey('$priority-card'),
+                  task: Task(
+                    id: priority,
+                    title: priority,
+                    status: 'TODO',
+                    priority: priority,
+                    createdAt: now,
+                    updatedAt: now,
+                  ),
+                  onOpen: () {},
                 ),
-                onOpen: () {},
-              ),
-              TaskCard(
-                key: const ValueKey('reminder-card'),
-                task: Task(
-                  id: 'r',
-                  title: '提醒',
-                  status: 'TODO',
-                  priority: 'REMINDER',
-                  createdAt: now,
-                  updatedAt: now,
-                ),
-                onOpen: () {},
-              ),
-              TaskCard(
-                key: const ValueKey('high-card'),
-                task: Task(
-                  id: 'h',
-                  title: '高优先级',
-                  status: 'TODO',
-                  priority: 'HIGH',
-                  createdAt: now,
-                  updatedAt: now,
-                ),
-                onOpen: () {},
-              ),
             ],
           ),
         ),
       ),
     );
 
-    Color firstOf(Key key) {
+    Color firstOf(String priority) {
       final ink = tester.widget<Ink>(
-        find.descendant(of: find.byKey(key), matching: find.byType(Ink)).first,
+        find
+            .descendant(
+              of: find.byKey(ValueKey('$priority-card')),
+              matching: find.byType(Ink),
+            )
+            .first,
       );
       return ((ink.decoration as BoxDecoration).gradient as LinearGradient)
           .colors
           .first;
     }
 
-    expect(firstOf(const ValueKey('none-card')),
-        firstOf(const ValueKey('reminder-card')));
-    expect(firstOf(const ValueKey('none-card')),
-        isNot(firstOf(const ValueKey('high-card'))));
+    final washes = [for (final priority in keys) firstOf(priority)];
+    expect(washes.toSet(), hasLength(keys.length));
     expect(
       tester
           .widget<Ink>(
             find
                 .descendant(
-                  of: find.byKey(const ValueKey('none-card')),
+                  of: find.byKey(const ValueKey('NONE-card')),
                   matching: find.byType(Ink),
                 )
                 .first,

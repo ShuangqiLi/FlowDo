@@ -3,10 +3,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flowdo/theme.dart';
 
 void main() {
-  test('all four theme keys build distinct low-saturation themes', () {
+  test('all theme keys build distinct low-saturation themes', () {
     final themes = AppThemeKey.values.map(buildAppTheme).toList();
     expect(
-        themes.map((theme) => theme.colorScheme.primary).toSet(), hasLength(4));
+      themes.map((theme) => theme.colorScheme.primary).toSet(),
+      hasLength(AppThemeKey.values.length),
+    );
     for (final theme in themes) {
       expect(theme.extension<FlowDoColors>(), isNotNull);
       expect(
@@ -19,16 +21,45 @@ void main() {
     }
   });
 
-  test('none and reminder accents follow the theme', () {
-    final mint = buildAppTheme(AppThemeKey.mint);
-    final haze = buildAppTheme(AppThemeKey.hazeBlue);
-    final mintColors = mint.extension<FlowDoColors>()!;
-    final hazeColors = haze.extension<FlowDoColors>()!;
-    expect(mintColors.priority('NONE'), mint.colorScheme.primary);
-    expect(mintColors.priority('REMINDER'), mint.colorScheme.primary);
-    expect(hazeColors.priority('NONE'), haze.colorScheme.primary);
-    expect(mintColors.priority('NONE'), isNot(hazeColors.priority('NONE')));
-    expect(mintColors.priority('HIGH'), isNot(mint.colorScheme.primary));
+  test('priority accents stay fixed and miss every theme primary', () {
+    final themes = {
+      for (final key in AppThemeKey.values) key: buildAppTheme(key),
+    };
+    final accents = [
+      FlowDoPriorityPalette.high,
+      FlowDoPriorityPalette.medium,
+      FlowDoPriorityPalette.low,
+      FlowDoPriorityPalette.none,
+      FlowDoPriorityPalette.reminder,
+    ];
+    expect(accents.toSet(), hasLength(5));
+
+    for (final theme in themes.values) {
+      final colors = theme.extension<FlowDoColors>()!;
+      expect(colors.priority('HIGH'), FlowDoPriorityPalette.high);
+      expect(colors.priority('MEDIUM'), FlowDoPriorityPalette.medium);
+      expect(colors.priority('LOW'), FlowDoPriorityPalette.low);
+      expect(colors.priority('NONE'), FlowDoPriorityPalette.none);
+      expect(colors.priority('REMINDER'), FlowDoPriorityPalette.reminder);
+      for (final accent in accents) {
+        expect(accent, isNot(theme.colorScheme.primary));
+      }
+    }
+
+    expect(FlowDoPriorityPalette.medium, const Color(0xFFC4895A));
+    expect(FlowDoPriorityPalette.reminder, const Color(0xFFC4A86C));
+    expect(
+      FlowDoPriorityPalette.medium,
+      isNot(themes[AppThemeKey.warmOrange]!.colorScheme.primary),
+    );
+    expect(
+      FlowDoPriorityPalette.low,
+      isNot(themes[AppThemeKey.mint]!.colorScheme.primary),
+    );
+    expect(
+      FlowDoPriorityPalette.low,
+      isNot(themes[AppThemeKey.hazeBlue]!.colorScheme.primary),
+    );
   });
 
   test('unknown account theme falls back to mint', () {

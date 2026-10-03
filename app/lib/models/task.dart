@@ -8,6 +8,8 @@ class Task {
     this.spaceId,
     this.remindAt,
     this.remindRepeat = 'ONCE',
+    this.remindCron,
+    this.remindLunar = false,
     this.deleted = false,
     this.completedAt,
     this.archivedAt,
@@ -23,6 +25,8 @@ class Task {
   final String? spaceId;
   final DateTime? remindAt;
   final String remindRepeat;
+  final String? remindCron;
+  final bool remindLunar;
   final bool deleted;
   final DateTime? completedAt;
   final DateTime? archivedAt;
@@ -41,6 +45,8 @@ class Task {
           ? null
           : DateTime.parse(json['remindAt'] as String),
       remindRepeat: (json['remindRepeat'] as String?) ?? 'ONCE',
+      remindCron: json['remindCron'] as String?,
+      remindLunar: json['remindLunar'] == true,
       deleted: json['deleted'] == true,
       completedAt: json['completedAt'] == null
           ? null
@@ -64,6 +70,9 @@ class Task {
     DateTime? remindAt,
     bool clearRemindAt = false,
     String? remindRepeat,
+    String? remindCron,
+    bool clearRemindCron = false,
+    bool? remindLunar,
     bool? deleted,
     DateTime? completedAt,
     bool clearCompletedAt = false,
@@ -82,6 +91,11 @@ class Task {
       remindAt: clearRemindAt ? null : (remindAt ?? this.remindAt),
       remindRepeat:
           clearRemindAt ? 'ONCE' : (remindRepeat ?? this.remindRepeat),
+      remindCron: clearRemindAt || clearRemindCron
+          ? null
+          : (remindCron ?? this.remindCron),
+      remindLunar:
+          clearRemindAt ? false : (remindLunar ?? this.remindLunar),
       deleted: deleted ?? this.deleted,
       completedAt: clearCompletedAt ? null : (completedAt ?? this.completedAt),
       archivedAt: clearArchivedAt ? null : (archivedAt ?? this.archivedAt),

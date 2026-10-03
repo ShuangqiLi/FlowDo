@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/briefing.dart';
-import '../models/space.dart';
 import '../models/task.dart';
 import '../providers.dart';
 import '../theme.dart';
@@ -21,7 +20,6 @@ class BriefingScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final briefing = ref.watch(briefingProvider);
     final calendarEpoch = ref.watch(lazySyncProvider);
-    final spaces = ref.watch(spacesProvider).value ?? const <Space>[];
 
     return ColoredBox(
       color: Theme.of(context).scaffoldBackgroundColor,
@@ -56,7 +54,7 @@ class BriefingScreen extends ConsumerWidget {
                 children: [
                   const BriefingNowRow(),
                   const SizedBox(height: AppSpacing.lg),
-                  const SectionHeader('可以先做这些', caption: '挑一件顺手的，就算开始。'),
+                  const SectionHeader('可以先做这些'),
                   if (data.suggestedFocus.isEmpty)
                     const EmptyState(
                       icon: Icons.lightbulb_rounded,
@@ -72,7 +70,7 @@ class BriefingScreen extends ConsumerWidget {
                       ),
                     ),
                   const SizedBox(height: AppSpacing.lg),
-                  const SectionHeader('月度回顾', caption: '左右滑可以看别的月份'),
+                  const SectionHeader('月度回顾'),
                   SwipeMonthCalendar(
                     key: ValueKey('month-$calendarEpoch'),
                     initial: MonthReview(
@@ -83,7 +81,6 @@ class BriefingScreen extends ConsumerWidget {
                       days: const [],
                     ),
                     todayKey: todayKey,
-                    spaces: spaces,
                     loadMonth: (year, month) =>
                         ref.read(apiProvider).monthBriefing(year, month),
                     onDayTap: (anchor, day) => _openDay(anchor, ref, day),
@@ -107,7 +104,7 @@ class BriefingScreen extends ConsumerWidget {
     return showReviewDayPopover(
       anchorContext,
       day: day,
-      spaces: ref.read(spacesProvider).value ?? const [],
+      todayKey: _todayKey(),
       onOpenTask: (task) => _openTask(anchorContext, ref, task),
     );
   }
@@ -161,104 +158,34 @@ class _BriefingTotals extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Column(
-      children: [
-        FlowDoCard(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.md,
-            AppSpacing.md,
-            AppSpacing.md,
-            AppSpacing.sm,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+    return FlowDoCard(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.md,
+        AppSpacing.md,
+        AppSpacing.sm,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
             children: [
-              Text(
-                '全部空间 · ${data.totalCount} 件',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.titleSmall,
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              Row(
-                children: [
-                  _stat(context, '任务池', data.todoCount),
-                  _stat(context, '聚焦', data.focusCount),
-                  _stat(context, '完成', data.doneCount),
-                  _stat(context, '归档', data.archivedCount),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                '待提醒 ${data.reminderCount} · 今天完成 ${data.completedToday.length} · 昨天完成 ${data.completedYesterday.length}',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                    ),
-              ),
+              _stat(context, '任务池', data.todoCount),
+              _stat(context, '聚焦', data.focusCount),
+              _stat(context, '完成', data.doneCount),
+              _stat(context, '归档', data.archivedCount),
             ],
           ),
-        ),
-        if (data.spaces.length > 1) ...[
-          const SizedBox(height: AppSpacing.xs),
-          FlowDoCard(
-            padding: const EdgeInsets.fromLTRB(
-              AppSpacing.md,
-              AppSpacing.sm,
-              AppSpacing.md,
-              AppSpacing.sm,
-            ),
-            child: Column(
-              children: [
-                for (var i = 0; i < data.spaces.length; i++) ...[
-                  if (i > 0) const SizedBox(height: AppSpacing.sm),
-                  _spaceRow(context, data.spaces[i]),
-                ],
-              ],
-            ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            '待提醒 ${data.reminderCount} · 今天完成 ${data.completedToday.length} · 昨天完成 ${data.completedYesterday.length}',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
           ),
         ],
-      ],
-    );
-  }
-
-  Widget _spaceRow(BuildContext context, SpaceBriefing space) {
-    final color = AppThemeKey.fromKey(space.themeKey).preview;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(Icons.circle, size: 8, color: color),
-            const SizedBox(width: 6),
-            Expanded(
-              child: Text(
-                space.name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      color: color,
-                      fontWeight: FontWeight.w700,
-                    ),
-              ),
-            ),
-            Text(
-              '共 ${space.total} 件',
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: color,
-                    fontWeight: FontWeight.w600,
-                  ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 4),
-        Text(
-          '池 ${space.todo} · 焦 ${space.focus} · 完 ${space.done} · 归 ${space.archived} · 提 ${space.reminders} · 今 ${space.completedToday} · 昨 ${space.completedYesterday}',
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: color.withValues(alpha: 0.9),
-                height: 1.35,
-              ),
-        ),
-      ],
+      ),
     );
   }
 

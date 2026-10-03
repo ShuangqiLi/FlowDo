@@ -2,7 +2,15 @@ import { validate } from 'class-validator';
 import { UpdateMeDto } from './update-me.dto';
 
 describe('UpdateMeDto themeKey', () => {
-  it.each(['mint', 'hazeBlue', 'warmOrange', 'lightPurple'])(
+  it.each([
+    'mint',
+    'hazeBlue',
+    'warmOrange',
+    'lightPurple',
+    'willowOlive',
+    'nightIndigo',
+    'mistPlum',
+  ])(
     'accepts %s',
     async (themeKey) => {
       const dto = new UpdateMeDto();

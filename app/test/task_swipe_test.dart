@@ -46,6 +46,9 @@ class _FakeApi extends ApiClient {
     DateTime? remindAt,
     bool clearRemindAt = false,
     String? remindRepeat,
+    String? remindCron,
+    bool clearRemindCron = false,
+    bool? remindLunar,
     String? status,
     String? spaceId,
   }) async {
@@ -122,6 +125,11 @@ void main() {
 
   test('swipe targets share one policy', () {
     expect(TaskGesturePolicy.swipeRight('TODO')?.status, 'FOCUS');
+    expect(TaskGesturePolicy.swipeRight('TODO', priority: 'REMINDER'), isNull);
+    expect(
+      TaskGesturePolicy.swipeRight('FOCUS', priority: 'REMINDER')?.status,
+      'DONE',
+    );
     expect(TaskGesturePolicy.swipeLeft('TODO')?.status, 'DELETE');
     expect(TaskGesturePolicy.swipeRight('FOCUS')?.status, 'DONE');
     expect(TaskGesturePolicy.swipeLeft('FOCUS')?.status, 'TODO');
@@ -140,6 +148,29 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.text('喂猫'), findsNothing);
     expect(api.tasks.single.status, 'FOCUS');
+  });
+
+  testWidgets('a reminder in the pool stays put when swiped toward focus',
+      (tester) async {
+    final prefs = await SharedPreferences.getInstance();
+    final api = _FakeApi(prefs);
+    api.tasks[0] = Task(
+      id: '1',
+      title: '喂猫',
+      status: 'TODO',
+      priority: 'REMINDER',
+      remindAt: DateTime(2026, 10, 4, 9),
+      createdAt: DateTime(2026, 9, 25),
+      updatedAt: DateTime(2026, 9, 25),
+    );
+    await _pumpInbox(tester, api);
+
+    await _swipeRight(tester, find.text('喂猫'));
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('喂猫'), findsOneWidget);
+    expect(api.tasks.single.status, 'TODO');
+    expect(api.updates, 0);
   });
 
   testWidgets('swiping a pool task left asks to delete', (tester) async {

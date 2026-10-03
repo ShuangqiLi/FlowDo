@@ -3,8 +3,11 @@ import 'package:flutter/material.dart';
 enum AppThemeKey {
   mint('mint', '闲云', Color(0xFF5F9B82)),
   hazeBlue('hazeBlue', '远山', Color(0xFF5B82A8)),
-  warmOrange('warmOrange', '归途', Color(0xFFC4895A)),
-  lightPurple('lightPurple', '微光', Color(0xFF8A7BA5));
+  warmOrange('warmOrange', '归途', Color(0xFF8E6E58)),
+  lightPurple('lightPurple', '微光', Color(0xFF8A7BA5)),
+  willowOlive('willowOlive', '柳烟', Color(0xFF7E8A58)),
+  nightIndigo('nightIndigo', '夜泊', Color(0xFF58567A)),
+  mistPlum('mistPlum', '雾梅', Color(0xFF8E6A80));
 
   const AppThemeKey(this.key, this.label, this.preview);
 
@@ -20,6 +23,15 @@ enum AppThemeKey {
   }
 }
 
+/// 五种任务卡片共用、不跟主题走的低饱和色。
+abstract final class FlowDoPriorityPalette {
+  static const high = Color(0xFFB0686C);
+  static const medium = Color(0xFFC4895A);
+  static const low = Color(0xFF3E8288);
+  static const none = Color(0xFF85827C);
+  static const reminder = Color(0xFFC4A86C);
+}
+
 class FlowDoColors extends ThemeExtension<FlowDoColors> {
   const FlowDoColors({
     required this.canvas,
@@ -30,6 +42,8 @@ class FlowDoColors extends ThemeExtension<FlowDoColors> {
     required this.highPriority,
     required this.mediumPriority,
     required this.lowPriority,
+    required this.nonePriority,
+    required this.reminder,
   });
 
   final Color canvas;
@@ -40,12 +54,17 @@ class FlowDoColors extends ThemeExtension<FlowDoColors> {
   final Color highPriority;
   final Color mediumPriority;
   final Color lowPriority;
+  final Color nonePriority;
+
+  /// 浅橙黄，和中优先级杏橙靠色相和明度分开。
+  final Color reminder;
 
   Color priority(String priority) => switch (priority) {
         'HIGH' => highPriority,
         'MEDIUM' => mediumPriority,
         'LOW' => lowPriority,
-        _ => themeAccent,
+        'REMINDER' => reminder,
+        _ => nonePriority,
       };
 
   @override
@@ -58,6 +77,8 @@ class FlowDoColors extends ThemeExtension<FlowDoColors> {
     Color? highPriority,
     Color? mediumPriority,
     Color? lowPriority,
+    Color? nonePriority,
+    Color? reminder,
   }) {
     return FlowDoColors(
       canvas: canvas ?? this.canvas,
@@ -68,6 +89,8 @@ class FlowDoColors extends ThemeExtension<FlowDoColors> {
       highPriority: highPriority ?? this.highPriority,
       mediumPriority: mediumPriority ?? this.mediumPriority,
       lowPriority: lowPriority ?? this.lowPriority,
+      nonePriority: nonePriority ?? this.nonePriority,
+      reminder: reminder ?? this.reminder,
     );
   }
 
@@ -83,6 +106,8 @@ class FlowDoColors extends ThemeExtension<FlowDoColors> {
       highPriority: Color.lerp(highPriority, other.highPriority, t)!,
       mediumPriority: Color.lerp(mediumPriority, other.mediumPriority, t)!,
       lowPriority: Color.lerp(lowPriority, other.lowPriority, t)!,
+      nonePriority: Color.lerp(nonePriority, other.nonePriority, t)!,
+      reminder: Color.lerp(reminder, other.reminder, t)!,
     );
   }
 }

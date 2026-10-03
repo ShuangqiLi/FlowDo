@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 
 import '../api/api_client.dart';
 import '../models/task.dart';
@@ -158,6 +157,8 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
       context,
       initial: _task.remindAt,
       repeat: _task.remindRepeat,
+      cron: _task.remindCron,
+      lunar: _task.remindLunar,
     );
     if (plan == null || !mounted) {
       return;
@@ -171,6 +172,9 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                   priority: 'REMINDER',
                   remindAt: plan.at,
                   remindRepeat: plan.repeat,
+                  remindCron: plan.cron,
+                  remindLunar: plan.lunar,
+                  clearRemindCron: plan.repeat != 'CRON',
                 ),
           );
       if (ref.exists(tasksProvider(updated.status))) {
@@ -408,10 +412,13 @@ class _ReminderCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final at = task.remindAt?.toLocal();
-    final repeat = remindRepeatLabel(task.remindRepeat);
+    final repeat = task.remindRepeat == 'CRON' && (task.remindCron ?? '').isNotEmpty
+        ? 'crontab ${task.remindCron}'
+        : remindRepeatLabel(task.remindRepeat);
     final recurring = task.remindRepeat != 'ONCE';
-    final when =
-        at == null ? '还没定时间' : DateFormat('yyyy年M月d日 HH:mm').format(at);
+    final when = at == null
+        ? '还没定时间'
+        : reminderWhenText(at, lunar: task.remindLunar, withYear: true);
     final countdown = at == null ? null : _countdown(at, DateTime.now());
     final note = recurring
         ? '到点会复制一份放进聚焦，做完那一份就删掉；这条循环会继续排下一次。'

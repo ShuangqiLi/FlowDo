@@ -59,4 +59,22 @@ describe('recurring reminders', () => {
     );
     expect(marks.map((mark) => mark.getDate())).toEqual([3, 4, 5]);
   });
+
+  it('steps a lunar yearly reminder', () => {
+    const from = new Date('2026-09-25T01:00:00.000Z');
+    const next = stepReminder(from, RemindRepeat.YEARLY, {
+      lunar: true,
+      tzOffsetMinutes: 480,
+    });
+    expect(next.toISOString()).toBe('2027-09-15T01:00:00.000Z');
+  });
+
+  it('steps a crontab reminder', () => {
+    const from = new Date('2026-10-02T16:00:00.000Z');
+    const next = stepReminder(from, RemindRepeat.CRON, {
+      cron: '0 9 * * 1-5',
+      tzOffsetMinutes: 480,
+    });
+    expect(next.toISOString()).toBe('2026-10-05T01:00:00.000Z');
+  });
 });

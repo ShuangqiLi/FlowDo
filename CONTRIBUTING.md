@@ -57,7 +57,7 @@ BREAKING CHANGE: TODO cannot transition directly to DONE
 - **MINOR**：向下兼容的新功能
 - **PATCH**：向下兼容的问题修复
 
-当前处于 `0.y.z`：尚未宣布稳定公开 API，行为仍可能变化。下一个功能版本可以是 `0.1.0`，纯修复是 `0.0.2`。
+`1.0.0` 起为稳定版本。之后不兼容的变更升 MAJOR，向下兼容的新功能升 MINOR，修复升 PATCH。
 
 发布走 [GitHub Releases](https://github.com/ShuangqiLi/FlowDo/releases)，不用根目录脚本发版：
 
@@ -131,7 +131,7 @@ docker build -f web/Dockerfile -t flowdo-web:latest .
 少了 `assets/`（字体、图标）或 `canvaskit/` 就是同一类故障。
 
 网页端固定请求当前 origin，不提供 API 地址设置。没有注册，登录只填密码。
-跑 `./start.sh` 后，全新数据库的初始密码是 `FlowDo#321Init`（`.env` 里 `FLOWDO_INITIAL_PASSWORD` 可改），第一次登录会要求先换掉。
+跑 `./start.sh` 后，浏览器打开网页。全新数据库没有初始密码，第一次打开会让你设一个并再确认一次。
 
 改完代码提 PR 前先跑一遍：
 
@@ -139,3 +139,5 @@ docker build -f web/Dockerfile -t flowdo-web:latest .
 cd app && flutter analyze && flutter test
 cd server && npm test
 ```
+
+提醒循环的计算在 `server/src/tasks/reminder-time.ts`，crontab 在 `server/src/clock/cron.ts`，农历换算在 `server/src/clock/lunar.ts`（客户端 `app/lib/utils/` 下有同一套）。聚焦里提醒置顶、任务池里提醒垫底，排序在 `priority-order.ts` / `app/lib/ui/task_sort.dart`。

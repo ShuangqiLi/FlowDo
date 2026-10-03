@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 
 import '../api/api_client.dart';
 import '../models/task.dart';
@@ -154,6 +153,14 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
   }
 
   Future<void> _setStatus(Task task, String status) async {
+    if (status == 'FOCUS' && task.priority == 'REMINDER') {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('提醒任务到点会自己进聚焦')),
+        );
+      }
+      return;
+    }
     var heldFocus = false;
     if (status == 'FOCUS') {
       final limit = ref.read(meProvider).value?.focusLimit ?? 3;
@@ -294,6 +301,8 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
         anchorContext,
         initial: task.remindAt,
         repeat: task.remindRepeat,
+        cron: task.remindCron,
+        lunar: task.remindLunar,
       );
       if (plan == null || !anchorContext.mounted) {
         return;
@@ -303,7 +312,10 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
       priority: chosen,
       remindAt: plan?.at,
       remindRepeat: plan?.repeat,
+      remindCron: plan?.cron,
+      remindLunar: plan?.lunar,
       clearRemindAt: chosen != 'REMINDER',
+      clearRemindCron: chosen != 'REMINDER' || plan?.repeat != 'CRON',
       updatedAt: DateTime.now(),
     );
     final gen = _hold(id, optimistic);
@@ -316,7 +328,10 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
               priority: chosen,
               remindAt: plan?.at,
               remindRepeat: plan?.repeat,
+              remindCron: plan?.cron,
+              remindLunar: plan?.lunar,
               clearRemindAt: chosen != 'REMINDER',
+              clearRemindCron: chosen != 'REMINDER' || plan?.repeat != 'CRON',
             ),
       );
       ref.read(tasksProvider(widget.status).notifier).upsert(updated);
@@ -486,9 +501,17 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
     switch (widget.status) {
       case 'TODO':
         if (task.priority == 'REMINDER' && task.remindAt != null) {
-          final when = DateFormat('M月d日 HH:mm').format(task.remindAt!.toLocal());
-          final repeat = remindRepeatLabel(task.remindRepeat);
-          return Text(repeat == '仅一次' ? '提醒 $when' : '$repeat · $when');
+          final when = reminderWhenText(
+            task.remindAt!,
+            lunar: task.remindLunar,
+          );
+          if (task.remindRepeat == 'ONCE') {
+            return Text(when);
+          }
+          final repeat = task.remindRepeat == 'CRON' && (task.remindCron ?? '').isNotEmpty
+              ? 'crontab ${task.remindCron}'
+              : remindRepeatLabel(task.remindRepeat);
+          return Text('$repeat · $when');
         }
         return Text(task.listDateLabel());
       case 'DONE':

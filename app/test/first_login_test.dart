@@ -36,6 +36,8 @@ void main() {
 
     expect(find.byType(ChangePasswordScreen), findsOneWidget);
     expect(find.byType(HomeScreen), findsNothing);
-    expect(find.text('先换个密码'), findsOneWidget);
+    expect(find.text('设一个密码'), findsOneWidget);
+    expect(find.text('初始密码'), findsNothing);
+    expect(find.text('再输一次'), findsOneWidget);
   });
 }

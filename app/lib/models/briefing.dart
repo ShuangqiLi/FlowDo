@@ -28,32 +28,6 @@ class ReviewDay {
   }
 }
 
-class MonthSpaceReview {
-  MonthSpaceReview({
-    required this.id,
-    required this.name,
-    required this.themeKey,
-    required this.completedCount,
-    required this.activeDays,
-  });
-
-  final String id;
-  final String name;
-  final String themeKey;
-  final int completedCount;
-  final int activeDays;
-
-  factory MonthSpaceReview.fromJson(Map<String, dynamic> json) {
-    return MonthSpaceReview(
-      id: json['id'] as String,
-      name: json['name'] as String,
-      themeKey: (json['themeKey'] as String?) ?? 'mint',
-      completedCount: (json['completedCount'] as num?)?.toInt() ?? 0,
-      activeDays: (json['activeDays'] as num?)?.toInt() ?? 0,
-    );
-  }
-}
-
 class MonthReview {
   MonthReview({
     required this.year,
@@ -61,7 +35,6 @@ class MonthReview {
     required this.completedCount,
     required this.activeDays,
     required this.days,
-    this.spaces = const [],
   });
 
   final int year;
@@ -69,7 +42,6 @@ class MonthReview {
   final int completedCount;
   final int activeDays;
   final List<ReviewDay> days;
-  final List<MonthSpaceReview> spaces;
 
   factory MonthReview.fromJson(Map<String, dynamic>? json) {
     if (json == null) {
@@ -87,55 +59,9 @@ class MonthReview {
       month: (json['month'] as num?)?.toInt() ?? DateTime.now().month,
       completedCount: (json['completedCount'] as num?)?.toInt() ?? 0,
       activeDays: (json['activeDays'] as num?)?.toInt() ?? 0,
-      spaces: (json['spaces'] as List<dynamic>? ?? const [])
-          .map((e) => MonthSpaceReview.fromJson(e as Map<String, dynamic>))
-          .toList(),
       days: (json['days'] as List<dynamic>? ?? const [])
           .map((e) => ReviewDay.fromJson(e as Map<String, dynamic>))
           .toList(),
-    );
-  }
-}
-
-class SpaceBriefing {
-  SpaceBriefing({
-    required this.id,
-    required this.name,
-    required this.themeKey,
-    required this.todo,
-    required this.focus,
-    required this.done,
-    required this.archived,
-    required this.reminders,
-    required this.completedToday,
-    required this.completedYesterday,
-  });
-
-  final String id;
-  final String name;
-  final String themeKey;
-  final int todo;
-  final int focus;
-  final int done;
-  final int archived;
-  final int reminders;
-  final int completedToday;
-  final int completedYesterday;
-
-  int get total => todo + focus + done + archived;
-
-  factory SpaceBriefing.fromJson(Map<String, dynamic> json) {
-    return SpaceBriefing(
-      id: json['id'] as String,
-      name: json['name'] as String,
-      themeKey: (json['themeKey'] as String?) ?? 'mint',
-      todo: (json['todo'] as num?)?.toInt() ?? 0,
-      focus: (json['focus'] as num?)?.toInt() ?? 0,
-      done: (json['done'] as num?)?.toInt() ?? 0,
-      archived: (json['archived'] as num?)?.toInt() ?? 0,
-      reminders: (json['reminders'] as num?)?.toInt() ?? 0,
-      completedToday: (json['completedToday'] as num?)?.toInt() ?? 0,
-      completedYesterday: (json['completedYesterday'] as num?)?.toInt() ?? 0,
     );
   }
 }
@@ -153,12 +79,8 @@ class Briefing {
     required this.completedToday,
     required this.completedYesterday,
     required this.pendingArchive,
-    this.spaces = const [],
-    int? totalCount,
     MonthReview? monthReview,
-  })  : totalCount =
-            totalCount ?? todoCount + focusCount + doneCount + archivedCount,
-        monthReview = monthReview ??
+  }) : monthReview = monthReview ??
             MonthReview(
               year: DateTime.now().year,
               month: DateTime.now().month,
@@ -173,13 +95,11 @@ class Briefing {
   final int doneCount;
   final int archivedCount;
   final int reminderCount;
-  final int totalCount;
   final List<Task> focusedTasks;
   final List<Task> suggestedFocus;
   final List<Task> completedToday;
   final List<Task> completedYesterday;
   final int pendingArchive;
-  final List<SpaceBriefing> spaces;
   final MonthReview monthReview;
 
   factory Briefing.fromJson(Map<String, dynamic> json) {
@@ -190,27 +110,18 @@ class Briefing {
     }
 
     final counts = json['counts'] as Map<String, dynamic>;
-    final todo = (counts['todo'] as num?)?.toInt() ?? 0;
-    final focus = (counts['focus'] as num?)?.toInt() ?? 0;
-    final done = (counts['done'] as num?)?.toInt() ?? 0;
-    final archived = (counts['archived'] as num?)?.toInt() ?? 0;
     return Briefing(
       date: json['date'] as String,
-      todoCount: todo,
-      focusCount: focus,
-      doneCount: done,
-      archivedCount: archived,
+      todoCount: (counts['todo'] as num?)?.toInt() ?? 0,
+      focusCount: (counts['focus'] as num?)?.toInt() ?? 0,
+      doneCount: (counts['done'] as num?)?.toInt() ?? 0,
+      archivedCount: (counts['archived'] as num?)?.toInt() ?? 0,
       reminderCount: (counts['reminders'] as num?)?.toInt() ?? 0,
-      totalCount:
-          (counts['total'] as num?)?.toInt() ?? todo + focus + done + archived,
       focusedTasks: list(json['focusedTasks']),
       suggestedFocus: list(json['suggestedFocus']),
       completedToday: list(json['completedToday']),
       completedYesterday: list(json['completedYesterday']),
       pendingArchive: json['pendingArchive'] as int,
-      spaces: (json['spaces'] as List<dynamic>? ?? const [])
-          .map((e) => SpaceBriefing.fromJson(e as Map<String, dynamic>))
-          .toList(),
       monthReview: MonthReview.fromJson(
         json['monthReview'] as Map<String, dynamic>?,
       ),

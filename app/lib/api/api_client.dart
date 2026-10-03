@@ -146,6 +146,22 @@ class ApiClient {
     }
   }
 
+  Future<bool> needsPasswordSetup() async {
+    final json = await _request('POST', '/auth/status', auth: false);
+    final map = json as Map<String, dynamic>;
+    return map['needsSetup'] == true;
+  }
+
+  Future<void> setupPassword(String password) async {
+    final json = await _request(
+      'POST',
+      '/auth/setup',
+      body: {'password': password},
+      auth: false,
+    );
+    await _saveTokens(json as Map<String, dynamic>);
+  }
+
   Future<void> login(String password) async {
     final json = await _request(
       'POST',
@@ -249,6 +265,9 @@ class ApiClient {
     DateTime? remindAt,
     bool clearRemindAt = false,
     String? remindRepeat,
+    String? remindCron,
+    bool clearRemindCron = false,
+    bool? remindLunar,
     String? status,
     String? spaceId,
   }) async {
@@ -262,6 +281,12 @@ class ApiClient {
       payload['remindAt'] = remindAt.toUtc().toIso8601String();
     }
     if (remindRepeat != null) payload['remindRepeat'] = remindRepeat;
+    if (clearRemindCron) {
+      payload['remindCron'] = null;
+    } else if (remindCron != null) {
+      payload['remindCron'] = remindCron;
+    }
+    if (remindLunar != null) payload['remindLunar'] = remindLunar;
     if (status != null) payload['status'] = status;
     if (spaceId != null) payload['spaceId'] = spaceId;
     final json = await _request('PATCH', '/tasks/$id', body: payload);
@@ -281,6 +306,10 @@ class ApiClient {
 
   Future<void> markNoticesRead() async {
     await _request('POST', '/notices/read');
+  }
+
+  Future<void> clearNotices() async {
+    await _request('DELETE', '/notices');
   }
 
   Map<String, String> _tzQuery([Map<String, String>? extra]) {

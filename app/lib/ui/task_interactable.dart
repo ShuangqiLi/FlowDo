@@ -30,8 +30,10 @@ class _TaskInteractableState extends State<TaskInteractable>
   late final AnimationController _motion;
   late final Listenable _tick;
 
-  TaskSwipeHint? get _right =>
-      TaskGesturePolicy.swipeRight(widget.task.status);
+  TaskSwipeHint? get _right => TaskGesturePolicy.swipeRight(
+        widget.task.status,
+        priority: widget.task.priority,
+      );
   TaskSwipeHint? get _left => TaskGesturePolicy.swipeLeft(widget.task.status);
 
   @override
