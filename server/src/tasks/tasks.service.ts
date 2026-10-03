@@ -8,12 +8,15 @@ import { InstanceService } from '../instance/instance.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateTaskDto, UpdateTaskDto } from './dto/task.dto';
 import { TaskPriority, TaskStatus } from './task.enums';
+import { parseReminderInstant } from './reminder-time';
 import { canTransition } from './task-status';
 
 const PRIORITY_ORDER: Record<TaskPriority, number> = {
   HIGH: 0,
   MEDIUM: 1,
   LOW: 2,
+  REMINDER: 3,
+  NONE: 4,
 };
 
 @Injectable()
@@ -49,7 +52,8 @@ export class TasksService {
         spaceId,
         title: dto.title.trim(),
         body: dto.body?.trim() ? dto.body.trim() : null,
-        priority: dto.priority ?? TaskPriority.MEDIUM,
+        priority: dto.priority ?? TaskPriority.NONE,
+        remindAt: reminderForCreate(dto.priority, dto.remindAt),
         status: TaskStatus.TODO,
       },
     });
@@ -75,6 +79,7 @@ export class TasksService {
     if (dto.priority !== undefined) {
       data.priority = dto.priority;
     }
+    applyReminder(task, dto, data);
 
     let nextSpaceId = task.spaceId;
     if (dto.spaceId !== undefined && dto.spaceId !== task.spaceId) {
@@ -157,5 +162,45 @@ export class TasksService {
     }
     await this.prisma.task.delete({ where: { id } });
     return { ok: true };
+  }
+}
+
+function reminderForCreate(
+  priority: TaskPriority | undefined,
+  remindAt: string | null | undefined,
+): Date | null {
+  if ((priority ?? TaskPriority.NONE) !== TaskPriority.REMINDER) {
+    return null;
+  }
+  if (!remindAt) {
+    throw new BadRequestException('提醒要选一个时间');
+  }
+  return parseReminderInstant(remindAt, new Date());
+}
+
+function applyReminder(
+  task: { priority: string; remindAt: Date | null },
+  dto: UpdateTaskDto,
+  data: Prisma.TaskUpdateInput,
+): void {
+  const current = task.priority as TaskPriority;
+  const nextPriority = dto.priority ?? current;
+  if (nextPriority !== TaskPriority.REMINDER) {
+    if (dto.priority !== undefined || dto.remindAt === null) {
+      data.remindAt = null;
+      data.remindedAt = null;
+    }
+    return;
+  }
+  if (typeof dto.remindAt === 'string') {
+    data.remindAt = parseReminderInstant(dto.remindAt, new Date());
+    data.remindedAt = null;
+    return;
+  }
+  const turningOn =
+    dto.priority === TaskPriority.REMINDER &&
+    current !== TaskPriority.REMINDER;
+  if (dto.remindAt === null || task.remindAt == null || turningOn) {
+    throw new BadRequestException('提醒要选一个时间');
   }
 }

@@ -5,6 +5,7 @@ import { ArchiveModule } from './archive/archive.module';
 import { AuthModule } from './auth/auth.module';
 import { BriefingModule } from './briefing/briefing.module';
 import { HealthController } from './health.controller';
+import { NoticesModule } from './notices/notices.module';
 import { InstanceModule } from './instance/instance.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { SpacesModule } from './spaces/spaces.module';
@@ -23,6 +24,7 @@ import { UsersModule } from './users/users.module';
     UsersModule,
     SpacesModule,
     TasksModule,
+    NoticesModule,
     BriefingModule,
     ArchiveModule,
     SystemModule,

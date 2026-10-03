@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flowdo/api/api_client.dart';
 import 'package:flowdo/models/briefing.dart';
+import 'package:flowdo/models/notice.dart';
 import 'package:flowdo/models/task.dart';
 import 'package:flowdo/models/space.dart';
 import 'package:flowdo/models/user.dart';
@@ -28,6 +29,12 @@ class _FakeApi extends ApiClient {
       updatedAt: DateTime(2026, 9, 25),
     ),
   ];
+
+  @override
+  Future<List<Notice>> listNotices() async => const [];
+
+  @override
+  Future<void> markNoticesRead() async {}
 
   @override
   Future<List<Task>> listTasks({String? status}) async =>

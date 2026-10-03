@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../models/briefing.dart';
 import '../models/task.dart';
@@ -90,10 +91,15 @@ class MonthReviewCalendar extends StatelessWidget {
     final key =
         '$year-${month.toString().padLeft(2, '0')}-${day.toString().padLeft(2, '0')}';
     final review = byDate[key] ?? ReviewDay(date: key, count: 0);
+    final reminders = [
+      for (final task in review.reminders)
+        if (task.remindAt != null && task.remindAt!.isAfter(DateTime.now())) task,
+    ]..sort((a, b) => a.remindAt!.compareTo(b.remindAt!));
     return Builder(
       builder: (cellContext) => _DayCell(
         dayNumber: '$day',
         count: review.count,
+        reminders: reminders,
         isToday: key == todayKey,
         scheme: scheme,
         onTap: onDayTap == null ? null : () => onDayTap!(cellContext, review),
@@ -136,6 +142,7 @@ class _DayCell extends StatelessWidget {
   const _DayCell({
     required this.dayNumber,
     required this.count,
+    required this.reminders,
     required this.isToday,
     required this.scheme,
     this.onTap,
@@ -145,6 +152,7 @@ class _DayCell extends StatelessWidget {
 
   final String dayNumber;
   final int count;
+  final List<Task> reminders;
   final bool isToday;
   final ColorScheme scheme;
   final VoidCallback? onTap;
@@ -152,6 +160,10 @@ class _DayCell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final shown = count.clamp(0, maxMarks);
+    final nextReminder = reminders.isEmpty ? null : reminders.first;
+    final reminderLabel = nextReminder == null
+        ? ''
+        : '，提醒 ${DateFormat('HH:mm').format(nextReminder.remindAt!.toLocal())}';
     final fill = isToday
         ? scheme.primary.withValues(alpha: 0.12)
         : scheme.surfaceContainerHighest.withValues(alpha: 0.35);
@@ -166,8 +178,8 @@ class _DayCell extends StatelessWidget {
           child: Semantics(
             button: onTap != null,
             label: count == 0
-                ? '$dayNumber日'
-                : '$dayNumber日，完成 $count 件',
+                ? '$dayNumber日$reminderLabel'
+                : '$dayNumber日，完成 $count 件$reminderLabel',
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 2),
               child: AnimatedContainer(
@@ -195,6 +207,36 @@ class _DayCell extends StatelessWidget {
                             height: 1.05,
                           ),
                     ),
+                    if (nextReminder != null) ...[
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.flag_rounded,
+                            size: 12,
+                            color: scheme.primary,
+                          ),
+                          const SizedBox(width: 2),
+                          Flexible(
+                            child: Text(
+                              DateFormat('HH:mm')
+                                  .format(nextReminder.remindAt!.toLocal()),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .labelSmall
+                                  ?.copyWith(
+                                    color: scheme.primary,
+                                    fontSize: 10,
+                                    height: 1.1,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                     const Spacer(),
                     if (shown > 0)
                       Wrap(
@@ -309,6 +351,16 @@ Future<void> showReviewDayPopover(
   );
   final title = prettyReviewDayTitle(day.date);
   final tasks = day.tasks;
+  final reminders = [
+    for (final task in day.reminders)
+      if (task.remindAt != null && task.remindAt!.isAfter(DateTime.now())) task,
+  ];
+  final summary = switch ((reminders.length, tasks.length)) {
+    (0, 0) => '这一天还没有搞定的事',
+    (0, _) => '搞定了 ${tasks.length} 件',
+    (_, 0) => '有 ${reminders.length} 个提醒',
+    _ => '提醒 ${reminders.length} 件 · 搞定了 ${tasks.length} 件',
+  };
 
   final selected = await showMenu<Task>(
     context: anchorContext,
@@ -347,7 +399,7 @@ Future<void> showReviewDayPopover(
             Text(title, style: theme.textTheme.titleSmall),
             const SizedBox(height: 2),
             Text(
-              tasks.isEmpty ? '这一天还没有搞定的事' : '搞定了 ${tasks.length} 件',
+              summary,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: scheme.onSurfaceVariant,
               ),
@@ -355,7 +407,33 @@ Future<void> showReviewDayPopover(
           ],
         ),
       ),
-      if (tasks.isEmpty)
+      for (final task in reminders)
+        PopupMenuItem<Task>(
+          value: task,
+          height: 48,
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+          child: Row(
+            children: [
+              Icon(Icons.flag_rounded, size: 18, color: scheme.primary),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Text(
+                  task.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Text(
+                DateFormat('HH:mm').format(task.remindAt!.toLocal()),
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: scheme.primary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      if (tasks.isEmpty && reminders.isEmpty)
         PopupMenuItem<Task>(
           enabled: false,
           height: 44,

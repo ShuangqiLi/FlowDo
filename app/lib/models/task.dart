@@ -5,6 +5,7 @@ class Task {
     this.body,
     required this.status,
     required this.priority,
+    this.remindAt,
     this.completedAt,
     this.archivedAt,
     required this.createdAt,
@@ -16,6 +17,7 @@ class Task {
   final String? body;
   final String status;
   final String priority;
+  final DateTime? remindAt;
   final DateTime? completedAt;
   final DateTime? archivedAt;
   final DateTime createdAt;
@@ -28,6 +30,9 @@ class Task {
       body: json['body'] as String?,
       status: json['status'] as String,
       priority: json['priority'] as String,
+      remindAt: json['remindAt'] == null
+          ? null
+          : DateTime.parse(json['remindAt'] as String),
       completedAt:
           json['completedAt'] == null ? null : DateTime.parse(json['completedAt'] as String),
       archivedAt: json['archivedAt'] == null ? null : DateTime.parse(json['archivedAt'] as String),
@@ -43,6 +48,8 @@ class Task {
     bool clearBody = false,
     String? status,
     String? priority,
+    DateTime? remindAt,
+    bool clearRemindAt = false,
     DateTime? completedAt,
     bool clearCompletedAt = false,
     DateTime? archivedAt,
@@ -56,6 +63,7 @@ class Task {
       body: clearBody ? null : (body ?? this.body),
       status: status ?? this.status,
       priority: priority ?? this.priority,
+      remindAt: clearRemindAt ? null : (remindAt ?? this.remindAt),
       completedAt:
           clearCompletedAt ? null : (completedAt ?? this.completedAt),
       archivedAt: clearArchivedAt ? null : (archivedAt ?? this.archivedAt),
@@ -65,14 +73,13 @@ class Task {
   }
 
   String get priorityLabel {
-    switch (priority) {
-      case 'HIGH':
-        return '高';
-      case 'LOW':
-        return '低';
-      default:
-        return '中';
-    }
+    return switch (priority) {
+      'HIGH' => '高',
+      'MEDIUM' => '中',
+      'LOW' => '低',
+      'REMINDER' => '提醒',
+      _ => '无',
+    };
   }
 
   /// 任务池用创建日，完成页用完成日，归档页用归档日。

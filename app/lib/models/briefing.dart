@@ -5,20 +5,25 @@ class ReviewDay {
     required this.date,
     required this.count,
     this.tasks = const [],
+    this.reminders = const [],
   });
 
   final String date;
   final int count;
   final List<Task> tasks;
+  final List<Task> reminders;
 
   factory ReviewDay.fromJson(Map<String, dynamic> json) {
-    final rawTasks = json['tasks'] as List<dynamic>? ?? const [];
+    List<Task> readTasks(String key) {
+      final raw = json[key] as List<dynamic>? ?? const [];
+      return raw.map((e) => Task.fromJson(e as Map<String, dynamic>)).toList();
+    }
+
     return ReviewDay(
       date: json['date'] as String,
       count: (json['count'] as num?)?.toInt() ?? 0,
-      tasks: rawTasks
-          .map((e) => Task.fromJson(e as Map<String, dynamic>))
-          .toList(),
+      tasks: readTasks('tasks'),
+      reminders: readTasks('reminders'),
     );
   }
 }

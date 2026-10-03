@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../api/api_client.dart';
 import '../models/about.dart';
 import '../platform/open_url.dart';
+import '../platform/reload_page.dart';
 import '../providers.dart';
 import '../theme.dart';
 
@@ -26,7 +27,6 @@ class _AboutUpdatePanelState extends ConsumerState<AboutUpdatePanel> {
   String? _offer;
   String? _target;
   Timer? _poll;
-  DateTime? _pollStarted;
 
   @override
   void initState() {
@@ -48,6 +48,10 @@ class _AboutUpdatePanelState extends ConsumerState<AboutUpdatePanel> {
       }
       final arrived = _target != null && info.version == _target;
       final failed = info.phase == 'failed';
+      if (arrived) {
+        _poll?.cancel();
+        reloadPage();
+      }
       setState(() {
         _info = info;
         _error = null;
@@ -127,21 +131,8 @@ class _AboutUpdatePanelState extends ConsumerState<AboutUpdatePanel> {
         return;
       }
       setState(() => _target = target);
-      _pollStarted = DateTime.now();
       _poll?.cancel();
       _poll = Timer.periodic(const Duration(seconds: 2), (_) async {
-        if (_pollStarted != null &&
-            DateTime.now().difference(_pollStarted!) >
-                const Duration(minutes: 3)) {
-          _poll?.cancel();
-          if (mounted) {
-            setState(() {
-              _updating = false;
-              _error = '更新太久了。刷新看看版本，或在部署目录执行 docker compose ps';
-            });
-          }
-          return;
-        }
         await _load();
       });
       await _load();

@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/about.dart';
+import '../models/notice.dart';
 import '../models/briefing.dart';
 import '../models/space.dart';
 import '../models/task.dart';
@@ -239,6 +240,8 @@ class ApiClient {
     String? title,
     String? body,
     String? priority,
+    DateTime? remindAt,
+    bool clearRemindAt = false,
     String? status,
     String? spaceId,
   }) async {
@@ -246,6 +249,11 @@ class ApiClient {
     if (title != null) payload['title'] = title;
     if (body != null) payload['body'] = body;
     if (priority != null) payload['priority'] = priority;
+    if (clearRemindAt) {
+      payload['remindAt'] = null;
+    } else if (remindAt != null) {
+      payload['remindAt'] = remindAt.toUtc().toIso8601String();
+    }
     if (status != null) payload['status'] = status;
     if (spaceId != null) payload['spaceId'] = spaceId;
     final json = await _request('PATCH', '/tasks/$id', body: payload);
@@ -254,6 +262,17 @@ class ApiClient {
 
   Future<void> deleteTask(String id) async {
     await _request('DELETE', '/tasks/$id');
+  }
+
+  Future<List<Notice>> listNotices() async {
+    final json = await _request('GET', '/notices');
+    return (json as List<dynamic>)
+        .map((e) => Notice.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<void> markNoticesRead() async {
+    await _request('POST', '/notices/read');
   }
 
   Future<Briefing> todayBriefing() async {

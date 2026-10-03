@@ -7,6 +7,8 @@ const PRIORITY_ORDER: Record<TaskPriority, number> = {
   HIGH: 0,
   MEDIUM: 1,
   LOW: 2,
+  REMINDER: 3,
+  NONE: 4,
 };
 
 const DEFAULT_SUGGEST_LIMIT = 3;
@@ -105,10 +107,23 @@ export class BriefingService {
     const spaceId = await this.instance.spaceId();
     const start = new Date(year, month - 1, 1);
     const end = new Date(year, month, 0, 23, 59, 59, 999);
-    const completed = await this.prisma.task.findMany({
-      where: { spaceId, completedAt: { gte: start, lte: end } },
-      orderBy: { completedAt: 'desc' },
-    });
+    const now = new Date();
+    const [completed, reminders] = await Promise.all([
+      this.prisma.task.findMany({
+        where: { spaceId, completedAt: { gte: start, lte: end } },
+        orderBy: { completedAt: 'desc' },
+      }),
+      this.prisma.task.findMany({
+        where: {
+          spaceId,
+          priority: TaskPriority.REMINDER,
+          remindedAt: null,
+          status: { in: [TaskStatus.TODO, TaskStatus.FOCUS] },
+          remindAt: { gt: now, lte: end },
+        },
+        orderBy: { remindAt: 'asc' },
+      }),
+    ]);
 
     const dayCounts = new Map<string, number>();
     const dayTasks = new Map<string, typeof completed>();
@@ -123,6 +138,20 @@ export class BriefingService {
       dayTasks.set(key, list);
     }
 
+    const dayReminders = new Map<string, typeof reminders>();
+    for (const row of reminders) {
+      if (!row.remindAt || row.remindAt <= now) {
+        continue;
+      }
+      const key = toDateKey(row.remindAt);
+      if (key < toDateKey(start) || key > toDateKey(end)) {
+        continue;
+      }
+      const list = dayReminders.get(key) ?? [];
+      list.push(row);
+      dayReminders.set(key, list);
+    }
+
     const length = end.getDate();
     const days = Array.from({ length }, (_, i) => {
       const day = addDays(start, i);
@@ -131,6 +160,7 @@ export class BriefingService {
         date: key,
         count: dayCounts.get(key) ?? 0,
         tasks: dayTasks.get(key) ?? [],
+        reminders: dayReminders.get(key) ?? [],
       };
     });
 

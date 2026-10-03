@@ -239,18 +239,37 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
       anchorContext,
       current: current,
     );
-    if (chosen == null || chosen == current) {
+    if (chosen == null || !anchorContext.mounted) {
       return;
+    }
+    if (chosen == current && chosen != 'REMINDER') {
+      return;
+    }
+    DateTime? remindAt;
+    if (chosen == 'REMINDER') {
+      remindAt = await showReminderTimePicker(
+        anchorContext,
+        initial: task.remindAt,
+      );
+      if (remindAt == null || !anchorContext.mounted) {
+        return;
+      }
     }
     final optimistic = task.copyWith(
       priority: chosen,
+      remindAt: remindAt,
+      clearRemindAt: chosen != 'REMINDER',
       updatedAt: DateTime.now(),
     );
     final gen = _hold(id, optimistic);
     ref.read(tasksProvider(widget.status).notifier).upsert(optimistic);
     try {
-      final updated =
-          await ref.read(apiProvider).updateTask(id, priority: chosen);
+      final updated = await ref.read(apiProvider).updateTask(
+            id,
+            priority: chosen,
+            remindAt: remindAt,
+            clearRemindAt: chosen != 'REMINDER',
+          );
       ref.read(tasksProvider(widget.status).notifier).upsert(updated);
       _finishWrite(id, gen);
     } on ApiException catch (e) {

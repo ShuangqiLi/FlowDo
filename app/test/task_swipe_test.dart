@@ -43,6 +43,8 @@ class _FakeApi extends ApiClient {
     String? title,
     String? body,
     String? priority,
+    DateTime? remindAt,
+    bool clearRemindAt = false,
     String? status,
     String? spaceId,
   }) async {
@@ -229,8 +231,8 @@ void main() {
     await tester.pumpAndSettle();
 
     final items = find.byType(PopupMenuItem<String>);
-    expect(items, findsNWidgets(3));
-    for (final label in ['高', '中', '低']) {
+    expect(items, findsNWidgets(5));
+    for (final label in ['高', '中', '低', '无', '提醒']) {
       expect(find.descendant(of: items, matching: find.text(label)), findsOneWidget);
     }
 

@@ -1,11 +1,13 @@
 import { TaskPriority, TaskStatus } from '../task.enums';
 import {
   IsEnum,
+  IsISO8601,
   IsOptional,
   IsString,
   IsUUID,
   MaxLength,
   MinLength,
+  ValidateIf,
 } from 'class-validator';
 
 export class CreateTaskDto {
@@ -20,8 +22,13 @@ export class CreateTaskDto {
   body?: string;
 
   @IsOptional()
-  @IsEnum(TaskPriority, { message: '优先级只能是高、中、低' })
+  @IsEnum(TaskPriority, { message: '优先级只能是高、中、低、无或提醒' })
   priority?: TaskPriority;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsISO8601({}, { message: '提醒时间不太对' })
+  remindAt?: string | null;
 }
 
 export class UpdateTaskDto {
@@ -37,8 +44,13 @@ export class UpdateTaskDto {
   body?: string | null;
 
   @IsOptional()
-  @IsEnum(TaskPriority, { message: '优先级只能是高、中、低' })
+  @IsEnum(TaskPriority, { message: '优先级只能是高、中、低、无或提醒' })
   priority?: TaskPriority;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsISO8601({}, { message: '提醒时间不太对' })
+  remindAt?: string | null;
 
   @IsOptional()
   @IsEnum(TaskStatus, { message: '这个状态我还不认识' })

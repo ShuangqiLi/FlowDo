@@ -18,6 +18,8 @@ enum TaskPriority {
   HIGH
   MEDIUM
   LOW
+  NONE
+  REMINDER
 }
 
 /// 一台部署只有一行：登录密码、语音开关和当前空间。
@@ -45,6 +47,7 @@ model Space {
   createdAt               DateTime   @default(now())
   updatedAt               DateTime   @updatedAt
   tasks                   Task[]
+  notices                 Notice[]
   activeFor               Instance[] @relation("ActiveSpace")
 }
 
@@ -55,12 +58,33 @@ model Task {
   title       String
   body        String?
   status      TaskStatus   @default(TODO)
-  priority    TaskPriority @default(MEDIUM)
+  priority    TaskPriority @default(NONE)
+  /// 优先级是提醒时，到这一分钟就送进聚焦。
+  remindAt    DateTime?
+  /// 已经响过，避免到点后反复送进聚焦。
+  remindedAt  DateTime?
   completedAt DateTime?
   archivedAt  DateTime?
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
+  notices     Notice[]
 
   @@index([spaceId, status])
   @@index([spaceId, priority])
+  @@index([priority, remindAt])
+}
+
+/// 提醒到点后留在右上角通知里，直到看过。
+model Notice {
+  id        String    @id @default(uuid())
+  spaceId   String
+  space     Space     @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  taskId    String?
+  task      Task?     @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  title     String
+  message   String
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([spaceId, readAt])
 }

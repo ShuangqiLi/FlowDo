@@ -2,18 +2,66 @@ import 'package:flutter/material.dart';
 
 import '../theme.dart';
 
-const priorityOrder = ['HIGH', 'MEDIUM', 'LOW'];
+const priorityOrder = ['HIGH', 'MEDIUM', 'LOW', 'NONE', 'REMINDER'];
 
 Color priorityColor(BuildContext context, String priority) {
-  return context.flowColors.priority(priority);
+  final scheme = Theme.of(context).colorScheme;
+  return switch (priority) {
+    'NONE' => scheme.onSurfaceVariant,
+    'REMINDER' => scheme.primary,
+    _ => context.flowColors.priority(priority),
+  };
 }
 
 String priorityLabel(String priority) {
   return switch (priority) {
     'HIGH' => '高',
+    'MEDIUM' => '中',
     'LOW' => '低',
-    _ => '中',
+    'REMINDER' => '提醒',
+    _ => '无',
   };
+}
+
+/// 选一个比现在晚的分钟。取消或时间不晚于现在时返回 null。
+Future<DateTime?> showReminderTimePicker(
+  BuildContext context, {
+  DateTime? initial,
+}) async {
+  final now = DateTime.now();
+  final start = initial != null && initial.isAfter(now)
+      ? initial
+      : now.add(const Duration(hours: 1));
+  final date = await showDatePicker(
+    context: context,
+    initialDate: DateTime(start.year, start.month, start.day),
+    firstDate: DateTime(now.year, now.month, now.day),
+    lastDate: DateTime(now.year + 5),
+    helpText: '提醒哪一天',
+    cancelText: '取消',
+    confirmText: '好',
+  );
+  if (date == null || !context.mounted) {
+    return null;
+  }
+  final time = await showTimePicker(
+    context: context,
+    initialTime: TimeOfDay.fromDateTime(start),
+    helpText: '提醒的时刻',
+    cancelText: '取消',
+    confirmText: '好',
+  );
+  if (time == null || !context.mounted) {
+    return null;
+  }
+  final picked = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+  if (!picked.isAfter(DateTime.now())) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('提醒时间要比现在晚')),
+    );
+    return null;
+  }
+  return picked;
 }
 
 /// 贴着被点的优先级图标弹出的小菜单。
@@ -83,11 +131,7 @@ class _PriorityMenuRow extends StatelessWidget {
 
     return Row(
       children: [
-        Container(
-          width: 10,
-          height: 10,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-        ),
+        _PriorityMark(priority: priority, color: color, compact: true),
         const SizedBox(width: AppSpacing.sm),
         Text(
           priorityLabel(priority),
@@ -127,16 +171,55 @@ class PriorityBadge extends StatelessWidget {
             borderRadius: BorderRadius.circular(10),
             border: Border.all(color: color.withValues(alpha: 0.35)),
           ),
-          child: Text(
-            priorityLabel(priority),
-            style: TextStyle(
-              color: color,
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-              height: 1,
-            ),
-          ),
+          child: _PriorityMark(priority: priority, color: color),
         ),
+      ),
+    );
+  }
+}
+
+class _PriorityMark extends StatelessWidget {
+  const _PriorityMark({
+    required this.priority,
+    required this.color,
+    this.compact = false,
+  });
+
+  final String priority;
+  final Color color;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    if (priority == 'NONE') {
+      return Container(
+        key: const ValueKey('priority-none-mark'),
+        width: compact ? 10 : 14,
+        height: 2,
+        color: color,
+      );
+    }
+    if (priority == 'REMINDER') {
+      return Icon(
+        Icons.flag_rounded,
+        size: compact ? 14 : 16,
+        color: color,
+      );
+    }
+    if (compact) {
+      return Container(
+        width: 10,
+        height: 10,
+        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+      );
+    }
+    return Text(
+      priorityLabel(priority),
+      style: TextStyle(
+        color: color,
+        fontSize: 14,
+        fontWeight: FontWeight.w700,
+        height: 1,
       ),
     );
   }

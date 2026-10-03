@@ -245,7 +245,7 @@ class _AddTaskFabState extends ConsumerState<AddTaskFab>
     try {
       final created = await ref.read(apiProvider).createTask(
             title: title,
-            priority: 'MEDIUM',
+            priority: 'NONE',
           );
       ref.read(pendingScrollTaskIdProvider.notifier).request(created.id);
       ref.read(tasksProvider('TODO').notifier).upsert(created);

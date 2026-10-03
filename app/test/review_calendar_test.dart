@@ -116,4 +116,40 @@ void main() {
     expect(find.text('浇花'), findsOneWidget);
     expect(find.textContaining('星期四'), findsOneWidget);
   });
+
+  testWidgets('a future reminder shows a flag and its minute', (tester) async {
+    final when = DateTime(2026, 12, 15, 9, 30);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildAppTheme(),
+        home: Scaffold(
+          body: MonthReviewCalendar(
+            year: 2026,
+            month: 12,
+            days: [
+              ReviewDay(
+                date: '2026-12-15',
+                count: 0,
+                reminders: [
+                  Task(
+                    id: 'r1',
+                    title: '去邮局',
+                    status: 'TODO',
+                    priority: 'REMINDER',
+                    remindAt: when,
+                    createdAt: when,
+                    updatedAt: when,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('09:30'), findsOneWidget);
+    expect(find.byIcon(Icons.flag_rounded), findsOneWidget);
+    expect(tester.getSemantics(find.text('15')).label, contains('提醒 09:30'));
+  });
 }

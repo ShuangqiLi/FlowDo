@@ -5,6 +5,7 @@ import '../models/user.dart';
 import '../providers.dart';
 import '../theme.dart';
 import '../ui/add_task_fab.dart';
+import '../ui/notice_button.dart';
 import '../ui/briefing_clock_button.dart';
 import '../ui/password_field.dart';
 import '../ui/focus_dock.dart';
@@ -188,6 +189,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               titleSpacing: 16,
               automaticallyImplyLeading: false,
               actions: [
+                const NoticeButton(),
                 BriefingClockButton(
                   open: _showBriefing,
                   onPressed: _showBriefing ? _closeBriefing : _openBriefing,

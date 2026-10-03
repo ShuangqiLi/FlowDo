@@ -14,6 +14,18 @@
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-10-03
+
+### Added
+
+- 优先级增加「无」和「提醒」。新建任务默认无优先级，图标是一道横杠；高、中、低仍按原来的顺序
+- 把优先级改成提醒时要选一个比现在晚的分钟。到点后任务自动进入聚焦，并出现在右上角天气旁边的通知里，未读用红点标出，点开可看详情
+- 还没到期的提醒会标在今日看看的日历上，旗标和时间跟随主题色；点开当天可以看详情，过期后不再显示
+
+### Changed
+
+- 版本更新完成后页面会自己刷新，不再提示「更新太久了」
+
 ## [0.8.8] - 2026-10-03
 
 ### Fixed
@@ -357,7 +369,8 @@
 - 通过 GitHub Releases 发版（推送 `v*.*.*` 标签）
 - 账号级设置（聚焦上限、归档天数、是否显示归档页）
 
-[Unreleased]: https://github.com/ShuangqiLi/FlowDo/compare/v0.8.8...HEAD
+[Unreleased]: https://github.com/ShuangqiLi/FlowDo/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/ShuangqiLi/FlowDo/compare/v0.8.8...v0.9.0
 [0.8.8]: https://github.com/ShuangqiLi/FlowDo/compare/v0.8.7...v0.8.8
 [0.8.7]: https://github.com/ShuangqiLi/FlowDo/compare/v0.8.6...v0.8.7
 [0.8.6]: https://github.com/ShuangqiLi/FlowDo/compare/v0.8.5...v0.8.6

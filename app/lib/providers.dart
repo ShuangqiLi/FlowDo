@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'api/api_client.dart';
 import 'models/briefing.dart';
+import 'models/notice.dart';
 import 'models/space.dart';
 import 'models/task.dart';
 import 'models/user.dart';
@@ -174,6 +175,8 @@ int _priorityRank(String priority) {
     'HIGH' => 0,
     'MEDIUM' => 1,
     'LOW' => 2,
+    'REMINDER' => 3,
+    'NONE' => 4,
     _ => 9,
   };
 }
@@ -510,6 +513,9 @@ class LazySyncController extends Notifier<int> {
     if (ref.exists(spacesProvider)) {
       jobs.add(ref.read(spacesProvider.notifier).reload(quiet: quiet));
     }
+    if (ref.exists(noticesProvider)) {
+      jobs.add(ref.read(noticesProvider.notifier).refresh(quiet: quiet));
+    }
     for (final status in taskListStatuses) {
       if (ref.exists(tasksProvider(status))) {
         jobs.add(ref.read(tasksProvider(status).notifier).reload(quiet: quiet));
@@ -541,6 +547,85 @@ final appThemeProvider = Provider<AppThemeKey>((ref) {
   if (!ref.watch(authStateProvider)) return AppThemeKey.mint;
   return AppThemeKey.fromKey(ref.watch(meProvider).value?.themeKey);
 });
+
+final noticesProvider =
+    AsyncNotifierProvider<NoticesController, List<Notice>>(NoticesController.new);
+
+class NoticesController extends AsyncNotifier<List<Notice>> {
+  Timer? _timer;
+  Set<String> _seen = {};
+
+  @override
+  Future<List<Notice>> build() async {
+    ref.watch(authStateProvider);
+    ref.onDispose(() {
+      _timer?.cancel();
+      _timer = null;
+    });
+    _timer ??= Timer.periodic(const Duration(seconds: 20), (_) {
+      unawaited(refresh(quiet: true));
+    });
+    try {
+      final notices = await _fetch();
+      _seen = notices.map((notice) => notice.id).toSet();
+      return notices;
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  Future<void> refresh({bool quiet = true}) async {
+    try {
+      final notices = await _fetch();
+      final fresh = notices.where((notice) => !_seen.contains(notice.id));
+      _seen = notices.map((notice) => notice.id).toSet();
+      state = AsyncData(notices);
+      if (fresh.isNotEmpty) {
+        for (final status in ['TODO', 'FOCUS']) {
+          if (ref.exists(tasksProvider(status))) {
+            unawaited(
+              ref.read(tasksProvider(status).notifier).reload(quiet: true),
+            );
+          }
+        }
+      }
+    } catch (error, stack) {
+      if (!quiet || state.value == null) {
+        state = AsyncError(error, stack);
+      }
+    }
+  }
+
+  Future<void> markRead() async {
+    final current = state.value ?? const <Notice>[];
+    if (!current.any((notice) => notice.unread)) {
+      return;
+    }
+    final readAt = DateTime.now();
+    state = AsyncData([
+      for (final notice in current)
+        notice.unread
+            ? Notice(
+                id: notice.id,
+                taskId: notice.taskId,
+                title: notice.title,
+                message: notice.message,
+                createdAt: notice.createdAt,
+                readAt: readAt,
+              )
+            : notice,
+    ]);
+    try {
+      await ref.read(apiProvider).markNoticesRead();
+    } catch (_) {
+      unawaited(refresh());
+    }
+  }
+
+  Future<List<Notice>> _fetch() {
+    return ref.read(apiProvider).listNotices();
+  }
+}
 
 /// 首页当前底栏入口（任务池 / 聚焦 / 完成 / 归档 / 设置）。
 final homeTabProvider = NotifierProvider<HomeTabController, HomeTab>(
