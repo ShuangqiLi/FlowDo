@@ -1,8 +1,12 @@
 import '../widgets/priority_selector.dart';
 
-/// 各状态下能改什么：提醒进了聚焦就不能回任务池，也不能再和普通任务互转。
+/// 做不到的操作不要发出去。各状态下界面上只留下能成功的那几项。
 abstract final class TaskEditPolicy {
-  static bool canEditContent(String status) => status != 'ARCHIVED';
+  static bool canEditContent(String status) =>
+      status == 'TODO' || status == 'FOCUS';
+
+  static bool canMoveSpace(String status) =>
+      status == 'TODO' || status == 'FOCUS';
 
   static bool canPickPriority(String status, String priority) {
     if (status == 'TODO') {
@@ -19,10 +23,7 @@ abstract final class TaskEditPolicy {
       return List<String>.of(priorityOrder);
     }
     if (status == 'FOCUS' && current != 'REMINDER') {
-      return [
-        for (final priority in priorityOrder)
-          if (priority != 'REMINDER') priority,
-      ];
+      return const ['HIGH', 'MEDIUM', 'LOW'];
     }
     return [current];
   }

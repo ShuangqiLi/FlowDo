@@ -148,7 +148,14 @@ void main() {
     expect(TaskEditPolicy.canPickPriority('FOCUS', 'REMINDER'), isFalse);
     expect(TaskEditPolicy.canPickPriority('DONE', 'HIGH'), isFalse);
     expect(TaskEditPolicy.canPickPriority('ARCHIVED', 'HIGH'), isFalse);
-    expect(TaskEditPolicy.pickablePriorities('FOCUS', 'HIGH'), isNot(contains('REMINDER')));
+    expect(TaskEditPolicy.canEditContent('DONE'), isFalse);
+    expect(TaskEditPolicy.canEditContent('ARCHIVED'), isFalse);
+    expect(TaskEditPolicy.canMoveSpace('DONE'), isFalse);
+    expect(TaskEditPolicy.canMoveSpace('FOCUS'), isTrue);
+    expect(
+      TaskEditPolicy.pickablePriorities('FOCUS', 'HIGH'),
+      ['HIGH', 'MEDIUM', 'LOW'],
+    );
     expect(TaskEditPolicy.canReturnToPool('FOCUS', 'REMINDER'), isFalse);
     expect(TaskEditPolicy.canReturnToPool('FOCUS', 'HIGH'), isTrue);
     expect(TaskEditPolicy.canReschedule('FOCUS'), isFalse);
@@ -320,6 +327,29 @@ void main() {
     expect(find.text('喂猫'), findsOneWidget);
     expect(api.tasks.single.status, 'FOCUS');
     expect(api.updates, 0);
+    expect(find.text('提醒任务不能放回任务池'), findsNothing);
+  });
+
+  testWidgets('a focused reminder priority badge does not open', (tester) async {
+    final prefs = await SharedPreferences.getInstance();
+    final api = _FakeApi(prefs);
+    api.tasks[0] = Task(
+      id: '1',
+      title: '喂猫',
+      status: 'FOCUS',
+      priority: 'REMINDER',
+      remindAt: DateTime(2026, 10, 4, 9),
+      createdAt: DateTime(2026, 9, 25),
+      updatedAt: DateTime(2026, 9, 25),
+    );
+    await _pumpInbox(tester, api, status: 'FOCUS');
+
+    await tester.tap(find.byType(PriorityBadge), warnIfMissed: false);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(PopupMenuItem<String>), findsNothing);
+    expect(find.textContaining('不能'), findsNothing);
+    expect(api.updates, 0);
   });
 
   testWidgets('focused ordinary tasks can change rank but not become reminders',
@@ -336,12 +366,13 @@ void main() {
     );
     await _pumpInbox(tester, api, status: 'FOCUS');
 
-    await tester.tap(find.byType(PriorityBadge));
+    await tester.tap(find.byType(PriorityBadge), warnIfMissed: false);
     await tester.pumpAndSettle();
 
     final items = find.byType(PopupMenuItem<String>);
-    expect(items, findsNWidgets(4));
+    expect(items, findsNWidgets(3));
     expect(find.text('提醒'), findsNothing);
+    expect(find.text('无'), findsNothing);
 
     await tester.tap(find.descendant(of: items, matching: find.text('高')));
     await tester.pumpAndSettle();
@@ -362,7 +393,7 @@ void main() {
     );
     await _pumpInbox(tester, api, status: 'DONE');
 
-    await tester.tap(find.byType(PriorityBadge));
+    await tester.tap(find.byType(PriorityBadge), warnIfMissed: false);
     await tester.pumpAndSettle();
 
     expect(find.byType(PopupMenuItem<String>), findsNothing);

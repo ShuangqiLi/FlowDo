@@ -198,6 +198,8 @@ class SpaceSwitcher extends ConsumerWidget {
           id: current.id,
           name: name,
           themeKey: current.themeKey,
+          focusLimit: current.focusLimit,
+          focusCount: current.focusCount,
         );
         ref.read(spacesProvider.notifier).upsert(renamed);
         try {

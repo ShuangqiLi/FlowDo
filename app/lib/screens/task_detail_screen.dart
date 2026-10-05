@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../api/api_client.dart';
+import '../models/space.dart';
 import '../models/task.dart';
 import '../providers.dart';
 import '../theme.dart';
@@ -52,6 +53,8 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
 
   bool get _readOnly => !TaskEditPolicy.canEditContent(widget.task.status);
 
+  bool get _canMove => TaskEditPolicy.canMoveSpace(widget.task.status);
+
   Future<void> _saveIfNeeded() async {
     if (_saving || !_dirty || _readOnly) {
       return;
@@ -96,7 +99,18 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
   }
 
   Future<void> _moveToSpace(String spaceId) async {
-    if (_moving || _readOnly) {
+    if (_moving || !_canMove) {
+      return;
+    }
+    final spaces = ref.read(spacesProvider).value ?? const [];
+    Space? target;
+    for (final space in spaces) {
+      if (space.id == spaceId) {
+        target = space;
+        break;
+      }
+    }
+    if (widget.task.status == 'FOCUS' && (target == null || target.focusFull)) {
       return;
     }
     setState(() => _moving = true);
@@ -123,16 +137,12 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
       if (mounted) {
         Navigator.of(context).pop();
       }
-    } on ApiException catch (e) {
+    } on ApiException {
       ref.read(lazySyncProvider.notifier).settleWrite(widget.task.id, gen);
       if (ref.exists(tasksProvider(widget.task.status))) {
         ref
             .read(tasksProvider(widget.task.status).notifier)
             .upsert(widget.task);
-      }
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.message)));
       }
     } catch (e) {
       ref.read(lazySyncProvider.notifier).settleWrite(widget.task.id, gen);
@@ -188,11 +198,8 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
       if (mounted) {
         setState(() => _task = updated);
       }
-    } on ApiException catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.message)));
-      }
+    } on ApiException {
+      // 时间不合法时选择器已经拦住，这里只把界面留在原样。
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
@@ -227,7 +234,7 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
             onPressed: _onClose,
           ),
           actions: [
-            if (!_readOnly && spaces.length > 1)
+            if (_canMove && spaces.length > 1)
               PopupMenuButton<String>(
                 tooltip: '换到别的空间',
                 enabled: !_moving,
@@ -236,7 +243,8 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                   for (final space in spaces)
                     PopupMenuItem(
                       value: space.id,
-                      enabled: space.id != activeId,
+                      enabled: space.id != activeId &&
+                          !(widget.task.status == 'FOCUS' && space.focusFull),
                       child: Row(
                         children: [
                           Icon(
@@ -273,8 +281,10 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                   child: TextField(
                     controller: _title,
                     readOnly: _readOnly,
-                    decoration: const InputDecoration(
+                    maxLength: _readOnly ? null : 200,
+                    decoration: InputDecoration(
                       labelText: '要办的事',
+                      counterText: _readOnly ? null : '',
                     ),
                   ),
                 ),
@@ -290,9 +300,11 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                   ),
                   const SizedBox(height: AppSpacing.sm),
                 ],
-                if (_archived) ...[
+                if (_archived || widget.task.status == 'DONE') ...[
                   Text(
-                    '这条已经收进归档，只能看看。',
+                    _archived
+                        ? '这条已经收进归档，只能看看。'
+                        : '完成的任务只能放回任务池。',
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: scheme.onSurfaceVariant,

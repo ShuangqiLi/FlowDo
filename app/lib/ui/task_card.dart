@@ -61,27 +61,9 @@ class TaskCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(AppRadii.pill),
                 ),
               ),
-              Material(
-                color: Colors.transparent,
-                child: Builder(
-                  builder: (badgeContext) => InkWell(
-                    onTap: onPickPriority == null
-                        ? null
-                        : () => onPickPriority!(badgeContext),
-                    overlayColor: _noOverlay,
-                    splashFactory: NoSplash.splashFactory,
-                    borderRadius: BorderRadius.circular(AppRadii.control),
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(
-                        AppSpacing.sm,
-                        AppSpacing.sm,
-                        AppSpacing.xs,
-                        AppSpacing.sm,
-                      ),
-                      child: PriorityBadge(priority: task.priority),
-                    ),
-                  ),
-                ),
+              _PriorityTap(
+                onPick: onPickPriority,
+                priority: task.priority,
               ),
               Expanded(
                 child: Material(
@@ -124,6 +106,43 @@ class TaskCard extends StatelessWidget {
               const SizedBox(width: AppSpacing.sm),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PriorityTap extends StatelessWidget {
+  const _PriorityTap({required this.priority, required this.onPick});
+
+  final String priority;
+  final void Function(BuildContext anchorContext)? onPick;
+
+  static const _noOverlay = WidgetStatePropertyAll(Colors.transparent);
+
+  @override
+  Widget build(BuildContext context) {
+    final badge = Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.sm,
+        AppSpacing.sm,
+        AppSpacing.xs,
+        AppSpacing.sm,
+      ),
+      child: PriorityBadge(priority: priority),
+    );
+    if (onPick == null) {
+      return IgnorePointer(child: badge);
+    }
+    return Material(
+      color: Colors.transparent,
+      child: Builder(
+        builder: (badgeContext) => InkWell(
+          onTap: () => onPick!(badgeContext),
+          overlayColor: _noOverlay,
+          splashFactory: NoSplash.splashFactory,
+          borderRadius: BorderRadius.circular(AppRadii.control),
+          child: badge,
         ),
       ),
     );

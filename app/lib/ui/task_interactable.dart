@@ -55,13 +55,14 @@ class _TaskInteractableState extends State<TaskInteractable>
   }
 
   void _onDragUpdate(DragUpdateDetails details) {
-    var next = _dx.value + details.delta.dx;
-    if (next > 0 && _right == null) {
-      next *= 0.28;
+    var delta = details.delta.dx;
+    if (delta > 0 && _right == null) {
+      delta = 0;
     }
-    if (next < 0 && _left == null) {
-      next *= 0.28;
+    if (delta < 0 && _left == null) {
+      delta = 0;
     }
+    final next = _dx.value + delta;
     final width = context.size?.width ?? 320;
     _dx.value = next;
     _opacity.value = (1 - (next.abs() / width) * 0.45).clamp(0.45, 1.0);

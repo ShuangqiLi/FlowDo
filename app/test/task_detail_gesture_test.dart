@@ -89,6 +89,32 @@ void main() {
     expect(find.text('聚焦中'), findsOneWidget);
   });
 
+  testWidgets('a finished task is read only except returning to the pool',
+      (tester) async {
+    await _pumpDetail(
+      tester,
+      task: Task(
+        id: 'd1',
+        title: '写方案',
+        body: '记一笔',
+        status: 'DONE',
+        priority: 'MEDIUM',
+        createdAt: DateTime(2026, 9, 25),
+        updatedAt: DateTime(2026, 9, 25),
+        completedAt: DateTime(2026, 9, 25),
+      ),
+      spaces: [
+        Space(id: 'space', name: '默认'),
+        Space(id: 'work', name: '工作', focusCount: 3, focusLimit: 3),
+      ],
+    );
+
+    expect(find.text('完成的任务只能放回任务池。'), findsOneWidget);
+    expect(find.byTooltip('换到别的空间'), findsNothing);
+    final fields = tester.widgetList<TextField>(find.byType(TextField));
+    expect(fields.every((field) => field.readOnly), isTrue);
+  });
+
   testWidgets('ordinary tasks keep notes under the status row', (tester) async {
     await _pumpDetail(tester);
     expect(find.text('过程小记'), findsOneWidget);
@@ -99,7 +125,11 @@ void main() {
   });
 }
 
-Future<void> _pumpDetail(WidgetTester tester, {Task? task}) async {
+Future<void> _pumpDetail(
+  WidgetTester tester, {
+  Task? task,
+  List<Space>? spaces,
+}) async {
   final now = DateTime(2026, 9, 25);
   final me = Me(
     id: 'user',
@@ -114,7 +144,7 @@ Future<void> _pumpDetail(WidgetTester tester, {Task? task}) async {
     ProviderScope(
       overrides: [
         meOverride(me),
-        spacesOverride([Space(id: 'space', name: '默认')]),
+        spacesOverride(spaces ?? [Space(id: 'space', name: '默认')]),
       ],
       child: MaterialApp(
         theme: buildAppTheme(),

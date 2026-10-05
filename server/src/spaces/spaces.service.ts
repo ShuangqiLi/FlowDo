@@ -5,14 +5,28 @@ import {
 } from '@nestjs/common';
 import { INSTANCE_ID } from '../instance/constants';
 import { PrismaService } from '../prisma/prisma.service';
+import { TaskStatus } from '../tasks/task.enums';
 import { SpaceNameDto } from './dto/space.dto';
 
 @Injectable()
 export class SpacesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  list() {
-    return this.prisma.space.findMany({ orderBy: { createdAt: 'asc' } });
+  async list() {
+    const spaces = await this.prisma.space.findMany({
+      orderBy: { createdAt: 'asc' },
+      include: {
+        _count: {
+          select: {
+            tasks: { where: { status: TaskStatus.FOCUS } },
+          },
+        },
+      },
+    });
+    return spaces.map((space) => {
+      const { _count, ...rest } = space;
+      return { ...rest, focusCount: _count.tasks };
+    });
   }
 
   async create(dto: SpaceNameDto) {

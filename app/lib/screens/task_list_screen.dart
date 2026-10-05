@@ -155,21 +155,11 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
 
   Future<void> _setStatus(Task task, String status) async {
     if (status == 'FOCUS' && task.priority == 'REMINDER') {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('提醒任务到点会自己进聚焦')),
-        );
-      }
       return;
     }
     if (status == 'TODO' &&
         task.status == 'FOCUS' &&
         task.priority == 'REMINDER') {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('提醒任务不能放回任务池')),
-        );
-      }
       return;
     }
     var heldFocus = false;
@@ -205,7 +195,7 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
           }
         }
         _finishWrite(task.id, gen);
-      } on ApiException catch (e) {
+      } on ApiException {
         _finishWrite(task.id, gen);
         if (ref.exists(tasksProvider(widget.status))) {
           ref.read(tasksProvider(widget.status).notifier).upsert(task);
@@ -217,9 +207,6 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
           _dismissing.remove(task.id);
           _swipeGeneration[task.id] = (_swipeGeneration[task.id] ?? 0) + 1;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.message)),
-        );
       }
       return;
     }
@@ -249,7 +236,7 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
         ref.read(dest.notifier).upsert(updated);
       }
       _finishWrite(task.id, gen);
-    } on ApiException catch (e) {
+    } on ApiException {
       _finishWrite(task.id, gen);
       ref.read(tasksProvider(status).notifier).removeById(task.id);
       if (ref.exists(tasksProvider(widget.status))) {
@@ -261,16 +248,6 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
           _swipeGeneration[task.id] = (_swipeGeneration[task.id] ?? 0) + 1;
         });
       }
-      if (status == 'FOCUS') {
-        _goFocusWithHint(e.message);
-        return;
-      }
-      if (!mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message)),
-      );
     } catch (e) {
       _finishWrite(task.id, gen);
       ref.read(tasksProvider(status).notifier).removeById(task.id);
@@ -355,15 +332,9 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
       );
       ref.read(tasksProvider(widget.status).notifier).upsert(updated);
       _finishWrite(id, gen);
-    } on ApiException catch (e) {
+    } on ApiException {
       _finishWrite(id, gen);
       ref.read(tasksProvider(widget.status).notifier).upsert(task);
-      if (!mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message)),
-      );
     }
   }
 

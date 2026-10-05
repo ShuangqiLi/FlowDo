@@ -14,6 +14,14 @@
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-05
+
+### Changed
+
+- 做不到的操作在界面上直接不可用：点不动、滑不动、选不了，不再做完再弹出服务端的拒绝
+- 完成的任务只能滑回任务池，详情只读
+- 把聚焦中的任务换空间时，对方聚焦已满的空间不可选
+
 ## [1.0.1] - 2026-10-05
 
 ### Changed
@@ -432,7 +440,8 @@
 - 通过 GitHub Releases 发版（推送 `v*.*.*` 标签）
 - 账号级设置（聚焦上限、归档天数、是否显示归档页）
 
-[Unreleased]: https://github.com/ShuangqiLi/FlowDo/compare/v1.0.1...HEAD
+[Unreleased]: https://github.com/ShuangqiLi/FlowDo/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/ShuangqiLi/FlowDo/compare/v1.0.1...v1.1.0
 [1.0.1]: https://github.com/ShuangqiLi/FlowDo/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/ShuangqiLi/FlowDo/compare/v0.9.2...v1.0.0
 [0.9.2]: https://github.com/ShuangqiLi/FlowDo/compare/v0.9.1...v0.9.2

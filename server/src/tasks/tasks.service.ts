@@ -80,13 +80,19 @@ export class TasksService {
       throw new BadRequestException('归档的任务只能看，不能改啦');
     }
     if (task.status === TaskStatus.DONE) {
-      const locked =
+      const extra =
+        dto.title !== undefined ||
+        dto.body !== undefined ||
         (dto.priority !== undefined && dto.priority !== task.priority) ||
+        (dto.spaceId !== undefined && dto.spaceId !== task.spaceId) ||
         dto.remindAt !== undefined ||
         dto.remindRepeat !== undefined ||
         dto.remindCron !== undefined ||
-        dto.remindLunar !== undefined;
-      if (locked) {
+        dto.remindLunar !== undefined ||
+        (dto.status !== undefined &&
+          dto.status !== task.status &&
+          dto.status !== TaskStatus.TODO);
+      if (extra) {
         throw new BadRequestException('完成的任务只能放回任务池');
       }
     }
