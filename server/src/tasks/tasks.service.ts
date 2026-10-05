@@ -12,7 +12,11 @@ import { DEFAULT_TZ_OFFSET_MINUTES } from '../clock/zone';
 import { comparePriorityThenRecent } from './priority-order';
 import { asRemindRepeat, parseReminderInstant } from './reminder-time';
 import { RemindRepeat, TaskPriority, TaskStatus } from './task.enums';
-import { canEnterFocusManually, canTransition } from './task-status';
+import {
+  canChangePriority,
+  canEnterFocusManually,
+  canTransition,
+} from './task-status';
 
 @Injectable()
 export class TasksService {
@@ -20,6 +24,14 @@ export class TasksService {
     private readonly prisma: PrismaService,
     private readonly instance: InstanceService,
   ) {}
+
+  async get(id: string) {
+    const task = await this.prisma.task.findFirst({ where: { id } });
+    if (!task) {
+      throw new NotFoundException('这条任务找不到了');
+    }
+    return task;
+  }
 
   async list(status?: TaskStatus) {
     const space = await this.instance.activeSpace();
@@ -67,6 +79,27 @@ export class TasksService {
     if (task.status === TaskStatus.ARCHIVED) {
       throw new BadRequestException('归档的任务只能看，不能改啦');
     }
+    if (task.status === TaskStatus.DONE) {
+      const locked =
+        (dto.priority !== undefined && dto.priority !== task.priority) ||
+        dto.remindAt !== undefined ||
+        dto.remindRepeat !== undefined ||
+        dto.remindCron !== undefined ||
+        dto.remindLunar !== undefined;
+      if (locked) {
+        throw new BadRequestException('完成的任务只能放回任务池');
+      }
+    }
+    if (
+      dto.priority !== undefined &&
+      !canChangePriority(task.status, task.priority, dto.priority)
+    ) {
+      throw new BadRequestException(
+        task.status === TaskStatus.DONE
+          ? '完成的任务只能放回任务池'
+          : '进了聚焦以后，就不能再改成提醒或改回普通任务',
+      );
+    }
 
     const data: Prisma.TaskUpdateInput = {};
     if (dto.title !== undefined) {
@@ -97,7 +130,7 @@ export class TasksService {
       task.priority === TaskPriority.REMINDER &&
       dto.status !== task.status
     ) {
-      if (!canTransition(task.status, TaskStatus.DONE)) {
+      if (!canTransition(task.status, TaskStatus.DONE, task.priority)) {
         throw new BadRequestException('这条任务现在不能改成那个状态');
       }
       await this.prisma.task.delete({ where: { id } });
@@ -111,8 +144,14 @@ export class TasksService {
       ) {
         throw new BadRequestException('提醒任务到点会自己进聚焦');
       }
-      if (!canTransition(task.status, dto.status)) {
-        throw new BadRequestException('这条任务现在不能改成那个状态');
+      if (!canTransition(task.status, dto.status, task.priority)) {
+        throw new BadRequestException(
+          task.status === TaskStatus.FOCUS &&
+            dto.status === TaskStatus.TODO &&
+            task.priority === TaskPriority.REMINDER
+            ? '提醒任务不能放回任务池'
+            : '这条任务现在不能改成那个状态',
+        );
       }
       data.status = dto.status;
       if (dto.status === TaskStatus.DONE) {

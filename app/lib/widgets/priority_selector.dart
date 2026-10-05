@@ -26,6 +26,7 @@ String priorityLabel(String priority) {
 Future<String?> showPriorityPicker(
   BuildContext anchorContext, {
   required String current,
+  List<String>? allowed,
 }) {
   final anchor = anchorContext.findRenderObject() as RenderBox?;
   final overlay =
@@ -64,7 +65,7 @@ Future<String?> showPriorityPicker(
       curve: AppMotion.curve,
     ),
     items: [
-      for (final p in priorityOrder)
+      for (final p in allowed ?? priorityOrder)
         PopupMenuItem<String>(
           value: p,
           height: 40,

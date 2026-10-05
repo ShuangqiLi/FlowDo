@@ -15,6 +15,7 @@ import '../ui/flowdo_page_route.dart';
 import '../ui/focus_admission.dart';
 import '../ui/focus_dock.dart';
 import '../ui/task_card.dart';
+import '../ui/task_edit_policy.dart';
 import '../ui/task_interactable.dart';
 import '../widgets/priority_selector.dart';
 import 'task_detail_screen.dart';
@@ -161,6 +162,16 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
       }
       return;
     }
+    if (status == 'TODO' &&
+        task.status == 'FOCUS' &&
+        task.priority == 'REMINDER') {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('提醒任务不能放回任务池')),
+        );
+      }
+      return;
+    }
     var heldFocus = false;
     if (status == 'FOCUS') {
       final limit = ref.read(meProvider).value?.focusLimit ?? 3;
@@ -283,13 +294,21 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
   }
 
   Future<void> _pickPriority(BuildContext anchorContext, Task task) async {
+    if (!TaskEditPolicy.canPickPriority(task.status, task.priority)) {
+      return;
+    }
     final id = task.id;
     final current = task.priority;
+    final allowed = TaskEditPolicy.pickablePriorities(task.status, current);
     final chosen = await showPriorityPicker(
       anchorContext,
       current: current,
+      allowed: allowed,
     );
     if (chosen == null || !anchorContext.mounted) {
+      return;
+    }
+    if (!allowed.contains(chosen)) {
       return;
     }
     if (chosen == current && chosen != 'REMINDER') {
@@ -407,9 +426,9 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen>
         ref.read(lazySyncProvider.notifier).protectLocalWrite();
         ref.read(lazySyncProvider.notifier).schedule();
       },
-      onPickPriority: widget.status == 'ARCHIVED'
-          ? null
-          : (anchor) => _pickPriority(anchor, task),
+      onPickPriority: TaskEditPolicy.canPickPriority(widget.status, task.priority)
+          ? (anchor) => _pickPriority(anchor, task)
+          : null,
     );
   }
 

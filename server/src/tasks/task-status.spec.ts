@@ -1,4 +1,8 @@
-import { canEnterFocusManually, canTransition } from './task-status';
+import {
+  canChangePriority,
+  canEnterFocusManually,
+  canTransition,
+} from './task-status';
 import { TaskPriority, TaskStatus } from './task.enums';
 
 describe('canTransition', () => {
@@ -18,6 +22,18 @@ describe('canTransition', () => {
     expect(canTransition(TaskStatus.ARCHIVED, TaskStatus.FOCUS)).toBe(false);
     expect(canTransition(TaskStatus.ARCHIVED, TaskStatus.DONE)).toBe(false);
   });
+
+  it('keeps reminder tasks in focus instead of sending them back to the pool', () => {
+    expect(
+      canTransition(TaskStatus.FOCUS, TaskStatus.TODO, TaskPriority.REMINDER),
+    ).toBe(false);
+    expect(
+      canTransition(TaskStatus.FOCUS, TaskStatus.DONE, TaskPriority.REMINDER),
+    ).toBe(true);
+    expect(
+      canTransition(TaskStatus.FOCUS, TaskStatus.TODO, TaskPriority.HIGH),
+    ).toBe(true);
+  });
 });
 
 describe('canEnterFocusManually', () => {
@@ -28,5 +44,49 @@ describe('canEnterFocusManually', () => {
 
   it('keeps reminder tasks out until they fire', () => {
     expect(canEnterFocusManually(TaskPriority.REMINDER)).toBe(false);
+  });
+});
+
+describe('canChangePriority', () => {
+  it('lets inbox tasks become reminders or ordinary tasks', () => {
+    expect(
+      canChangePriority(TaskStatus.TODO, TaskPriority.NONE, TaskPriority.REMINDER),
+    ).toBe(true);
+    expect(
+      canChangePriority(TaskStatus.TODO, TaskPriority.REMINDER, TaskPriority.HIGH),
+    ).toBe(true);
+  });
+
+  it('lets focused ordinary tasks change rank but not become reminders', () => {
+    expect(
+      canChangePriority(TaskStatus.FOCUS, TaskPriority.HIGH, TaskPriority.LOW),
+    ).toBe(true);
+    expect(
+      canChangePriority(
+        TaskStatus.FOCUS,
+        TaskPriority.HIGH,
+        TaskPriority.REMINDER,
+      ),
+    ).toBe(false);
+    expect(
+      canChangePriority(
+        TaskStatus.FOCUS,
+        TaskPriority.REMINDER,
+        TaskPriority.NONE,
+      ),
+    ).toBe(false);
+  });
+
+  it('locks done and archived priorities', () => {
+    expect(
+      canChangePriority(TaskStatus.DONE, TaskPriority.HIGH, TaskPriority.LOW),
+    ).toBe(false);
+    expect(
+      canChangePriority(
+        TaskStatus.ARCHIVED,
+        TaskPriority.NONE,
+        TaskPriority.HIGH,
+      ),
+    ).toBe(false);
   });
 });

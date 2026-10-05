@@ -34,7 +34,10 @@ class _TaskInteractableState extends State<TaskInteractable>
         widget.task.status,
         priority: widget.task.priority,
       );
-  TaskSwipeHint? get _left => TaskGesturePolicy.swipeLeft(widget.task.status);
+  TaskSwipeHint? get _left => TaskGesturePolicy.swipeLeft(
+        widget.task.status,
+        priority: widget.task.priority,
+      );
 
   @override
   void initState() {

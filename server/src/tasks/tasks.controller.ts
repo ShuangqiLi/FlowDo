@@ -37,6 +37,20 @@ export class TasksController {
     return this.tasks.list(status);
   }
 
+  @Get(':id')
+  get(
+    @Param(
+      'id',
+      new ParseUUIDPipe({
+        exceptionFactory: () =>
+          new BadRequestException('这条任务编号不太对'),
+      }),
+    )
+    id: string,
+  ) {
+    return this.tasks.get(id);
+  }
+
   @Post()
   create(@Body() dto: CreateTaskDto) {
     return this.tasks.create(dto);

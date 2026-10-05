@@ -69,6 +69,38 @@ void main() {
     expect(find.text('还没有通知'), findsNothing);
     expect(find.text('清空'), findsNothing);
   });
+
+  testWidgets('notice names the space in that space theme color', (tester) async {
+    final theme = buildAppTheme();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: theme,
+        home: Scaffold(
+          body: NoticePanel(
+            notices: [
+              Notice(
+                id: '1',
+                title: '开会',
+                message: '到点了，已经放进聚焦',
+                createdAt: DateTime(2026, 10, 3, 22, 17),
+                spaceId: 'work',
+                spaceName: '工作',
+                spaceThemeKey: 'hazeBlue',
+              ),
+            ],
+            onOpen: _noopOpen,
+            onClear: _noopClear,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('开会'), findsOneWidget);
+    expect(find.text('工作'), findsOneWidget);
+    expect(find.text('10月3日 22:17'), findsOneWidget);
+    final space = tester.widget<Text>(find.text('工作'));
+    expect(space.style?.color, AppThemeKey.hazeBlue.preview);
+  });
 }
 
 void _noopOpen(Notice notice) {}

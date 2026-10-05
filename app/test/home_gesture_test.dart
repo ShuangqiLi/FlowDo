@@ -31,7 +31,7 @@ class _FakeApi extends ApiClient {
   ];
 
   @override
-  Future<List<Notice>> listNotices() async => const [];
+  Future<NoticeWatch> listNotices() async => const NoticeWatch(notices: []);
 
   @override
   Future<void> markNoticesRead() async {}

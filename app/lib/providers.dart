@@ -251,7 +251,11 @@ class PendingTaskWrites {
     var changed = false;
     for (final task in server) {
       final hold = _holds[task.id];
-      if (hold == null || hold.spaceId != spaceId) {
+      if (hold == null) {
+        result.add(task);
+        continue;
+      }
+      if (hold.spaceId != null && hold.spaceId != spaceId) {
         result.add(task);
         continue;
       }
@@ -265,7 +269,9 @@ class PendingTaskWrites {
     for (final entry in _holds.entries) {
       final hold = entry.value;
       final task = hold.task;
-      if (hold.spaceId != spaceId || task == null || task.status != status) {
+      if ((hold.spaceId != null && hold.spaceId != spaceId) ||
+          task == null ||
+          task.status != status) {
         continue;
       }
       if (placed.contains(task.id)) {
@@ -579,6 +585,9 @@ class NoticesController extends AsyncNotifier<List<Notice>> {
   Timer? _timer;
   Timer? _dueTimer;
   Set<String> _seen = {};
+  final Set<String> _announced = {};
+  List<PendingReminder> _pending = const [];
+  var _firingDue = false;
 
   /// 仅一次的提醒到点后先本地挪进聚焦，记下这次挂起的代数，等服务端也挪走再放开。
   final Map<String, int> _holdGens = {};
@@ -605,9 +614,10 @@ class NoticesController extends AsyncNotifier<List<Notice>> {
       _scheduleDueCheck();
     });
     try {
-      final notices = await _fetch();
-      _seen = notices.map((notice) => notice.id).toSet();
-      return notices;
+      final watch = await _fetch();
+      _pending = watch.pending;
+      _seen = watch.notices.map((notice) => notice.id).toSet();
+      return _mergeWithLocals(watch.notices);
     } catch (_) {
       return const [];
     }
@@ -615,12 +625,14 @@ class NoticesController extends AsyncNotifier<List<Notice>> {
 
   Future<void> refresh({bool quiet = true}) async {
     try {
-      _promoteDueLocally();
-      final notices = await _fetch();
+      _fireDue();
+      final watch = await _fetch();
+      _pending = watch.pending;
       final fresh =
-          notices.where((notice) => !_seen.contains(notice.id)).toList();
-      _seen = notices.map((notice) => notice.id).toSet();
-      state = AsyncData(notices);
+          watch.notices.where((notice) => !_seen.contains(notice.id)).toList();
+      _seen = watch.notices.map((notice) => notice.id).toSet();
+      _fireDue();
+      state = AsyncData(_mergeWithLocals(watch.notices));
       if (fresh.isNotEmpty || _holdGens.isNotEmpty) {
         await _reconcileTaskLists();
       }
@@ -633,40 +645,213 @@ class NoticesController extends AsyncNotifier<List<Notice>> {
 
   void _scheduleDueCheck() {
     _dueTimer?.cancel();
-    _promoteDueLocally();
-    final todoProvider = tasksProvider('TODO');
-    if (!ref.exists(todoProvider)) {
-      return;
-    }
-    final todo = ref.read(todoProvider).asData?.value;
-    if (todo == null) {
-      return;
-    }
+    _fireDue();
     final now = DateTime.now();
     DateTime? next;
-    for (final task in todo) {
-      final at = task.remindAt;
-      if (task.priority != 'REMINDER' ||
-          task.remindRepeat != 'ONCE' ||
-          at == null ||
-          !at.isAfter(now)) {
-        continue;
+    void consider(DateTime? at) {
+      if (at == null || !at.isAfter(now)) {
+        return;
       }
-      if (next == null || at.isBefore(next)) {
+      if (next == null || at.isBefore(next!)) {
         next = at;
+      }
+    }
+
+    for (final reminder in _pending) {
+      consider(reminder.remindAt);
+    }
+    final todoProvider = tasksProvider('TODO');
+    if (ref.exists(todoProvider)) {
+      final todo = ref.read(todoProvider).asData?.value;
+      if (todo != null) {
+        for (final task in todo) {
+          if (task.priority != 'REMINDER') {
+            continue;
+          }
+          consider(task.remindAt);
+        }
       }
     }
     if (next == null) {
       return;
     }
-    var delay = next.difference(now);
+    var delay = next!.difference(now);
     if (delay < const Duration(milliseconds: 200)) {
       delay = const Duration(milliseconds: 200);
     }
     _dueTimer = Timer(delay, () {
-      _promoteDueLocally();
+      _fireDue();
       unawaited(refresh(quiet: true));
     });
+  }
+
+  void _fireDue() {
+    if (_firingDue) {
+      return;
+    }
+    _firingDue = true;
+    try {
+      final extras = _dueLocals();
+      _promoteDueLocally();
+      if (extras.isEmpty) {
+        return;
+      }
+      final current = List<Notice>.of(state.value ?? const []);
+      current.insertAll(0, extras);
+      state = AsyncData(current);
+    } finally {
+      _firingDue = false;
+    }
+  }
+
+  List<Notice> _dueLocals() {
+    final now = DateTime.now();
+    final extras = <Notice>[];
+    void add({
+      required String taskId,
+      required String title,
+      required DateTime at,
+      String? spaceId,
+      String? spaceName,
+      String? spaceThemeKey,
+    }) {
+      if (at.isAfter(now)) {
+        return;
+      }
+      final key = '$taskId@${at.toUtc().millisecondsSinceEpoch}';
+      if (_announced.contains(key)) {
+        return;
+      }
+      _announced.add(key);
+      extras.add(
+        _localNotice(
+          taskId: taskId,
+          title: title,
+          at: at,
+          spaceId: spaceId,
+          spaceName: spaceName,
+          spaceThemeKey: spaceThemeKey,
+        ),
+      );
+    }
+
+    final todoProvider = tasksProvider('TODO');
+    if (ref.exists(todoProvider)) {
+      final todo = ref.read(todoProvider).asData?.value;
+      if (todo != null) {
+        for (final task in todo) {
+          final at = task.remindAt;
+          if (task.priority != 'REMINDER' || at == null) {
+            continue;
+          }
+          add(
+            taskId: task.id,
+            title: task.title,
+            at: at,
+            spaceId: task.spaceId,
+          );
+        }
+      }
+    }
+    for (final reminder in _pending) {
+      add(
+        taskId: reminder.id,
+        title: reminder.title,
+        at: reminder.remindAt,
+        spaceId: reminder.spaceId,
+        spaceName: reminder.spaceName,
+        spaceThemeKey: reminder.spaceThemeKey,
+      );
+    }
+    return extras;
+  }
+
+  Notice _localNotice({
+    required String taskId,
+    required String title,
+    required DateTime at,
+    String? spaceId,
+    String? spaceName,
+    String? spaceThemeKey,
+  }) {
+    final space = _spaceInfo(spaceId);
+    return Notice(
+      id: 'local:$taskId:${at.toUtc().millisecondsSinceEpoch}',
+      taskId: taskId,
+      title: title,
+      message: '到点了，已经放进聚焦',
+      createdAt: DateTime.now(),
+      spaceId: spaceId ?? space.id,
+      spaceName: (spaceName != null && spaceName.isNotEmpty)
+          ? spaceName
+          : space.name,
+      spaceThemeKey: spaceThemeKey ?? space.themeKey,
+    );
+  }
+
+  ({String? id, String name, String themeKey}) _spaceInfo(String? spaceId) {
+    final spaces = ref.exists(spacesProvider)
+        ? (ref.read(spacesProvider).asData?.value ?? const <Space>[])
+        : const <Space>[];
+    Space? match;
+    if (spaceId != null) {
+      for (final space in spaces) {
+        if (space.id == spaceId) {
+          match = space;
+          break;
+        }
+      }
+    }
+    match ??= () {
+      final activeId = ref.read(meProvider).asData?.value.activeSpaceId;
+      for (final space in spaces) {
+        if (space.id == activeId) {
+          return space;
+        }
+      }
+      return spaces.isEmpty ? null : spaces.first;
+    }();
+    return (
+      id: match?.id ?? spaceId,
+      name: match?.name ?? '',
+      themeKey: match?.themeKey ?? 'mint',
+    );
+  }
+
+  List<Notice> _mergeWithLocals(List<Notice> server) {
+    final previous = state.value ?? const <Notice>[];
+    final locals = [
+      ...previous.where((notice) => notice.isLocal),
+      ..._dueLocals(),
+    ];
+    final kept = <Notice>[];
+    final used = <String>{};
+    for (final local in locals) {
+      if (used.contains(local.id)) {
+        continue;
+      }
+      used.add(local.id);
+      if (server.any((notice) => _covers(notice, local))) {
+        continue;
+      }
+      kept.add(local);
+    }
+    final merged = [...server, ...kept];
+    merged.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return merged;
+  }
+
+  bool _covers(Notice server, Notice local) {
+    if (local.taskId != null && server.taskId == local.taskId) {
+      return true;
+    }
+    if (server.spaceId == local.spaceId &&
+        server.title == local.title &&
+        server.createdAt.difference(local.createdAt).abs() <
+            const Duration(minutes: 2)) {
+      return true;
+    }
+    return false;
   }
 
   /// 到点的仅一次提醒先从任务池拿掉，放进聚焦。循环提醒留在任务池，等服务端克隆。
@@ -692,10 +877,9 @@ class NoticesController extends AsyncNotifier<List<Notice>> {
       return;
     }
     final holds = ref.read(pendingTaskWritesProvider);
-    final spaceId = ref.read(meProvider).asData?.value.activeSpaceId;
+    final spaceId = ref.read(meProvider).value?.activeSpaceId;
     final focusProvider = tasksProvider('FOCUS');
-    final focusReady =
-        ref.exists(focusProvider) && ref.read(focusProvider).hasValue;
+    final focusExists = ref.exists(focusProvider);
     for (final task in due) {
       if (holds.isPending(task.id)) {
         if (_holdGens.containsKey(task.id)) {
@@ -703,14 +887,17 @@ class NoticesController extends AsyncNotifier<List<Notice>> {
         }
         continue;
       }
-      final moved = task.copyWith(status: 'FOCUS');
+      final moved = task.copyWith(
+        status: 'FOCUS',
+        spaceId: task.spaceId ?? spaceId,
+      );
       _holdGens[task.id] = holds.begin(
         id: task.id,
-        spaceId: spaceId,
+        spaceId: moved.spaceId ?? spaceId,
         task: moved,
       );
       ref.read(todoProvider.notifier).removeById(task.id);
-      if (focusReady) {
+      if (focusExists) {
         ref.read(focusProvider.notifier).upsert(moved);
       }
     }
@@ -747,16 +934,7 @@ class NoticesController extends AsyncNotifier<List<Notice>> {
     final readAt = DateTime.now();
     state = AsyncData([
       for (final notice in current)
-        notice.unread
-            ? Notice(
-                id: notice.id,
-                taskId: notice.taskId,
-                title: notice.title,
-                message: notice.message,
-                createdAt: notice.createdAt,
-                readAt: readAt,
-              )
-            : notice,
+        notice.unread ? notice.copyWith(readAt: readAt) : notice,
     ]);
     try {
       await ref.read(apiProvider).markNoticesRead();
@@ -775,7 +953,7 @@ class NoticesController extends AsyncNotifier<List<Notice>> {
     }
   }
 
-  Future<List<Notice>> _fetch() {
+  Future<NoticeWatch> _fetch() {
     return ref.read(apiProvider).listNotices();
   }
 }

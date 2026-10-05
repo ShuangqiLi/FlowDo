@@ -13,13 +13,15 @@ class _ReminderApi extends ApiClient {
 
   final List<Task> tasks = [];
   final List<Notice> notices = [];
+  final List<PendingReminder> pending = [];
 
   @override
   Future<List<Task>> listTasks({String? status}) async =>
       tasks.where((task) => task.status == status).toList();
 
   @override
-  Future<List<Notice>> listNotices() async => List<Notice>.of(notices);
+  Future<NoticeWatch> listNotices() async =>
+      NoticeWatch(notices: List<Notice>.of(notices), pending: List.of(pending));
 }
 
 Task _task({
@@ -33,6 +35,7 @@ Task _task({
     title: '浇花',
     status: status,
     priority: 'REMINDER',
+    spaceId: 'space',
     remindAt: remindAt,
     remindRepeat: repeat,
     createdAt: DateTime(2026, 10, 3, 21),
@@ -103,6 +106,11 @@ void main() {
       container.read(tasksProvider('FOCUS')).value!.map((task) => task.id),
       ['once'],
     );
+    final local = container.read(noticesProvider).value!;
+    expect(local, isNotEmpty);
+    expect(local.single.unread, isTrue);
+    expect(local.single.title, '浇花');
+    expect(local.single.isLocal, isTrue);
 
     await container.read(noticesProvider.notifier).refresh();
 
@@ -140,6 +148,8 @@ void main() {
       container.read(tasksProvider('FOCUS')).value!.single.id,
       'once',
     );
+    expect(container.read(noticesProvider).value!.single.id, 'n1');
+    expect(container.read(noticesProvider).value!.single.isLocal, isFalse);
   });
 
   test('a repeating reminder stays in the pool when its copy enters focus',
@@ -181,5 +191,31 @@ void main() {
       container.read(tasksProvider('FOCUS')).value!.map((task) => task.id),
       ['clone'],
     );
+  });
+
+  test('a due reminder in another space still lights the notice immediately',
+      () async {
+    final due = DateTime.now().subtract(const Duration(minutes: 1));
+    api.pending.add(
+      PendingReminder(
+        id: 'other',
+        title: '开会',
+        spaceId: 'work',
+        spaceName: '工作',
+        spaceThemeKey: 'hazeBlue',
+        remindAt: due,
+        remindRepeat: 'ONCE',
+        status: 'TODO',
+      ),
+    );
+    await loadLists();
+    await container.read(noticesProvider.notifier).refresh();
+
+    final notices = container.read(noticesProvider).value!;
+    expect(notices.single.title, '开会');
+    expect(notices.single.spaceName, '工作');
+    expect(notices.single.spaceThemeKey, 'hazeBlue');
+    expect(notices.single.unread, isTrue);
+    expect(container.read(tasksProvider('FOCUS')).value, isEmpty);
   });
 }

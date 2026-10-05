@@ -6,6 +6,7 @@ import '../models/task.dart';
 import '../providers.dart';
 import '../theme.dart';
 import '../ui/flowdo_card.dart';
+import '../ui/task_edit_policy.dart';
 import '../widgets/priority_selector.dart';
 
 class TaskDetailScreen extends ConsumerStatefulWidget {
@@ -49,8 +50,10 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
 
   bool get _archived => widget.task.status == 'ARCHIVED';
 
+  bool get _readOnly => !TaskEditPolicy.canEditContent(widget.task.status);
+
   Future<void> _saveIfNeeded() async {
-    if (_saving || !_dirty || _archived) {
+    if (_saving || !_dirty || _readOnly) {
       return;
     }
     final title = _title.text.trim();
@@ -93,7 +96,7 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
   }
 
   Future<void> _moveToSpace(String spaceId) async {
-    if (_moving || _archived) {
+    if (_moving || _readOnly) {
       return;
     }
     setState(() => _moving = true);
@@ -150,7 +153,7 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
   }
 
   Future<void> _reschedule() async {
-    if (_rescheduling || _archived) {
+    if (_rescheduling || !TaskEditPolicy.canReschedule(_task.status)) {
       return;
     }
     final plan = await showReminderTimePicker(
@@ -224,7 +227,7 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
             onPressed: _onClose,
           ),
           actions: [
-            if (!_archived && spaces.length > 1)
+            if (!_readOnly && spaces.length > 1)
               PopupMenuButton<String>(
                 tooltip: '换到别的空间',
                 enabled: !_moving,
@@ -269,7 +272,7 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                 FlowDoCard(
                   child: TextField(
                     controller: _title,
-                    readOnly: _archived,
+                    readOnly: _readOnly,
                     decoration: const InputDecoration(
                       labelText: '要办的事',
                     ),
@@ -280,7 +283,10 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                   _ReminderCard(
                     task: _task,
                     busy: _rescheduling,
-                    onReschedule: _archived ? null : _reschedule,
+                    onReschedule:
+                        TaskEditPolicy.canReschedule(_task.status)
+                            ? _reschedule
+                            : null,
                   ),
                   const SizedBox(height: AppSpacing.sm),
                 ],
@@ -299,14 +305,14 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                     child: FlowDoCard(
                       child: TextField(
                         controller: _body,
-                        readOnly: _archived,
+                        readOnly: _readOnly,
                         expands: true,
                         minLines: null,
                         maxLines: null,
                         textAlignVertical: TextAlignVertical.top,
                         decoration: InputDecoration(
                           labelText: '过程小记',
-                          hintText: _archived ? null : '想到什么就记一笔（可选）',
+                          hintText: _readOnly ? null : '想到什么就记一笔（可选）',
                           alignLabelWithHint: true,
                         ),
                       ),

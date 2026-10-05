@@ -8,6 +8,7 @@ import 'package:flowdo/models/user.dart';
 import 'package:flowdo/providers.dart';
 import 'package:flowdo/screens/task_list_screen.dart';
 import 'package:flowdo/theme.dart';
+import 'package:flowdo/ui/task_edit_policy.dart';
 import 'package:flowdo/ui/task_gesture_policy.dart';
 import 'package:flowdo/widgets/priority_selector.dart';
 import 'provider_overrides.dart';
@@ -75,6 +76,7 @@ Future<void> _pumpInbox(
   WidgetTester tester,
   _FakeApi api, {
   TargetPlatform platform = TargetPlatform.iOS,
+  String status = 'TODO',
 }) async {
   final me = Me(
     id: 'user',
@@ -93,7 +95,7 @@ Future<void> _pumpInbox(
       ],
       child: MaterialApp(
         theme: buildAppTheme().copyWith(platform: platform),
-        home: const Scaffold(body: TaskListScreen(status: 'TODO')),
+        home: Scaffold(body: TaskListScreen(status: status)),
       ),
     ),
   );
@@ -133,7 +135,24 @@ void main() {
     expect(TaskGesturePolicy.swipeLeft('TODO')?.status, 'DELETE');
     expect(TaskGesturePolicy.swipeRight('FOCUS')?.status, 'DONE');
     expect(TaskGesturePolicy.swipeLeft('FOCUS')?.status, 'TODO');
+    expect(
+      TaskGesturePolicy.swipeLeft('FOCUS', priority: 'REMINDER'),
+      isNull,
+    );
     expect(TaskGesturePolicy.swipeLeft('DONE')?.status, 'TODO');
+  });
+
+  test('focus and done lock reminder conversion', () {
+    expect(TaskEditPolicy.canPickPriority('TODO', 'REMINDER'), isTrue);
+    expect(TaskEditPolicy.canPickPriority('FOCUS', 'HIGH'), isTrue);
+    expect(TaskEditPolicy.canPickPriority('FOCUS', 'REMINDER'), isFalse);
+    expect(TaskEditPolicy.canPickPriority('DONE', 'HIGH'), isFalse);
+    expect(TaskEditPolicy.canPickPriority('ARCHIVED', 'HIGH'), isFalse);
+    expect(TaskEditPolicy.pickablePriorities('FOCUS', 'HIGH'), isNot(contains('REMINDER')));
+    expect(TaskEditPolicy.canReturnToPool('FOCUS', 'REMINDER'), isFalse);
+    expect(TaskEditPolicy.canReturnToPool('FOCUS', 'HIGH'), isTrue);
+    expect(TaskEditPolicy.canReschedule('FOCUS'), isFalse);
+    expect(TaskEditPolicy.canEditContent('ARCHIVED'), isFalse);
   });
 
   testWidgets('swiping a pool task to the right moves it to focus', (tester) async {
@@ -279,5 +298,74 @@ void main() {
 
     expect(tester.takeException(), isNull);
     expect(api.tasks.single.priority, 'LOW');
+  });
+
+  testWidgets('a focused reminder cannot swipe back to the pool', (tester) async {
+    final prefs = await SharedPreferences.getInstance();
+    final api = _FakeApi(prefs);
+    api.tasks[0] = Task(
+      id: '1',
+      title: '喂猫',
+      status: 'FOCUS',
+      priority: 'REMINDER',
+      remindAt: DateTime(2026, 10, 4, 9),
+      createdAt: DateTime(2026, 9, 25),
+      updatedAt: DateTime(2026, 9, 25),
+    );
+    await _pumpInbox(tester, api, status: 'FOCUS');
+
+    await _swipeLeft(tester, find.text('喂猫'));
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('喂猫'), findsOneWidget);
+    expect(api.tasks.single.status, 'FOCUS');
+    expect(api.updates, 0);
+  });
+
+  testWidgets('focused ordinary tasks can change rank but not become reminders',
+      (tester) async {
+    final prefs = await SharedPreferences.getInstance();
+    final api = _FakeApi(prefs);
+    api.tasks[0] = Task(
+      id: '1',
+      title: '喂猫',
+      status: 'FOCUS',
+      priority: 'MEDIUM',
+      createdAt: DateTime(2026, 9, 25),
+      updatedAt: DateTime(2026, 9, 25),
+    );
+    await _pumpInbox(tester, api, status: 'FOCUS');
+
+    await tester.tap(find.byType(PriorityBadge));
+    await tester.pumpAndSettle();
+
+    final items = find.byType(PopupMenuItem<String>);
+    expect(items, findsNWidgets(4));
+    expect(find.text('提醒'), findsNothing);
+
+    await tester.tap(find.descendant(of: items, matching: find.text('高')));
+    await tester.pumpAndSettle();
+    expect(api.tasks.single.priority, 'HIGH');
+  });
+
+  testWidgets('done tasks cannot change priority', (tester) async {
+    final prefs = await SharedPreferences.getInstance();
+    final api = _FakeApi(prefs);
+    api.tasks[0] = Task(
+      id: '1',
+      title: '喂猫',
+      status: 'DONE',
+      priority: 'MEDIUM',
+      createdAt: DateTime(2026, 9, 25),
+      updatedAt: DateTime(2026, 9, 25),
+      completedAt: DateTime(2026, 9, 25),
+    );
+    await _pumpInbox(tester, api, status: 'DONE');
+
+    await tester.tap(find.byType(PriorityBadge));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(PopupMenuItem<String>), findsNothing);
+    expect(api.updates, 0);
   });
 }

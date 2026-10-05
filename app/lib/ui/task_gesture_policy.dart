@@ -12,7 +12,7 @@ class TaskSwipeHint {
   final String label;
 }
 
-/// 全平台同一套左右滑规则。提醒任务不能手滑进聚焦，到点后自己进去。
+/// 全平台同一套左右滑规则。提醒任务不能手滑进聚焦，进了聚焦也不能滑回任务池。
 abstract final class TaskGesturePolicy {
   static TaskSwipeHint? swipeRight(String status, {String? priority}) {
     if (status == 'TODO' && priority == 'REMINDER') {
@@ -33,7 +33,10 @@ abstract final class TaskGesturePolicy {
     };
   }
 
-  static TaskSwipeHint? swipeLeft(String status) {
+  static TaskSwipeHint? swipeLeft(String status, {String? priority}) {
+    if (status == 'FOCUS' && priority == 'REMINDER') {
+      return null;
+    }
     return switch (status) {
       'TODO' => const TaskSwipeHint(
           status: 'DELETE',

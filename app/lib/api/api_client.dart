@@ -297,11 +297,14 @@ class ApiClient {
     await _request('DELETE', '/tasks/$id');
   }
 
-  Future<List<Notice>> listNotices() async {
+  Future<Task> getTask(String id) async {
+    final json = await _request('GET', '/tasks/$id');
+    return Task.fromJson(json as Map<String, dynamic>);
+  }
+
+  Future<NoticeWatch> listNotices() async {
     final json = await _request('GET', '/notices');
-    return (json as List<dynamic>)
-        .map((e) => Notice.fromJson(e as Map<String, dynamic>))
-        .toList();
+    return NoticeWatch.fromJson(json);
   }
 
   Future<void> markNoticesRead() async {

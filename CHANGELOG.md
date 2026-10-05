@@ -14,6 +14,13 @@
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-10-05
+
+### Changed
+
+- 提醒到点后通知和红点在客户端马上出现，不再等下一轮拉取；通知跨所有空间都能看到，并标出任务所属空间及该空间主题色
+- 提醒任务进了聚焦就不能再放回任务池；聚焦 / 完成 / 归档也不能再把提醒和普通任务互相改，完成的任务只能放回任务池，归档只读
+
 ## [1.0.0] - 2026-10-03
 
 ### Added
@@ -425,7 +432,8 @@
 - 通过 GitHub Releases 发版（推送 `v*.*.*` 标签）
 - 账号级设置（聚焦上限、归档天数、是否显示归档页）
 
-[Unreleased]: https://github.com/ShuangqiLi/FlowDo/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/ShuangqiLi/FlowDo/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/ShuangqiLi/FlowDo/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/ShuangqiLi/FlowDo/compare/v0.9.2...v1.0.0
 [0.9.2]: https://github.com/ShuangqiLi/FlowDo/compare/v0.9.1...v0.9.2
 [0.9.1]: https://github.com/ShuangqiLi/FlowDo/compare/v0.9.0...v0.9.1

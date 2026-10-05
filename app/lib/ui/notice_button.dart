@@ -78,13 +78,73 @@ class NoticeButton extends ConsumerWidget {
     if (selected is! Notice || selected.taskId == null || !context.mounted) {
       return;
     }
-    final task = _findTask(ref, selected.taskId!);
+    await _openTask(context, ref, selected);
+  }
+
+  Future<void> _openTask(
+    BuildContext context,
+    WidgetRef ref,
+    Notice notice,
+  ) async {
+    final taskId = notice.taskId;
+    if (taskId == null) {
+      return;
+    }
+    final spaceId = notice.spaceId;
+    final activeId = ref.read(meProvider).value?.activeSpaceId;
+    if (spaceId != null && spaceId != activeId) {
+      try {
+        await switchActiveSpace(ref, spaceId);
+      } catch (error) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('$error')),
+          );
+        }
+        return;
+      }
+    }
+    if (!context.mounted) {
+      return;
+    }
+    var task = _findTask(ref, taskId);
+    task ??= _findCachedTask(ref, spaceId, taskId);
     if (task == null) {
+      try {
+        task = await ref.read(apiProvider).getTask(taskId);
+      } catch (_) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('这条已经不在了')),
+          );
+        }
+        return;
+      }
+    }
+    if (!context.mounted) {
       return;
     }
     await Navigator.of(context).push(
-      FlowDoPageRoute(builder: (_) => TaskDetailScreen(task: task)),
+      FlowDoPageRoute(builder: (_) => TaskDetailScreen(task: task!)),
     );
+  }
+
+  Task? _findCachedTask(WidgetRef ref, String? spaceId, String id) {
+    if (spaceId == null) {
+      return null;
+    }
+    final lists = ref.read(spaceSnapshotCacheProvider).tasksFor(spaceId);
+    if (lists == null) {
+      return null;
+    }
+    for (final tasks in lists.values) {
+      for (final task in tasks) {
+        if (task.id == id) {
+          return task;
+        }
+      }
+    }
+    return null;
   }
 
   Task? _findTask(WidgetRef ref, String id) {
@@ -109,7 +169,7 @@ class _ClearNotices {
 
 const _clearNotices = _ClearNotices();
 
-/// 通知列表。只写任务标题和触发时间。
+/// 通知列表。写任务标题、所属空间和触发时间。
 class NoticePanel extends StatelessWidget {
   const NoticePanel({
     super.key,
@@ -212,9 +272,15 @@ class _NoticeCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final when = DateFormat('M月d日 HH:mm').format(notice.createdAt.toLocal());
+    final spaceName = notice.spaceName?.trim();
+    final hasSpace = spaceName != null && spaceName.isNotEmpty;
+    final spaceColor = hasSpace
+        ? AppThemeKey.fromKey(notice.spaceThemeKey).preview
+        : scheme.onSurfaceVariant;
+    final label = hasSpace ? '${notice.title}，$spaceName，$when' : '${notice.title}，$when';
     return Semantics(
       button: true,
-      label: '${notice.title}，$when',
+      label: label,
       excludeSemantics: true,
       child: Material(
         color: context.flowColors.card,
@@ -246,13 +312,40 @@ class _NoticeCard extends StatelessWidget {
                         ),
                   ),
                   const SizedBox(height: AppSpacing.xxs),
-                  Text(
-                    when,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: scheme.onSurfaceVariant,
+                  Row(
+                    children: [
+                      if (hasSpace) ...[
+                        Flexible(
+                          child: Text(
+                            spaceName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(
+                                  color: spaceColor,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                          ),
                         ),
+                        Text(
+                          ' · ',
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodySmall
+                              ?.copyWith(color: scheme.onSurfaceVariant),
+                        ),
+                      ],
+                      Text(
+                        when,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                            ),
+                      ),
+                    ],
                   ),
                 ],
               ),

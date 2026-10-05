@@ -71,6 +71,24 @@ void main() {
     );
   });
 
+  testWidgets('a focused reminder cannot change its time', (tester) async {
+    await _pumpDetail(
+      tester,
+      task: Task(
+        id: 'r1',
+        title: '交房租',
+        status: 'FOCUS',
+        priority: 'REMINDER',
+        remindAt: DateTime.now().add(const Duration(hours: 1)),
+        createdAt: DateTime(2026, 9, 25),
+        updatedAt: DateTime(2026, 9, 25),
+      ),
+    );
+
+    expect(find.text('改时间'), findsNothing);
+    expect(find.text('聚焦中'), findsOneWidget);
+  });
+
   testWidgets('ordinary tasks keep notes under the status row', (tester) async {
     await _pumpDetail(tester);
     expect(find.text('过程小记'), findsOneWidget);
